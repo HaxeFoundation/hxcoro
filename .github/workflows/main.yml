@@ -16,6 +16,9 @@ jobs:
           # no nightly binaries for darwin-arm64
           - os: macos-latest
             target: hl
+          # php is not available by default for macos runners, probably not worth bothering
+          - os: macos-latest
+            target: php
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
