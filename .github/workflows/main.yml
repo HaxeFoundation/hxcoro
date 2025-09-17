@@ -55,4 +55,7 @@ jobs:
           neko -version
 
       - name: Run tests
-        run: haxe --cwd tests build-${{ matrix.target }}.hxml
+        run: |
+          haxe --cwd tests build-${{ matrix.target }}.hxml
+          haxe --cwd tests build-${{ matrix.target }}.hxml --hxb out/test.hxb
+          haxe --cwd tests build-${{ matrix.target }}.hxml --hxb-lib out/test.hxb
