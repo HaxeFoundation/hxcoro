@@ -11,7 +11,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [macos-latest, ubuntu-latest, windows-latest]
-        target: [eval, js, hl, cpp, jvm, php, python, neko, lua]
+        target: [eval, js, hl, cpp, jvm, php, python, neko]
         exclude:
           # no nightly binaries for darwin-arm64
           - os: macos-latest
