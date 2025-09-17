@@ -6,7 +6,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build:
+  test:
     strategy:
       fail-fast: false
       matrix:
@@ -14,14 +14,39 @@ jobs:
           - macos-latest
           - ubuntu-latest
           - windows-latest
+        target: [eval, js, hl, cpp, jvm, php, python, neko, lua]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
       - uses: krdlab/setup-haxe@v2
         with:
           haxe-version: "2025-09-16_kt_coro_ef572ed"
-      - run: |
-          haxe -version
+
+      - uses: cedx/setup-hashlink@v6
+        if: matrix.target == 'hl'
+
+      - name: Setup haxelib
+        run: haxelib newrepo
+
+      - name: Setup hxjava
+        if: matrix.target == 'jvm'
+        run: haxelib install hxjava
+
+      - name: Setup hxcpp
+        if: matrix.target == 'cpp'
+        run: |
+          haxelib git hxcpp https://github.com/HaxeFoundation/hxcpp.git
+          cd .haxelib/hxcpp/git/tools/hxcpp
+          haxe compile.hxml
+
+      - name: Setup common haxe libs
+        run: |
           haxelib git utest https://github.com/Aidan63/utest.git coro
+          haxelib list
+          haxe -version
+          neko -version
+
+      - name: Run tests
+        run: |
           cd tests
-          haxe build-eval.hxml
+          haxe build-${{ matrix.target }}.hxml
