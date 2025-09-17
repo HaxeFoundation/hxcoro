@@ -1,0 +1,9 @@
+{
+	"haxe.configurations": [
+		{"label": "JavaScript", "args": ["--cwd", "tests", "build-js.hxml"]},
+		{"label": "C++", "args": ["--cwd", "tests", "build-cpp.hxml", "-cmd", "cmd /C bin\\cpp\\Main-debug.exe"]},
+		{"label": "HashLink/JIT", "args": ["--cwd", "tests", "build-hl.hxml"]},
+		{"label": "JVM", "args": ["--cwd", "tests", "build-jvm.hxml"]},
+		{"label": "Interp", "args": ["--cwd", "tests", "build-eval.hxml"]},
+	]
+}

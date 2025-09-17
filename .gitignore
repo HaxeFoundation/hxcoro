@@ -1,3 +1,4 @@
 .haxelib/
 .haxelsp/recording/
 dump/
+tests/bin
