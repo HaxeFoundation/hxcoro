@@ -15,7 +15,7 @@ import hxcoro.continuations.TimeoutContinuation;
 class Coro {
 	@:coroutine @:coroutine.transformed
 	public static function suspend<T>(func:IContinuation<T>->Void, completion:IContinuation<T>):T {
-		var safe = new haxe.coro.continuations.RacingContinuation(completion);
+		var safe = new hxcoro.continuations.RacingContinuation(completion);
 		func(safe);
 		safe.resolve();
 		return cast safe;
