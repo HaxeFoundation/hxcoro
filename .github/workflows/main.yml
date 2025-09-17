@@ -41,21 +41,10 @@ jobs:
           hl || true
 
       - name: Setup haxelib
-        run: haxelib newrepo
-
-      - name: Setup hxjava
-        if: matrix.target == 'jvm'
-        run: haxelib install hxjava
-
-      - name: Setup hxcpp
-        if: matrix.target == 'cpp'
         run: |
-          haxelib git hxcpp https://github.com/HaxeFoundation/hxcpp.git
-          cd .haxelib/hxcpp/git/tools/hxcpp
-          haxe compile.hxml
-
-      - name: Setup common haxe libs
-        run: |
+          haxelib newrepo
+          ${{ matrix.target == 'jvm' }} && haxelib install hxjava || true
+          ${{ matrix.target == 'cpp' }} && haxelib git hxcpp https://github.com/HaxeFoundation/hxcpp.git && cd .haxelib/hxcpp/git/tools/hxcpp && haxe compile.hxml || true
           haxelib git utest https://github.com/Aidan63/utest.git coro
           haxelib list
           haxe -version
