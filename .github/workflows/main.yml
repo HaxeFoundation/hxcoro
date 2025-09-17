@@ -49,11 +49,10 @@ jobs:
           ${{ matrix.target == 'jvm' }} && haxelib install hxjava || true
           ${{ matrix.target == 'cpp' }} && haxelib git hxcpp https://github.com/HaxeFoundation/hxcpp.git && cd .haxelib/hxcpp/git/tools/hxcpp && haxe compile.hxml || true
           haxelib git utest https://github.com/Aidan63/utest.git coro
+          haxelib dev hxcoro .
           haxelib list
           haxe -version
           neko -version
 
       - name: Run tests
-        run: |
-          cd tests
-          haxe build-${{ matrix.target }}.hxml
+        run: haxe --cwd tests build-${{ matrix.target }}.hxml

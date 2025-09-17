@@ -1,5 +1,6 @@
 --class-path src
 --library utest
+--library hxcoro
 --main Main
 --debug
 -D UTEST-PRINT-TESTS

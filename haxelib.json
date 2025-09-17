@@ -1,0 +1,11 @@
+{
+  "name": "hxcoro",
+  "version": "0.0.1",
+  "url": "https://github.com/HaxeFoundation/hxcoro/",
+  "license": "GPL",
+  "tags": [],
+  "classPath": "src",
+  "contributors": [
+    "HaxeFoundation"
+  ]
+}
