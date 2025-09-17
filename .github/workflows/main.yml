@@ -10,11 +10,12 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os:
-          - macos-latest
-          - ubuntu-latest
-          - windows-latest
+        os: [macos-latest, ubuntu-latest, windows-latest]
         target: [eval, js, hl, cpp, jvm, php, python, neko, lua]
+        exclude:
+          # no nightly binaries for darwin-arm64
+          - os: macos-latest
+            target: hl
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -23,7 +24,21 @@ jobs:
           haxe-version: "2025-09-16_kt_coro_ef572ed"
 
       - uses: cedx/setup-hashlink@v6
-        if: matrix.target == 'hl'
+        if: matrix.target == 'hl' && matrix.os == 'windows-latest'
+
+      - name: Setup linux hashlink
+        if: matrix.target == 'hl' && matrix.os == 'ubuntu-latest'
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        run: |
+          gh release download -R HaxeFoundation/hashlink -p '*-linux-amd64*' latest
+          tar -xvf hashlink-*-linux-*.tar.gz
+          cd hashlink-*-linux-amd64
+          sudo mv hl /usr/bin/
+          sudo mv *.hdll /usr/lib/
+          sudo mv *.so /usr/lib/
+          sudo mv include /usr/lib/
+          hl || true
 
       - name: Setup haxelib
         run: haxelib newrepo
