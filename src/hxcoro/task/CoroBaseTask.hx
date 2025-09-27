@@ -47,6 +47,24 @@ private class CoroKeys {
 	static public final awaitingChildContinuation = new Key<IContinuation<Any>>("AwaitingChildContinuation");
 }
 
+private class CallbackContinuation<T> implements IContinuation<T> {
+	final callback:(result:T, error:Exception)->Void;
+
+	public var context (get, never) : Context;
+
+	inline function get_context() {
+		return Context.create();
+	}
+
+	public function new(callback) {
+		this.callback = callback;
+	}
+
+	public function resume(value:T, error:Exception) {
+		callback(value, error);
+	}
+}
+
 /**
 	CoroTask provides the basic functionality for coroutine tasks.
 **/
@@ -159,6 +177,18 @@ abstract class CoroBaseTask<T> extends AbstractTask<T> implements ICoroNode impl
 				awaitingContinuations ??= [];
 				awaitingContinuations.push(cont);
 				start();
+		}
+	}
+
+	public function onCompletion(callback:(result:T, error:Exception)->Void) {
+		switch state {
+			case Completed:
+				callback(result, null);
+			case Cancelled:
+				callback(null, error);
+			case _:
+				awaitingContinuations ??= [];
+				awaitingContinuations.push(new CallbackContinuation(callback));
 		}
 	}
 
