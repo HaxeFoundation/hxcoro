@@ -50,14 +50,15 @@ private class CoroKeys {
 private class CallbackContinuation<T> implements IContinuation<T> {
 	final callback:(result:T, error:Exception)->Void;
 
-	public var context (get, never) : Context;
+	public var context (get, default) : Context;
 
 	inline function get_context() {
-		return Context.create();
+		return context;
 	}
 
-	public function new(callback) {
+	public function new(context, callback) {
 		this.callback = callback;
+		this.context  = context;
 	}
 
 	public function resume(value:T, error:Exception) {
@@ -188,7 +189,7 @@ abstract class CoroBaseTask<T> extends AbstractTask<T> implements ICoroNode impl
 				callback(null, error);
 			case _:
 				awaitingContinuations ??= [];
-				awaitingContinuations.push(new CallbackContinuation(callback));
+				awaitingContinuations.push(new CallbackContinuation(context.clone(), callback));
 		}
 	}
 
