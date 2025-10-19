@@ -5,7 +5,6 @@ import haxe.coro.IContinuation;
 import haxe.coro.ICancellableContinuation;
 import haxe.coro.schedulers.Scheduler;
 import haxe.coro.cancellation.CancellationToken;
-import haxe.exceptions.CancellationException;
 import haxe.exceptions.ArgumentException;
 import hxcoro.task.NodeLambda;
 import hxcoro.task.CoroTask;
@@ -14,7 +13,7 @@ import hxcoro.continuations.TimeoutContinuation;
 
 class Coro {
 	@:coroutine @:coroutine.transformed
-	public static function suspend<T>(func:IContinuation<T>->Void, completion:IContinuation<T>):T {
+	public static function suspend<T>(completion:IContinuation<T>, func:IContinuation<T>->Void):T {
 		var safe = new hxcoro.continuations.RacingContinuation(completion);
 		func(safe);
 		safe.resolve();
@@ -26,7 +25,7 @@ class Coro {
 	 * The `ICancellableContinuation` passed to the function allows registering a callback which is invoked on cancellation
 	 * allowing the easy cleanup of resources.
 	 */
-	@:coroutine @:coroutine.transformed public static function suspendCancellable<T>(func:ICancellableContinuation<T>->Void, completion:IContinuation<T>):T {
+	@:coroutine @:coroutine.transformed public static function suspendCancellable<T>(completion:IContinuation<T>, func:ICancellableContinuation<T>->Void):T {
 		var safe = new CancellingContinuation(completion);
 		func(safe);
 		return cast safe;
