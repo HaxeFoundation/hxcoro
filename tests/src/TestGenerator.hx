@@ -30,7 +30,7 @@ private function sequence<T>(f:Coroutine<Yield<T>->Void>):Iterator<T> {
 	}
 
 	nextStep = () -> {
-		f(yield, scope);
+		f(scope, yield);
 		scope.start();
 	}
 
