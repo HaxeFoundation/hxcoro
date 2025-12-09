@@ -25,9 +25,9 @@ jobs:
 
       - name: Setup hashlink
         if: matrix.target == 'hl'
-        uses: haxefoundation/setup-hashlink@master
+        uses: HaxeFoundation/setup-hashlink@v1
         with:
-          version: latest
+          version: nightly
 
       - name: Check hashlink
         if: matrix.target == 'hl'
