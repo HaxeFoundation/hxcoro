@@ -209,7 +209,6 @@ class TestMutex extends utest.Test {
 		], lines);
 	}
 
-	#if !php
 	function testRandomSemaphoreCancelling() {
 		for (semaphoreSize in [1, 2, 4, 8]) {
 			for (numTasks in [1, 2, 10, 100]) {
@@ -253,5 +252,4 @@ class TestMutex extends utest.Test {
 			}
 		}
 	}
-	#end
 }
