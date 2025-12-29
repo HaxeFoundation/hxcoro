@@ -4,7 +4,7 @@ import haxe.coro.IContinuation;
 import hxcoro.Coro;
 import hxcoro.ds.Out;
 import hxcoro.ds.PagedDeque;
-import hxcoro.exceptions.ChannelClosedException;
+import hxcoro.ds.channels.exceptions.ChannelClosedException;
 
 using hxcoro.util.Convenience;
 

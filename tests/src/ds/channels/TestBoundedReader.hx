@@ -7,7 +7,7 @@ import hxcoro.schedulers.VirtualTimeScheduler;
 import haxe.exceptions.ArgumentException;
 import haxe.exceptions.CancellationException;
 import haxe.exceptions.NotImplementedException;
-import hxcoro.exceptions.ChannelClosedException;
+import hxcoro.ds.channels.exceptions.ChannelClosedException;
 import hxcoro.ds.Out;
 import hxcoro.ds.PagedDeque;
 import hxcoro.ds.CircularBuffer;
