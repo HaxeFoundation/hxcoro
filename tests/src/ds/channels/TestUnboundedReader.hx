@@ -9,7 +9,7 @@ import hxcoro.ds.channels.unbounded.UnboundedReader;
 import hxcoro.ds.Out;
 import hxcoro.ds.PagedDeque;
 import hxcoro.exceptions.ChannelClosedException;
-import haxe.coro.schedulers.VirtualTimeScheduler;
+import hxcoro.schedulers.VirtualTimeScheduler;
 
 using hxcoro.util.Convenience;
 

@@ -1,4 +1,4 @@
-import haxe.coro.schedulers.VirtualTimeScheduler;
+import hxcoro.schedulers.VirtualTimeScheduler;
 
 @:coroutine
 function mapCalls<TArg,TRet>(args:Array<TArg>, f:Coroutine<TArg->TRet>):Array<TRet> {

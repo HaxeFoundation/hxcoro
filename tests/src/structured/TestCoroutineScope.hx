@@ -2,7 +2,7 @@ package structured;
 
 import haxe.Exception;
 import haxe.exceptions.CancellationException;
-import haxe.coro.schedulers.VirtualTimeScheduler;
+import hxcoro.schedulers.VirtualTimeScheduler;
 
 private class FooException extends Exception {
 	public function new() {

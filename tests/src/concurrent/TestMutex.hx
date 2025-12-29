@@ -3,7 +3,7 @@ package concurrent;
 import hxcoro.ds.channels.Channel;
 import haxe.exceptions.CancellationException;
 import hxcoro.concurrent.CoroSemaphore;
-import haxe.coro.schedulers.VirtualTimeScheduler;
+import hxcoro.schedulers.VirtualTimeScheduler;
 import haxe.coro.Mutex;
 import hxcoro.concurrent.CoroMutex;
 

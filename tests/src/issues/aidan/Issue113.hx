@@ -1,7 +1,7 @@
 package issues.aidan;
 
 import structured.TestThrowingScopes;
-import haxe.coro.schedulers.VirtualTimeScheduler;
+import hxcoro.schedulers.VirtualTimeScheduler;
 import haxe.Exception;
 
 class Issue113 extends utest.Test {

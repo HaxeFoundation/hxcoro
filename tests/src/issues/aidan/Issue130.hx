@@ -1,6 +1,6 @@
 package issues.aidan;
 
-import haxe.coro.schedulers.VirtualTimeScheduler;
+import hxcoro.schedulers.VirtualTimeScheduler;
 import hxcoro.CoroRun;
 import hxcoro.Coro.*;
 

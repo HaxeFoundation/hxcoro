@@ -1,7 +1,7 @@
 package structured;
 
 import haxe.exceptions.CancellationException;
-import haxe.coro.schedulers.VirtualTimeScheduler;
+import hxcoro.schedulers.VirtualTimeScheduler;
 import haxe.coro.cancellation.ICancellationHandle;
 import haxe.coro.cancellation.ICancellationCallback;
 import hxcoro.task.CoroTask;

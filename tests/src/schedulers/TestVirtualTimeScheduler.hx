@@ -1,6 +1,6 @@
 package schedulers;
 
-import haxe.coro.schedulers.VirtualTimeScheduler;
+import hxcoro.schedulers.VirtualTimeScheduler;
 import haxe.exceptions.ArgumentException;
 
 class TestVirtualTimeScheduler extends utest.Test {

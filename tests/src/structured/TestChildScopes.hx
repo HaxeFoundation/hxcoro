@@ -1,6 +1,6 @@
 package structured;
 
-import haxe.coro.schedulers.VirtualTimeScheduler;
+import hxcoro.schedulers.VirtualTimeScheduler;
 
 class TestChildScopes extends utest.Test {
 	function test_waiting_for_child() {

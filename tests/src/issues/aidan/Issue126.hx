@@ -1,6 +1,6 @@
 package issues.aidan;
 
-import haxe.coro.schedulers.VirtualTimeScheduler;
+import hxcoro.schedulers.VirtualTimeScheduler;
 import haxe.coro.schedulers.Scheduler;
 import hxcoro.ds.channels.Channel;
 import hxcoro.ds.PagedDeque;
