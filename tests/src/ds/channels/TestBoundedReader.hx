@@ -3,7 +3,7 @@ package ds.channels;
 import haxe.Exception;
 import haxe.coro.IContinuation;
 import haxe.coro.context.Context;
-import haxe.coro.schedulers.VirtualTimeScheduler;
+import hxcoro.schedulers.VirtualTimeScheduler;
 import haxe.exceptions.ArgumentException;
 import haxe.exceptions.CancellationException;
 import haxe.exceptions.NotImplementedException;

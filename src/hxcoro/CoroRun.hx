@@ -3,7 +3,7 @@ package hxcoro;
 import haxe.coro.Coroutine;
 import haxe.coro.context.Context;
 import haxe.coro.context.IElement;
-import haxe.coro.schedulers.EventLoopScheduler;
+import hxcoro.schedulers.EventLoopScheduler;
 import hxcoro.task.ICoroTask;
 import hxcoro.task.CoroTask;
 import hxcoro.task.StartableCoroTask;

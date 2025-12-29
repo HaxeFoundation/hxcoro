@@ -1,7 +1,7 @@
 package ds.channels;
 
 import haxe.ds.Option;
-import haxe.coro.schedulers.VirtualTimeScheduler;
+import hxcoro.schedulers.VirtualTimeScheduler;
 import haxe.exceptions.ArgumentException;
 import hxcoro.ds.Out;
 import hxcoro.ds.channels.Channel;

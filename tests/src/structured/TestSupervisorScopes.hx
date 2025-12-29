@@ -1,7 +1,7 @@
 package structured;
 
 import haxe.Exception;
-import haxe.coro.schedulers.VirtualTimeScheduler;
+import hxcoro.schedulers.VirtualTimeScheduler;
 
 class TestSupervisorScopes extends utest.Test {
 	function testChildThrow() {

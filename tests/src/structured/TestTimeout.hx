@@ -2,7 +2,7 @@ package structured;
 
 import haxe.Exception;
 import haxe.exceptions.ArgumentException;
-import haxe.coro.schedulers.VirtualTimeScheduler;
+import hxcoro.schedulers.VirtualTimeScheduler;
 import hxcoro.exceptions.TimeoutException;
 
 class TestTimeout extends utest.Test {

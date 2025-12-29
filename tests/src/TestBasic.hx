@@ -1,5 +1,5 @@
 import haxe.Exception;
-import haxe.coro.schedulers.VirtualTimeScheduler;
+import hxcoro.schedulers.VirtualTimeScheduler;
 
 class TestBasic extends utest.Test {
 	function testSimple() {
