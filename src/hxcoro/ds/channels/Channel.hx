@@ -9,10 +9,8 @@ import hxcoro.ds.channels.bounded.BoundedReader;
 import hxcoro.ds.channels.bounded.BoundedWriter;
 import hxcoro.ds.channels.bounded.SingleBoundedReader;
 import hxcoro.ds.channels.bounded.SingleBoundedWriter;
-import hxcoro.ds.channels.bounded.BoundedChannel;
 import hxcoro.ds.channels.unbounded.UnboundedReader;
 import hxcoro.ds.channels.unbounded.UnboundedWriter;
-import hxcoro.ds.channels.unbounded.UnboundedChannel;
 import hxcoro.concurrent.AtomicObject;
 
 typedef DropCallback<T> = (dropped : T)->Void;
@@ -36,13 +34,13 @@ typedef BoundedChannelOptions<T> = ChannelOptions & {
 	var ?writeBehaviour : FullBehaviour<T>;
 }
 
-abstract class Channel<T> {
+class Channel<T> {
 
 	public final reader : IChannelReader<T>;
 
 	public final writer : IChannelWriter<T>;
 
-	function new(reader, writer) {
+	public function new(reader, writer) {
 		this.reader = reader;
 		this.writer = writer;
 	}
@@ -74,7 +72,7 @@ abstract class Channel<T> {
 		final writeWaiters = new PagedDeque();
 
 		return
-			new BoundedChannel(
+			new Channel(
 				new BoundedReader(buffer, writeWaiters, readWaiters, closed),
 				new BoundedWriter(buffer, writeWaiters, readWaiters, closed, writeBehaviour));
 	}
@@ -85,7 +83,7 @@ abstract class Channel<T> {
 		final readWaiters = new PagedDeque();
 
 		return
-			new UnboundedChannel(
+			new Channel(
 				new UnboundedReader(buffer, readWaiters, closed),
 				new UnboundedWriter(buffer, readWaiters, closed));
 	}
