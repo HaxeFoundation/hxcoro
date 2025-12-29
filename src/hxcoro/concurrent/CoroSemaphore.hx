@@ -1,6 +1,8 @@
 package hxcoro.concurrent;
 
+import hxcoro.concurrent.exceptions.SemaphoreFullException;
 import haxe.coro.Mutex;
+import haxe.exceptions.ArgumentException;
 import hxcoro.task.CoroTask;
 import hxcoro.ds.PagedDeque;
 import haxe.coro.IContinuation;
@@ -13,6 +15,10 @@ class CoroSemaphore {
 	var free:AtomicInt;
 
 	public function new(free:Int) {
+		if (free < 1) {
+			throw new ArgumentException("free", "Maximum free count must be greater than 1");
+		}
+
 		maxFree = free;
 		dequeMutex = new Mutex();
 		this.free = new AtomicInt(free);
