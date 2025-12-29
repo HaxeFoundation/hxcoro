@@ -5,7 +5,7 @@ import haxe.coro.IContinuation;
 import haxe.coro.context.Context;
 import hxcoro.ds.Out;
 import hxcoro.ds.CircularBuffer;
-import hxcoro.exceptions.ChannelClosedException;
+import hxcoro.ds.channels.exceptions.ChannelClosedException;
 
 using hxcoro.util.Convenience;
 

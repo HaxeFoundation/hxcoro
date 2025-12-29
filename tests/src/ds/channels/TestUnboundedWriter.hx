@@ -8,7 +8,7 @@ import haxe.exceptions.NotImplementedException;
 import hxcoro.ds.channels.unbounded.UnboundedWriter;
 import hxcoro.ds.Out;
 import hxcoro.ds.PagedDeque;
-import hxcoro.exceptions.ChannelClosedException;
+import hxcoro.ds.channels.exceptions.ChannelClosedException;
 import hxcoro.schedulers.VirtualTimeScheduler;
 
 using hxcoro.util.Convenience;
