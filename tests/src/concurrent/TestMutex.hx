@@ -1,11 +1,13 @@
 package concurrent;
 
-import hxcoro.ds.channels.Channel;
-import haxe.exceptions.CancellationException;
-import hxcoro.concurrent.CoroSemaphore;
-import hxcoro.schedulers.VirtualTimeScheduler;
 import haxe.coro.Mutex;
+import haxe.exceptions.ArgumentException;
+import haxe.exceptions.CancellationException;
+import hxcoro.ds.channels.Channel;
 import hxcoro.concurrent.CoroMutex;
+import hxcoro.concurrent.CoroSemaphore;
+import hxcoro.concurrent.exceptions.SemaphoreFullException;
+import hxcoro.schedulers.VirtualTimeScheduler;
 
 class TestMutex extends utest.Test {
 	function testSimple() {
@@ -134,6 +136,16 @@ class TestMutex extends utest.Test {
 		Assert.equals(numTasks, numTasksCompleted);
 		Assert.equals(numTasksHalved, numEarlyAcquires);
 		Assert.equals(numTasksHalved, numLateAcquires);
+	}
+
+	function testSemaphoreInvalidMaxFree() {
+		Assert.raises(() -> new CoroSemaphore(0), ArgumentException);
+	}
+
+	function testSemaphoreRelease() {
+		final semaphore = new CoroSemaphore(5);
+
+		Assert.raises(() -> semaphore.release(), SemaphoreFullException);
 	}
 
 	function testMutexCancelling() {
