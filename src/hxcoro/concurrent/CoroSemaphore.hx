@@ -47,7 +47,18 @@ class CoroSemaphore {
 	}
 
 	public function release() {
-		free.add(1);
+		// CAS loop until we update the free atomic or it reports full.
+		while (true) {
+			final old = free.load();
+			if (maxFree == old) {
+				throw new SemaphoreFullException();
+			}
+	
+			if (free.compareExchange(old, old + 1) == old) {
+				break;
+			}
+		}
+
 		dequeMutex.acquire();
 		if (deque == null) {
 			dequeMutex.release();
