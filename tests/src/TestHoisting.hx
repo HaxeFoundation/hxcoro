@@ -144,4 +144,40 @@ class TestHoisting extends utest.Test {
             return i;
         }));
     }
+
+    function testNonSuspendingState() {
+        final count    = 10;
+        final actual   = [];
+        final expected = [ for (i in 0...count) i + 1 ];
+
+        CoroRun.run(() -> {
+            var num = 0;
+            while (num++ < count) {
+                actual.push(num);
+            }
+        });
+
+        Assert.same(expected, output);
+    }
+
+    function testVariableWriteInSuspendingCall() {
+        final count    = 10;
+        final actual   = [];
+        final expected = [ for (i in 0...count) i + 1 ];
+
+        @:coroutine function f(v:Int) {
+            yield();
+
+            return v;
+        }
+
+        CoroRun.run(() -> {
+            var num = 0;
+            while (f(num++) < count) {
+                actual.push(num);
+            }
+        });
+
+        Assert.same(expected, output);
+    }
 }
