@@ -157,7 +157,7 @@ class TestHoisting extends utest.Test {
             }
         });
 
-        Assert.same(expected, output);
+        Assert.same(expected, actual);
     }
 
     function testVariableWriteInSuspendingCall() {
@@ -178,6 +178,6 @@ class TestHoisting extends utest.Test {
             }
         });
 
-        Assert.same(expected, output);
+        Assert.same(expected, actual);
     }
 }
