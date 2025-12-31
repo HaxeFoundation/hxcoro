@@ -175,8 +175,6 @@ private class MinimumHeap {
 
 class EventLoopScheduler extends Scheduler {
 	final noOpHandle : NoOpHandle;
-	final zeroEvents : DoubleBuffer<IScheduleObject>;
-	final zeroMutex : Mutex;
 	final futureMutex : Mutex;
 	final heap : MinimumHeap;
 	final closeClosure : CloseClosure;
@@ -185,8 +183,6 @@ class EventLoopScheduler extends Scheduler {
 		super();
 
 		noOpHandle   = new NoOpHandle();
-		zeroEvents   = new DoubleBuffer();
-		zeroMutex    = new Mutex();
 		futureMutex  = new Mutex();
 		heap         = new MinimumHeap();
 		closeClosure = close;
@@ -195,11 +191,6 @@ class EventLoopScheduler extends Scheduler {
     public function schedule(ms:Int64, func:()->Void):ISchedulerHandle {
 		if (ms < 0) {
 			throw new ArgumentException("Time must be greater or equal to zero");
-		} else if (ms == 0) {
-			zeroMutex.acquire();
-			zeroEvents.push(new FunctionScheduleObject(func));
-			zeroMutex.release();
-			return noOpHandle;
 		}
 
 		final event = new ScheduledEvent(closeClosure, func, now() + ms);
@@ -214,28 +205,14 @@ class EventLoopScheduler extends Scheduler {
     }
 
 	public function scheduleObject(obj:IScheduleObject) {
-		zeroMutex.acquire();
-		zeroEvents.push(obj);
-		zeroMutex.release();
+		obj.onSchedule();
 	}
 
 	public function now() {
 		return Timer.milliseconds();
 	}
 
-	function runZeroEvents() {
-		zeroMutex.acquire();
-		final events = zeroEvents.flip();
-		// no need to hold onto the mutex because it's a double buffer and run itself is single-threaded
-		zeroMutex.release();
-		for (obj in events) {
-			obj.onSchedule();
-		}
-	}
-
 	public function run() {
-		runZeroEvents();
-
 		final currentTime = now();
 
 		futureMutex.acquire();
