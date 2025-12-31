@@ -1,5 +1,6 @@
 package hxcoro.schedulers;
 
+import haxe.exceptions.NotImplementedException;
 import haxe.Timer;
 import haxe.Int64;
 import haxe.coro.Mutex;
@@ -16,8 +17,6 @@ private class ScheduledEvent implements ISchedulerHandle {
 	final func : Lambda;
 	var closed : Bool;
 	public final runTime : Int64;
-	public var next : Null<ScheduledEvent>;
-	public var previous : Null<ScheduledEvent>;
 
 	public function new(closure, func, runTime) {
 		this.closure = closure;
@@ -25,8 +24,6 @@ private class ScheduledEvent implements ISchedulerHandle {
 		this.runTime = runTime;
 
 		closed   = false;
-		next     = null;
-		previous = null;
 	}
 
 	public inline function run() {
@@ -93,25 +90,105 @@ class FunctionScheduleObject implements IScheduleObject {
 	}
 }
 
-class EventLoopScheduler extends Scheduler {
-	var first : Null<ScheduledEvent>;
-	var last : Null<ScheduledEvent>;
+private class MinimumHeap {
+	final storage : Array<ScheduledEvent>;
 
+	public function new() {
+		storage = [];
+	}
+
+	public function left(i:Int) {
+		return 2 * i + 1;
+	}
+
+	public function right(i:Int) {
+		return 2 * i + 2;
+	}
+
+	public function parent(i:Int) {
+		return Math.floor((i - 1) / 2);
+	}
+
+	public function minimum() {
+		if (storage.length == 0) {
+			return null;
+		}
+
+		return storage[0];
+	}
+
+	public function insert(event:ScheduledEvent) {
+		storage.push(event);
+
+		var i = storage.length - 1;
+		while (i > 0 && storage[parent(i)].runTime > storage[i].runTime) {
+			final p = parent(i);
+
+			swap(i, p);
+
+			i = p;
+		}
+	}
+
+	public function extract() {
+		if (storage.length == 0) {
+			return null;
+		}
+
+		if (storage.length == 1) {
+			return storage.pop();
+		}
+
+		final root = minimum();
+		storage[0] = storage[storage.length - 1];
+		storage.pop();
+
+		heapify(0);
+
+		return root;
+	}
+
+	function swap(fst:Int, snd:Int) {
+		final temp = storage[fst];
+		storage[fst] = storage[snd];
+		storage[snd] = temp;
+	}
+
+	function heapify(index:Int) {
+		final l = left(index);
+		final r = right(index);
+
+		var smallest = index;
+		if (l < storage.length && storage[l].runTime < storage[smallest].runTime) {
+			smallest = l;
+		}
+		if (r < storage.length && storage[r].runTime < storage[smallest].runTime) {
+			smallest = r;
+		}
+
+		if (smallest != index) {
+			swap(index, smallest);
+			heapify(smallest);
+		}
+	}
+}
+
+class EventLoopScheduler extends Scheduler {
 	final noOpHandle : NoOpHandle;
 	final zeroEvents : DoubleBuffer<IScheduleObject>;
 	final zeroMutex : Mutex;
 	final futureMutex : Mutex;
+	final heap : MinimumHeap;
 	final closeClosure : CloseClosure;
 
 	public function new() {
 		super();
 
-		first        = null;
-		last         = null;
 		noOpHandle   = new NoOpHandle();
 		zeroEvents   = new DoubleBuffer();
 		zeroMutex    = new Mutex();
 		futureMutex  = new Mutex();
+		heap         = new MinimumHeap();
 		closeClosure = close;
 	}
 
@@ -128,53 +205,12 @@ class EventLoopScheduler extends Scheduler {
 		final event = new ScheduledEvent(closeClosure, func, now() + ms);
 
 		futureMutex.acquire();
-		if (first == null) {
-			first = event;
-			last = event;
-			futureMutex.release();
-			return event;
-		}
 
-		var currentLast = last;
-		var currentFirst = first;
-		while (true) {
-			if (event.runTime >= currentLast.runTime) {
-				final next = currentLast.next;
-				currentLast.next = event;
-				event.previous = currentLast;
-				if (next != null) {
-					event.next = next;
-					next.previous = event;
-				} else {
-					last = event;
-				}
-				futureMutex.release();
-				return event;
-			}
-			else if (event.runTime < currentFirst.runTime) {
-				final previous = currentFirst.previous;
-				currentFirst.previous = event;
-				event.next = currentFirst;
-				if (previous != null) {
-					event.previous = previous;
-					previous.next = event;
-				} else {
-					first = event;
-				}
-				futureMutex.release();
-				return event;
-			} else {
-				currentFirst = currentFirst.next;
-				currentLast = currentLast.previous;
-				// if one of them is null, set to the other so the next iteration will definitely
-				// hit one of the two branches above
-				if (currentFirst == null) {
-					currentFirst = currentLast;
-				} else if (currentLast == null) {
-					currentLast = currentFirst;
-				}
-			}
-		}
+		heap.insert(event);
+
+		futureMutex.release();
+
+		return event;
     }
 
 	public function scheduleObject(obj:IScheduleObject) {
@@ -203,24 +239,16 @@ class EventLoopScheduler extends Scheduler {
 		final currentTime = now();
 
 		futureMutex.acquire();
+
 		while (true) {
-			if (first == null) {
-				last = null;
+			var minimum = heap.minimum();
+			if (minimum == null || minimum.runTime > currentTime) {
 				break;
 			}
-			if (first.runTime <= currentTime) {
-				final toRun = first;
-				first = first.next;
-				if (first != null) {
-					first.previous = null;
-				}
-				futureMutex.release();
-				toRun.run();
-				futureMutex.acquire();
-			} else {
-				break;
-			}
+
+			heap.extract().run();
 		}
+		
 		futureMutex.release();
 	}
 
@@ -229,27 +257,28 @@ class EventLoopScheduler extends Scheduler {
 	}
 
 	function close(handle : ISchedulerHandle) {
-		var current = first;
-		while (true) {
-			if (null == current) {
-				return;
-			}
+		throw new NotImplementedException();
+		// var current = first;
+		// while (true) {
+		// 	if (null == current) {
+		// 		return;
+		// 	}
 
-			if (current == handle) {
-				if (first == current) {
-					first = current.next;
-				} else {
-					final a = current.previous;
-					final b = current.next;
+		// 	if (current == handle) {
+		// 		if (first == current) {
+		// 			first = current.next;
+		// 		} else {
+		// 			final a = current.previous;
+		// 			final b = current.next;
 
-					a.next = b;
-					b?.previous = a;
-				}
+		// 			a.next = b;
+		// 			b?.previous = a;
+		// 		}
 
-				return;
-			} else {
-				current = current.next;
-			}
-		}
+		// 		return;
+		// 	} else {
+		// 		current = current.next;
+		// 	}
+		// }
 	}
 }
