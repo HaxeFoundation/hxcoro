@@ -188,27 +188,22 @@ class EventLoopScheduler extends Scheduler {
 	}
 
 	function runZeroEvents() {
-		while (true) {
-			zeroMutex.acquire();
-			if (zeroEvents.empty()) {
-				zeroMutex.release();
-				return;
-			}
-			final events = zeroEvents.flip();
-			// no need to hold onto the mutex because it's a double buffer and run itself is single-threaded
-			zeroMutex.release();
-			for (obj in events) {
-				obj.onSchedule();
-			}
+		zeroMutex.acquire();
+		final events = zeroEvents.flip();
+		// no need to hold onto the mutex because it's a double buffer and run itself is single-threaded
+		zeroMutex.release();
+		for (obj in events) {
+			obj.onSchedule();
 		}
 	}
 
 	public function run() {
+		runZeroEvents();
+
 		final currentTime = now();
 
 		futureMutex.acquire();
 		while (true) {
-			runZeroEvents();
 			if (first == null) {
 				last = null;
 				break;
