@@ -235,25 +235,27 @@ class TestBoundedChannel extends utest.Test {
 		final actual   = [];
 
 		CoroRun.runScoped(node -> {
-			node.async(_ -> {
-				for (v in expected) {
-					channel.write(v);
-				}
-
-				channel.close();
-			});
-
-			for (_ in 0...5) {
+			timeout(3000, node -> {
 				node.async(_ -> {
-					final out = new Out();
-
-					while (channel.waitForRead()) {
-						if (channel.tryRead(out)) {
-							actual.push(out.get());
-						}
+					for (v in expected) {
+						channel.write(v);
 					}
+
+					channel.close();
 				});
-			}
+
+				for (_ in 0...5) {
+					node.async(_ -> {
+						final out = new Out();
+
+						while (channel.waitForRead()) {
+							if (channel.tryRead(out)) {
+								actual.push(out.get());
+							}
+						}
+					});
+				}
+			});
 		});
 
 		Assert.same(expected, actual);
