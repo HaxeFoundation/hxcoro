@@ -134,7 +134,7 @@ class TestCoroutineScope extends utest.Test {
 				try {
 					scope(node -> {
 						while (true) {
-							yield();
+							delay(1);
 						}
 						acc.push("scope 1");
 					});
@@ -185,7 +185,7 @@ class TestCoroutineScope extends utest.Test {
 				scope(_ -> {
 					acc.push("before yield 1");
 					while (true) {
-						yield();
+						delay(1);
 					}
 					acc.push("after yield 1");
 				});

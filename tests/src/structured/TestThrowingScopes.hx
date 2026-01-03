@@ -86,7 +86,7 @@ class TestThrowingScopes extends utest.Test {
 			});
 
 			while (true) {
-				yield();
+				delay(1);
 			}
 		});
 
@@ -122,7 +122,7 @@ class TestThrowingScopes extends utest.Test {
 		final task      = CoroRun.with(scheduler).create(node -> {
 			final child = node.async(node -> {
 				while (true) {
-					yield();
+					delay(1);
 				}
 			});
 

@@ -37,28 +37,14 @@ class VirtualTimeScheduler extends EventLoopScheduler {
 
 	function virtualRun(endTime : Int64) {
 		while (true) {
-			runZeroEvents();
-
-			while (true) {
-				if (first == null) {
-					last = null;
-					break;
-				}
-				if (first.runTime <= endTime) {
-					final toRun = first;
-					currentTime = first.runTime;
-					first = first.next;
-					if (first != null) {
-						first.previous = null;
-					}
-					toRun.run();
-				} else {
-					break;
-				}
-			}
-			if (zeroEvents.empty()) {
+			var minimum = heap.minimum();
+			if (minimum == null || minimum.runTime > endTime) {
 				break;
 			}
+
+			final toRun = heap.extract();
+			currentTime = toRun.runTime;
+			toRun.onSchedule();
 		}
 
 		currentTime = endTime;
