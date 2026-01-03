@@ -10,17 +10,14 @@ import haxe.coro.schedulers.ISchedulerHandle;
 import haxe.exceptions.ArgumentException;
 
 private typedef Lambda = ()->Void;
-private typedef CloseClosure = (handle:ISchedulerHandle)->Void;
 
 private class ScheduledEvent implements ISchedulerHandle implements IScheduleObject {
-	final closure : CloseClosure;
 	final func : Lambda;
 	var closed : Bool;
 	public final runTime : Int64;
 	var childEvents:Array<IScheduleObject>;
 
-	public function new(closure, func, runTime) {
-		this.closure = closure;
+	public function new(func, runTime) {
 		this.func    = func;
 		this.runTime = runTime;
 
@@ -33,25 +30,19 @@ private class ScheduledEvent implements ISchedulerHandle implements IScheduleObj
 	}
 
 	public inline function onSchedule() {
-		func();
+		if (!closed) {
+			closed = true;
+			func();
+		}
 
 		if (childEvents != null) {
 			for (childEvent in childEvents) {
 				childEvent.onSchedule();
 			}
 		}
-
-		closed = true;
-
 	}
 
 	public function close() {
-		if (closed) {
-			return;
-		}
-
-		closure(this);
-
 		closed = true;
 	}
 }
@@ -142,14 +133,12 @@ private class MinimumHeap {
 class EventLoopScheduler extends Scheduler {
 	final futureMutex : Mutex;
 	final heap : MinimumHeap;
-	final closeClosure : CloseClosure;
 
 	public function new() {
 		super();
 
 		futureMutex  = new Mutex();
 		heap         = new MinimumHeap();
-		closeClosure = close;
 	}
 
     public function schedule(ms:Int64, func:()->Void):ISchedulerHandle {
@@ -157,7 +146,7 @@ class EventLoopScheduler extends Scheduler {
 			throw new ArgumentException("Time must be greater or equal to zero");
 		}
 
-		final event = new ScheduledEvent(closeClosure, func, now() + ms);
+		final event = new ScheduledEvent(func, now() + ms);
 
 		futureMutex.acquire();
 
@@ -179,7 +168,7 @@ class EventLoopScheduler extends Scheduler {
 		final first = heap.minimum();
 		if (first == null || first.runTime > currentTime) {
 			// add normal event at front
-			final event = new ScheduledEvent(closeClosure, () -> obj.onSchedule(), currentTime);
+			final event = new ScheduledEvent(() -> obj.onSchedule(), currentTime);
 			heap.insert(event);
 		} else {
 			// attach to first event
@@ -212,31 +201,5 @@ class EventLoopScheduler extends Scheduler {
 
 	public function toString() {
 		return '[EventLoopScheduler]';
-	}
-
-	function close(handle : ISchedulerHandle) {
-		throw new NotImplementedException();
-		// var current = first;
-		// while (true) {
-		// 	if (null == current) {
-		// 		return;
-		// 	}
-
-		// 	if (current == handle) {
-		// 		if (first == current) {
-		// 			first = current.next;
-		// 		} else {
-		// 			final a = current.previous;
-		// 			final b = current.next;
-
-		// 			a.next = b;
-		// 			b?.previous = a;
-		// 		}
-
-		// 		return;
-		// 	} else {
-		// 		current = current.next;
-		// 	}
-		// }
 	}
 }

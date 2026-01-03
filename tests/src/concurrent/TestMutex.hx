@@ -118,9 +118,9 @@ class TestMutex extends utest.Test {
 					delay(odd ? 1 : 0);
 					if (m.tryAcquire()) {
 						numEarlyAcquires++;
-						delay(odd ? 0 : 1);
+						delay(odd ? 0 : 2);
 					} else {
-						delay(odd ? 0 : 1);
+						delay(odd ? 2 : 0);
 						Assert.isTrue(m.tryAcquire());
 						numLateAcquires++;
 					}
