@@ -12,16 +12,13 @@ import haxe.exceptions.ArgumentException;
 private typedef Lambda = ()->Void;
 
 private class ScheduledEvent implements ISchedulerHandle implements IScheduleObject {
-	final func : Lambda;
-	var closed : Bool;
+	var func : Null<Lambda>;
 	public final runTime : Int64;
 	var childEvents:Array<IScheduleObject>;
 
 	public function new(func, runTime) {
 		this.func    = func;
 		this.runTime = runTime;
-
-		closed   = false;
 	}
 
 	public function addChildEvent(event:IScheduleObject) {
@@ -30,8 +27,9 @@ private class ScheduledEvent implements ISchedulerHandle implements IScheduleObj
 	}
 
 	public inline function onSchedule() {
-		if (!closed) {
-			closed = true;
+		if (func != null) {
+			final func = func;
+			this.func = null;
 			func();
 		}
 
@@ -43,7 +41,7 @@ private class ScheduledEvent implements ISchedulerHandle implements IScheduleObj
 	}
 
 	public function close() {
-		closed = true;
+		func = null;
 	}
 }
 
