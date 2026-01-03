@@ -12,7 +12,7 @@ import haxe.exceptions.ArgumentException;
 private typedef Lambda = ()->Void;
 private typedef CloseClosure = (handle:ISchedulerHandle)->Void;
 
-private class ScheduledEvent implements ISchedulerHandle {
+private class ScheduledEvent implements ISchedulerHandle implements IScheduleObject {
 	final closure : CloseClosure;
 	final func : Lambda;
 	var closed : Bool;
@@ -32,7 +32,7 @@ private class ScheduledEvent implements ISchedulerHandle {
 		childEvents.push(event);
 	}
 
-	public inline function run() {
+	public inline function onSchedule() {
 		func();
 
 		if (childEvents != null) {
@@ -159,13 +159,14 @@ class EventLoopScheduler extends Scheduler {
 
 		final event = new ScheduledEvent(closeClosure, func, now() + ms);
 
-		return addEvent(event);
-	}
-
-	public function addEvent(event:ScheduledEvent) {
 		futureMutex.acquire();
 
-		heap.insert(event);
+		final minimum = heap.minimum();
+		if (minimum != null && minimum.runTime == event.runTime) {
+			minimum.addChildEvent(event);
+		} else {
+			heap.insert(event);
+		}
 
 		futureMutex.release();
 
@@ -178,14 +179,13 @@ class EventLoopScheduler extends Scheduler {
 		final first = heap.minimum();
 		if (first == null || first.runTime > currentTime) {
 			// add normal event at front
-			futureMutex.release();
 			final event = new ScheduledEvent(closeClosure, () -> obj.onSchedule(), currentTime);
-			addEvent(event);
+			heap.insert(event);
 		} else {
 			// attach to first event
 			first.addChildEvent(obj);
-			futureMutex.release();
 		}
+		futureMutex.release();
 	}
 
 	public function now() {
@@ -204,7 +204,7 @@ class EventLoopScheduler extends Scheduler {
 
 			final toRun = heap.extract();
 			futureMutex.release();
-			toRun.run();
+			toRun.onSchedule();
 		}
 
 		futureMutex.release();
