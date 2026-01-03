@@ -34,7 +34,7 @@ typedef BoundedChannelOptions<T> = ChannelOptions & {
 	var ?writeBehaviour : FullBehaviour<T>;
 }
 
-class Channel<T> {
+class Channel<T> implements IChannelReader<T> implements IChannelWriter<T> {
 
 	public final reader : IChannelReader<T>;
 
@@ -45,14 +45,14 @@ class Channel<T> {
 		this.writer = writer;
 	}
 
-	public static function createBounded<T>(options : BoundedChannelOptions<T>):Channel<T> { 
+	public static function createBounded<T>(options : BoundedChannelOptions<T>):Channel<T> {
 		if (options.size < 1) {
 			throw new ArgumentException("size");
 		}
 
 		final closed         = new Out();
 		final writeBehaviour = options.writeBehaviour ?? Wait;
-		
+
 		// TODO : Revisit this single consumer producer implementation once we have threading in and can make some comparisons.
 		// final singleReader   = options.singleReader ?? false;
 		// final singleWriter   = options.singleWriter ?? false;
@@ -60,7 +60,7 @@ class Channel<T> {
 		// 	final buffer      = new ConcurrentCircularBuffer(options.size);
 		// 	final readWaiter  = new AtomicObject<IContinuation<Bool>>(null);
 		// 	final writeWaiter = new AtomicObject<IContinuation<Bool>>(null);
-			
+
 		// 	return
 		// 		new BoundedChannel(
 		// 			new SingleBoundedReader(buffer, writeWaiter, readWaiter, closed),
@@ -86,5 +86,37 @@ class Channel<T> {
 			new Channel(
 				new UnboundedReader(buffer, readWaiters, closed),
 				new UnboundedWriter(buffer, readWaiters, closed));
+	}
+
+	public function tryRead(out:Out<T>):Bool {
+		return reader.tryRead(out);
+	}
+
+	public function tryPeek(out:Out<T>):Bool {
+		return reader.tryPeek(out);
+	}
+
+	@:coroutine public function read():T {
+		return reader.read();
+	}
+
+	@:coroutine public function waitForRead():Bool {
+		return reader.waitForRead();
+	}
+
+	public function tryWrite(out:T):Bool {
+		return writer.tryWrite(out);
+	}
+
+	@:coroutine public function write(v:T) {
+		return writer.write(v);
+	}
+
+	@:coroutine public function waitForWrite():Bool {
+		return writer.waitForWrite();
+	}
+
+	public function close() {
+		writer.close();
 	}
 }

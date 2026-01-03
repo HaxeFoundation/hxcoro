@@ -235,7 +235,7 @@ class TestMutex extends utest.Test {
 						node.async(node -> {
 							delay(Std.random(15));
 							semaphore.acquire();
-							semaphoreHolders.writer.write(node);
+							semaphoreHolders.write(node);
 							try {
 								hangingMutex.acquire(); // will never succeed
 							} catch(e:CancellationException) {
@@ -247,7 +247,7 @@ class TestMutex extends utest.Test {
 					}
 					delay(1);
 					while (numCompletedTasks != numTasks) {
-						var holder = semaphoreHolders.reader.read();
+						var holder = semaphoreHolders.read();
 						holder.cancel();
 						// this is weird, how do we wait here properly?
 						yield();

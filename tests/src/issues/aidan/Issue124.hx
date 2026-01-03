@@ -26,11 +26,11 @@ class CoroChannelTask<T> extends CoroTask<haxe.Unit> implements IReceiver<T> imp
 	}
 
 	@:coroutine public function receive() {
-		return channel.reader.read();
+		return channel.read();
 	}
 
 	@:coroutine public function send(v:T) {
-		return channel.writer.write(v);
+		return channel.write(v);
 	}
 }
 

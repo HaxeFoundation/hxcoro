@@ -7,6 +7,7 @@ package hxcoro.schedulers;
 import sys.thread.Thread;
 import haxe.Int64;
 import haxe.coro.schedulers.Scheduler;
+import haxe.coro.schedulers.IScheduleObject;
 import haxe.coro.schedulers.ISchedulerHandle;
 import haxe.exceptions.ArgumentException;
 import hxcoro.thread.IThreadPool;
