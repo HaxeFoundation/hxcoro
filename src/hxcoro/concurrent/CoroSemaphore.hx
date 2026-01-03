@@ -25,8 +25,16 @@ class CoroSemaphore {
 	}
 
 	@:coroutine public function acquire() {
-		if (free.sub(1) > 0) {
-			return;
+		// CAS loop until we update the free atomic or it reports full.
+		while (true) {
+			final old = free.load();
+			if (0 == old) {
+				break;
+			}
+
+			if (free.compareExchange(old, old - 1) == old) {
+				return;
+			}
 		}
 		suspendCancellable(cont -> {
 			final task = cont.context.get(CoroTask);
@@ -59,7 +67,7 @@ class CoroSemaphore {
 			if (maxFree == old) {
 				throw new SemaphoreFullException();
 			}
-	
+
 			if (free.compareExchange(old, old + 1) == old) {
 				break;
 			}
@@ -83,6 +91,13 @@ class CoroSemaphore {
 				// ignore, back to the loop
 			} else {
 				// continue normally
+				while (true) {
+					// we need to CAS-decrement the free value here as if we acquired it normally
+					final old = free.load();
+					if (free.compareExchange(old, old - 1) == old) {
+						break;
+					}
+				}
 				dequeMutex.release();
 				cont.callAsync();
 				return;
