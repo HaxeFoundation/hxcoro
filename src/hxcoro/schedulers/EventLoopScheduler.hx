@@ -17,6 +17,7 @@ private class ScheduledEvent implements ISchedulerHandle {
 	final func : Lambda;
 	var closed : Bool;
 	public final runTime : Int64;
+	var childEvents:Array<IScheduleObject>;
 
 	public function new(closure, func, runTime) {
 		this.closure = closure;
@@ -26,10 +27,22 @@ private class ScheduledEvent implements ISchedulerHandle {
 		closed   = false;
 	}
 
+	public function addChildEvent(event:IScheduleObject) {
+		childEvents ??= [];
+		childEvents.push(event);
+	}
+
 	public inline function run() {
 		func();
 
+		if (childEvents != null) {
+			for (childEvent in childEvents) {
+				childEvent.onSchedule();
+			}
+		}
+
 		closed = true;
+
 	}
 
 	public function close() {
@@ -40,53 +53,6 @@ private class ScheduledEvent implements ISchedulerHandle {
 		closure(this);
 
 		closed = true;
-	}
-}
-
-private class NoOpHandle implements ISchedulerHandle {
-	public function new() {}
-	public function close() {}
-}
-
-private class DoubleBuffer<T> {
-	final a : Array<T>;
-	final b : Array<T>;
-
-	var current : Array<T>;
-
-	public function new() {
-		a       = [];
-		b       = [];
-		current = a;
-	}
-
-	public function flip() {
-		final returning = current;
-
-		current = if (current == a) b else a;
-		current.resize(0);
-
-		return returning;
-	}
-
-	public function push(l : T) {
-		current.push(l);
-	}
-
-	public function empty() {
-		return current.length == 0;
-	}
-}
-
-class FunctionScheduleObject implements IScheduleObject {
-	var func:() -> Void;
-
-	public function new(func:() -> Void) {
-		this.func = func;
-	}
-
-	public function onSchedule() {
-		func();
 	}
 }
 
@@ -174,7 +140,6 @@ private class MinimumHeap {
 }
 
 class EventLoopScheduler extends Scheduler {
-	final noOpHandle : NoOpHandle;
 	final futureMutex : Mutex;
 	final heap : MinimumHeap;
 	final closeClosure : CloseClosure;
@@ -182,7 +147,6 @@ class EventLoopScheduler extends Scheduler {
 	public function new() {
 		super();
 
-		noOpHandle   = new NoOpHandle();
 		futureMutex  = new Mutex();
 		heap         = new MinimumHeap();
 		closeClosure = close;
@@ -195,6 +159,10 @@ class EventLoopScheduler extends Scheduler {
 
 		final event = new ScheduledEvent(closeClosure, func, now() + ms);
 
+		return addEvent(event);
+	}
+
+	public function addEvent(event:ScheduledEvent) {
 		futureMutex.acquire();
 
 		heap.insert(event);
@@ -205,7 +173,19 @@ class EventLoopScheduler extends Scheduler {
     }
 
 	public function scheduleObject(obj:IScheduleObject) {
-		obj.onSchedule();
+		final currentTime = now();
+		futureMutex.acquire();
+		final first = heap.minimum();
+		if (first == null || first.runTime > currentTime) {
+			// add normal event at front
+			futureMutex.release();
+			final event = new ScheduledEvent(closeClosure, () -> obj.onSchedule(), currentTime);
+			addEvent(event);
+		} else {
+			// attach to first event
+			first.addChildEvent(obj);
+			futureMutex.release();
+		}
 	}
 
 	public function now() {
@@ -215,17 +195,18 @@ class EventLoopScheduler extends Scheduler {
 	public function run() {
 		final currentTime = now();
 
-		futureMutex.acquire();
-
 		while (true) {
+			futureMutex.acquire();
 			var minimum = heap.minimum();
 			if (minimum == null || minimum.runTime > currentTime) {
 				break;
 			}
 
-			heap.extract().run();
+			final toRun = heap.extract();
+			futureMutex.release();
+			toRun.run();
 		}
-		
+
 		futureMutex.release();
 	}
 
