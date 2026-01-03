@@ -110,20 +110,24 @@ private class MinimumHeap {
 	}
 
 	function heapify(index:Int) {
-		final l = left(index);
-		final r = right(index);
+		while (true) {
+			final l = left(index);
+			final r = right(index);
 
-		var smallest = index;
-		if (l < storage.length && storage[l].runTime < storage[smallest].runTime) {
-			smallest = l;
-		}
-		if (r < storage.length && storage[r].runTime < storage[smallest].runTime) {
-			smallest = r;
-		}
+			var smallest = index;
+			if (l < storage.length && storage[l].runTime < storage[smallest].runTime) {
+				smallest = l;
+			}
+			if (r < storage.length && storage[r].runTime < storage[smallest].runTime) {
+				smallest = r;
+			}
 
-		if (smallest != index) {
-			swap(index, smallest);
-			heapify(smallest);
+			if (smallest != index) {
+				swap(index, smallest);
+				index = smallest;
+			} else {
+				break;
+			}
 		}
 	}
 }
