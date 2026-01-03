@@ -55,15 +55,15 @@ private class MinimumHeap {
 	}
 
 	public function left(i:Int) {
-		return 2 * i + 1;
+		return (i << 1) + 1;
 	}
 
 	public function right(i:Int) {
-		return 2 * i + 2;
+		return (i << 1) + 2;
 	}
 
 	public function parent(i:Int) {
-		return Math.floor((i - 1) / 2);
+		return (i - 1) >> 1;
 	}
 
 	public function minimum() {
