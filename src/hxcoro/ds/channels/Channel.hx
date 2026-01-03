@@ -1,5 +1,6 @@
 package hxcoro.ds.channels;
 
+import haxe.coro.Mutex;
 import haxe.coro.IContinuation;
 import haxe.exceptions.ArgumentException;
 import hxcoro.ds.Out;
@@ -70,11 +71,12 @@ class Channel<T> implements IChannelReader<T> implements IChannelWriter<T> {
 		final buffer       = new CircularBuffer(options.size);
 		final readWaiters  = new PagedDeque();
 		final writeWaiters = new PagedDeque();
+		final lock         = new Mutex();
 
 		return
 			new Channel(
-				new BoundedReader(buffer, writeWaiters, readWaiters, closed),
-				new BoundedWriter(buffer, writeWaiters, readWaiters, closed, writeBehaviour));
+				new BoundedReader(buffer, writeWaiters, readWaiters, closed, lock),
+				new BoundedWriter(buffer, writeWaiters, readWaiters, closed, writeBehaviour, lock));
 	}
 
 	public static function createUnbounded<T>(options : ChannelOptions):Channel<T> {

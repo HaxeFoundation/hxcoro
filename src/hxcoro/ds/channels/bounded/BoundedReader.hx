@@ -1,5 +1,6 @@
 package hxcoro.ds.channels.bounded;
 
+import haxe.coro.Mutex;
 import haxe.Exception;
 import haxe.coro.IContinuation;
 import haxe.coro.context.Context;
@@ -8,6 +9,7 @@ import hxcoro.ds.CircularBuffer;
 import hxcoro.ds.channels.exceptions.ChannelClosedException;
 
 using hxcoro.util.Convenience;
+using hxcoro.util.MutexExtensions;
 
 private final class WaitContinuation<T> implements IContinuation<Bool> {
 	final cont : IContinuation<Bool>;
@@ -16,26 +18,34 @@ private final class WaitContinuation<T> implements IContinuation<Bool> {
 
 	final closed : Out<Bool>;
 
+	final lock : Mutex;
+
 	public var context (get, never) : Context;
 
 	function get_context() {
 		return cont.context;
 	}
 
-	public function new(cont, buffer, closed) {
+	public function new(cont, buffer, closed, lock) {
 		this.cont   = cont;
 		this.buffer = buffer;
 		this.closed = closed;
+		this.lock   = lock;
 	}
 
 	public function resume(result:Bool, error:Exception) {
-		if (false == result) {
-			closed.set(false);
+		lock.with(() -> {
+			if (false == result) {
+				closed.set(false);
+	
+				cont.succeedAsync(buffer.wasEmpty());
+			} else {
+				cont.succeedAsync(true);
+			}
 
-			cont.succeedAsync(buffer.wasEmpty());
-		} else {
-			cont.succeedAsync(true);
-		}
+			// Without this the variable in `with` gets type `Void` on cpp, need to see what other targets think.
+			return 0;
+		});
 	}
 }
 
@@ -48,28 +58,33 @@ final class BoundedReader<T> implements IChannelReader<T> {
 
 	final closed : Out<Bool>;
 
-	public function new(buffer, writeWaiters, readWaiters, closed) {
+	final lock : Mutex;
+
+	public function new(buffer, writeWaiters, readWaiters, closed, lock) {
 		this.buffer        = buffer;
 		this.writeWaiters  = writeWaiters;
 		this.readWaiters   = readWaiters;
 		this.closed        = closed;
+		this.lock          = lock;
 	}
 
 	public function tryRead(out:Out<T>):Bool {
-		return if (buffer.tryPopTail(out)) {
-			final cont = new Out();
-			while (writeWaiters.tryPop(cont)) {
-				cont.get().succeedAsync(true);
+		return lock.with(() -> {
+			return if (buffer.tryPopTail(out)) {
+				final cont = new Out();
+				while (writeWaiters.tryPop(cont)) {
+					cont.get().succeedAsync(true);
+				}
+	
+				true;
+			} else {
+				false;
 			}
-
-			true;
-		} else {
-			false;
-		}
+		});
 	}
 
 	public function tryPeek(out:Out<T>):Bool {
-		return buffer.tryPeekHead(out);
+		return lock.with(() -> buffer.tryPeekHead(out));
 	}
 
 	@:coroutine public function read():T {
@@ -88,20 +103,28 @@ final class BoundedReader<T> implements IChannelReader<T> {
 	}
 
 	@:coroutine public function waitForRead():Bool {
+		lock.acquire();
+
 		if (buffer.wasEmpty() == false) {
+			lock.release();
+
 			return true;
 		}
 
 		if (closed.get()) {
+			lock.release();
+
 			return false;
 		}
 
 		return suspendCancellable(cont -> {
-			final obj       = new WaitContinuation(cont, buffer, closed);
+			final obj       = new WaitContinuation(cont, buffer, closed, lock);
 			final hostPage  = readWaiters.push(obj);
 
+			lock.release();
+
 			cont.onCancellationRequested = _ -> {
-				readWaiters.remove(hostPage, obj);
+				lock.with(() -> readWaiters.remove(hostPage, obj));
 			}
 		});
 	}

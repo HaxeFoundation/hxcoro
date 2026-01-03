@@ -1,5 +1,6 @@
 package ds.channels;
 
+import haxe.coro.Mutex;
 import haxe.Exception;
 import haxe.coro.IContinuation;
 import haxe.coro.context.Context;
@@ -40,7 +41,7 @@ class TestBoundedReader extends utest.Test {
 		final buffer        = new CircularBuffer(1);
 		final writeWaiters  = new PagedDeque();
 		final readWaiters   = new PagedDeque();
-		final reader        = new BoundedReader(buffer, writeWaiters, readWaiters, new Out());
+		final reader        = new BoundedReader(buffer, writeWaiters, readWaiters, new Out(), new Mutex());
 		final out           = new Out();
 
 		Assert.isTrue(buffer.tryPush(10));
@@ -53,7 +54,7 @@ class TestBoundedReader extends utest.Test {
 		final buffer        = new CircularBuffer(1);
 		final writeWaiters  = new PagedDeque();
 		final readWaiters   = new PagedDeque();
-		final reader        = new BoundedReader(buffer, writeWaiters, readWaiters, new Out());
+		final reader        = new BoundedReader(buffer, writeWaiters, readWaiters, new Out(), new Mutex());
 		final out           = new Out();
 
 		Assert.isFalse(reader.tryRead(out));
@@ -64,7 +65,7 @@ class TestBoundedReader extends utest.Test {
 		final buffer        = new CircularBuffer(1);
 		final writeWaiters  = new PagedDeque();
 		final readWaiters   = new PagedDeque();
-		final reader        = new BoundedReader(buffer, writeWaiters, readWaiters, new Out());
+		final reader        = new BoundedReader(buffer, writeWaiters, readWaiters, new Out(), new Mutex());
 		final out           = new Out();
 		final actual        = [];
 
@@ -79,7 +80,7 @@ class TestBoundedReader extends utest.Test {
 
 	function test_try_peek_has_data() {
 		final buffer = new CircularBuffer(1);
-		final reader = new BoundedReader(buffer, new PagedDeque(), new PagedDeque(), new Out());
+		final reader = new BoundedReader(buffer, new PagedDeque(), new PagedDeque(), new Out(), new Mutex());
 		
 		Assert.isTrue(buffer.tryPush(10));
 		
@@ -94,7 +95,7 @@ class TestBoundedReader extends utest.Test {
 	function test_try_peek_many_data() {
 		final count  = 5;
 		final buffer = new CircularBuffer(count);
-		final reader = new BoundedReader(buffer, new PagedDeque(), new PagedDeque(), new Out());
+		final reader = new BoundedReader(buffer, new PagedDeque(), new PagedDeque(), new Out(), new Mutex());
 		final out    = new Out();
 
 		for (i in 0...count) {
@@ -107,7 +108,7 @@ class TestBoundedReader extends utest.Test {
 
 	function test_try_peek_empty() {
 		final buffer = new CircularBuffer(1);
-		final reader = new BoundedReader(buffer, new PagedDeque(), new PagedDeque(), new Out());
+		final reader = new BoundedReader(buffer, new PagedDeque(), new PagedDeque(), new Out(), new Mutex());
 		final out    = new Out();
 
 		Assert.isFalse(reader.tryPeek(out));
@@ -117,7 +118,7 @@ class TestBoundedReader extends utest.Test {
 		final buffer       = new CircularBuffer(1);
 		final writeWaiters = new PagedDeque();
 		final readWaiters  = new PagedDeque();
-		final reader       = new BoundedReader(buffer, writeWaiters, readWaiters, new Out());
+		final reader       = new BoundedReader(buffer, writeWaiters, readWaiters, new Out(), new Mutex());
 		final scheduler    = new VirtualTimeScheduler();
 		final actual       = [];
 		final task         = CoroRun.with(scheduler).create(node -> {
@@ -139,7 +140,7 @@ class TestBoundedReader extends utest.Test {
 		final buffer       = new CircularBuffer(1);
 		final writeWaiters = new PagedDeque();
 		final readWaiters  = new PagedDeque();
-		final reader       = new BoundedReader(buffer, writeWaiters, readWaiters, new Out());
+		final reader       = new BoundedReader(buffer, writeWaiters, readWaiters, new Out(), new Mutex());
 		final out          = new Out();
 		final scheduler    = new VirtualTimeScheduler();
 		final actual       = [];
@@ -161,7 +162,7 @@ class TestBoundedReader extends utest.Test {
 		final buffer       = new CircularBuffer(1);
 		final writeWaiters = new PagedDeque();
 		final readWaiters  = new PagedDeque();
-		final reader       = new BoundedReader(buffer, writeWaiters, readWaiters, new Out());
+		final reader       = new BoundedReader(buffer, writeWaiters, readWaiters, new Out(), new Mutex());
 		final out          = new Out();
 		final scheduler    = new VirtualTimeScheduler();
 		final actual       = [];
@@ -186,7 +187,7 @@ class TestBoundedReader extends utest.Test {
 		final buffer       = new CircularBuffer(1);
 		final writeWaiters = new PagedDeque();
 		final readWaiters  = new PagedDeque();
-		final reader       = new BoundedReader(buffer, writeWaiters, readWaiters, new Out());
+		final reader       = new BoundedReader(buffer, writeWaiters, readWaiters, new Out(), new Mutex());
 		final out          = new Out();
 		final scheduler    = new VirtualTimeScheduler();
 		final actual       = [];
@@ -212,7 +213,7 @@ class TestBoundedReader extends utest.Test {
 		final buffer       = new CircularBuffer(1);
 		final writeWaiters = new PagedDeque();
 		final readWaiters  = new PagedDeque();
-		final reader       = new BoundedReader(buffer, writeWaiters, readWaiters, new Out());
+		final reader       = new BoundedReader(buffer, writeWaiters, readWaiters, new Out(), new Mutex());
 		final out          = new Out();
 		final scheduler    = new VirtualTimeScheduler();
 		final actual       = [];
@@ -236,7 +237,7 @@ class TestBoundedReader extends utest.Test {
 		final buffer       = new CircularBuffer(1);
 		final writeWaiters = new PagedDeque();
 		final readWaiters  = new PagedDeque();
-		final reader       = new BoundedReader(buffer, writeWaiters, readWaiters, new Out());
+		final reader       = new BoundedReader(buffer, writeWaiters, readWaiters, new Out(), new Mutex());
 		final out          = new Out();
 		final scheduler    = new VirtualTimeScheduler();
 		final actual       = [];
@@ -258,7 +259,7 @@ class TestBoundedReader extends utest.Test {
 		final buffer       = new CircularBuffer(1);
 		final writeWaiters = new PagedDeque();
 		final readWaiters  = new PagedDeque();
-		final reader       = new BoundedReader(buffer, writeWaiters, readWaiters, new Out());
+		final reader       = new BoundedReader(buffer, writeWaiters, readWaiters, new Out(), new Mutex());
 		final out          = new Out();
 		final scheduler    = new VirtualTimeScheduler();
 		final actual       = [];
@@ -284,7 +285,7 @@ class TestBoundedReader extends utest.Test {
 		final buffer       = new CircularBuffer(1);
 		final writeWaiters = new PagedDeque();
 		final readWaiters  = new PagedDeque();
-		final reader       = new BoundedReader(buffer, writeWaiters, readWaiters, new Out());
+		final reader       = new BoundedReader(buffer, writeWaiters, readWaiters, new Out(), new Mutex());
 		final out          = new Out();
 		final scheduler    = new VirtualTimeScheduler();
 		final actual       = [];
@@ -313,7 +314,7 @@ class TestBoundedReader extends utest.Test {
 		final buffer       = new CircularBuffer(1);
 		final writeWaiters = new PagedDeque();
 		final readWaiters  = new PagedDeque();
-		final reader       = new BoundedReader(buffer, writeWaiters, readWaiters, new Out());
+		final reader       = new BoundedReader(buffer, writeWaiters, readWaiters, new Out(), new Mutex());
 		final out          = new Out();
 		final scheduler    = new VirtualTimeScheduler();
 		final actual       = [];
@@ -337,7 +338,7 @@ class TestBoundedReader extends utest.Test {
 		final writeWaiters = new PagedDeque();
 		final readWaiters  = new PagedDeque();
 		final closed       = new Out();
-		final reader       = new BoundedReader(buffer, writeWaiters, readWaiters, closed);
+		final reader       = new BoundedReader(buffer, writeWaiters, readWaiters, closed, new Mutex());
 		final actual       = [];
 		final scheduler    = new VirtualTimeScheduler();
 		final task         = CoroRun.with(scheduler).create(node -> {
@@ -358,7 +359,7 @@ class TestBoundedReader extends utest.Test {
 		final writeWaiters = new PagedDeque();
 		final readWaiters  = new PagedDeque();
 		final closed       = new Out();
-		final reader       = new BoundedReader(buffer, writeWaiters, readWaiters, closed);
+		final reader       = new BoundedReader(buffer, writeWaiters, readWaiters, closed, new Mutex());
 		final scheduler    = new VirtualTimeScheduler();
 		final actual       = [];
 		final task         = CoroRun.with(scheduler).create(node -> {
@@ -382,7 +383,7 @@ class TestBoundedReader extends utest.Test {
 		final readWaiters  = new PagedDeque();
 		final closed       = new Out();
 		final out          = new Out();
-		final reader       = new BoundedReader(buffer, writeWaiters, readWaiters, closed);
+		final reader       = new BoundedReader(buffer, writeWaiters, readWaiters, closed, new Mutex());
 
 		closed.set(true);
 
@@ -395,7 +396,7 @@ class TestBoundedReader extends utest.Test {
 		final readWaiters  = new PagedDeque();
 		final closed       = new Out();
 		final out          = new Out();
-		final reader       = new BoundedReader(buffer, writeWaiters, readWaiters, closed);
+		final reader       = new BoundedReader(buffer, writeWaiters, readWaiters, closed, new Mutex());
 
 		Assert.isTrue(buffer.tryPush(10));
 
@@ -411,7 +412,7 @@ class TestBoundedReader extends utest.Test {
 		final writeWaiters = new PagedDeque();
 		final readWaiters  = new PagedDeque();
 		final closed       = new Out();
-		final reader       = new BoundedReader(buffer, writeWaiters, readWaiters, closed);
+		final reader       = new BoundedReader(buffer, writeWaiters, readWaiters, closed, new Mutex());
 		final actual       = [];
 		final scheduler    = new VirtualTimeScheduler();
 		final task         = CoroRun.with(scheduler).create(node -> {
@@ -432,7 +433,7 @@ class TestBoundedReader extends utest.Test {
 		final writeWaiters = new PagedDeque();
 		final readWaiters  = new PagedDeque();
 		final closed       = new Out();
-		final reader       = new BoundedReader(buffer, writeWaiters, readWaiters, closed);
+		final reader       = new BoundedReader(buffer, writeWaiters, readWaiters, closed, new Mutex());
 		final actual       = [];
 		final scheduler    = new VirtualTimeScheduler();
 		final task         = CoroRun.with(scheduler).create(node -> {

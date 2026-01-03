@@ -1,5 +1,6 @@
 package hxcoro.ds.channels.bounded;
 
+import haxe.coro.Mutex;
 import haxe.Exception;
 import haxe.coro.IContinuation;
 import hxcoro.ds.Out;
@@ -8,6 +9,7 @@ import hxcoro.ds.channels.Channel;
 import hxcoro.ds.channels.exceptions.ChannelClosedException;
 
 using hxcoro.util.Convenience;
+using hxcoro.util.MutexExtensions;
 
 final class BoundedWriter<T> implements IChannelWriter<T> {
 	final closed : Out<Bool>;
@@ -20,29 +22,34 @@ final class BoundedWriter<T> implements IChannelWriter<T> {
 
 	final behaviour : FullBehaviour<T>;
 
-	public function new(buffer, writeWaiters, readWaiters, closed, behaviour) {
+	final lock : Mutex;
+
+	public function new(buffer, writeWaiters, readWaiters, closed, behaviour, lock) {
 		this.buffer        = buffer;
 		this.writeWaiters  = writeWaiters;
 		this.readWaiters   = readWaiters;
 		this.closed        = closed;
 		this.behaviour     = behaviour;
+		this.lock          = lock;
 	}
 
 	public function tryWrite(v:T):Bool {
-		if (closed.get()) {
-			return false;
-		}
-
-		return if (buffer.tryPush(v)) {
-			final cont = new Out();
-			while (readWaiters.tryPop(cont)) {
-				cont.get().succeedAsync(true);
+		return lock.with(() -> {
+			if (closed.get()) {
+				return false;
 			}
-
-			true;
-		} else {
-			false;
-		}
+	
+			return if (buffer.tryPush(v)) {
+				final cont = new Out();
+				while (readWaiters.tryPop(cont)) {
+					cont.get().succeedAsync(true);
+				}
+	
+				true;
+			} else {
+				false;
+			}
+		});
 	}
 
 	@:coroutine public function write(v:T) {
@@ -61,7 +68,7 @@ final class BoundedWriter<T> implements IChannelWriter<T> {
 				final out = new Out();
 
 				while (tryWrite(v) == false) {
-					if (buffer.tryPopHead(out)) {
+					if (lock.with(() -> buffer.tryPopHead(out))) {
 						f(out.get());
 					} else {
 						throw new Exception('Failed to drop newest item');
@@ -73,7 +80,7 @@ final class BoundedWriter<T> implements IChannelWriter<T> {
 				final out = new Out();
 
 				while (tryWrite(v) == false) {
-					if (buffer.tryPopTail(out)) {
+					if (lock.with(() -> buffer.tryPopTail(out))) {
 						f(out.get());
 					} else {
 						throw new Exception('Failed to drop oldest item');
@@ -91,7 +98,11 @@ final class BoundedWriter<T> implements IChannelWriter<T> {
 	}
 
 	@:coroutine public function waitForWrite():Bool {
+		lock.acquire();
+
 		if (closed.get()) {
+			lock.release();
+
 			return false;
 		}
 
@@ -99,38 +110,46 @@ final class BoundedWriter<T> implements IChannelWriter<T> {
 			return suspendCancellable(cont -> {
 				final hostPage  = writeWaiters.push(cont);
 
+				lock.release();
+
 				cont.onCancellationRequested = _ -> {
-					writeWaiters.remove(hostPage, cont);
+					lock.with(() -> writeWaiters.remove(hostPage, cont));
 				}
 			});
 		} else {
+			lock.release();
+
 			true;
 		}
 	}
 
 	public function close() {
-		if (closed.get()) {
-			return;
-		}
-
-		closed.set(true);
-
-		while (writeWaiters.isEmpty() == false) {
-			switch writeWaiters.pop() {
-				case null:
-					continue;
-				case cont:
-					cont.succeedAsync(false);
+		lock.with(() -> {
+			if (closed.get()) {
+				return 0;
 			}
-		};
 
-		while (readWaiters.isEmpty() == false) {
-			switch (readWaiters.pop()) {
-				case null:
-					continue;
-				case cont:
-					cont.succeedAsync(false);
-			}
-		};
+			closed.set(true);
+
+			while (writeWaiters.isEmpty() == false) {
+				switch writeWaiters.pop() {
+					case null:
+						continue;
+					case cont:
+						cont.succeedAsync(false);
+				}
+			};
+
+			while (readWaiters.isEmpty() == false) {
+				switch (readWaiters.pop()) {
+					case null:
+						continue;
+					case cont:
+						cont.succeedAsync(false);
+				}
+			};
+
+			return 0;
+		});
 	}
 }
