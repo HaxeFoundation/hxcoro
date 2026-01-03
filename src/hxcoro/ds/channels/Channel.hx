@@ -83,11 +83,12 @@ class Channel<T> implements IChannelReader<T> implements IChannelWriter<T> {
 		final closed      = new Out();
 		final buffer      = new PagedDeque();
 		final readWaiters = new PagedDeque();
+		final lock        = new Mutex();
 
 		return
 			new Channel(
-				new UnboundedReader(buffer, readWaiters, closed),
-				new UnboundedWriter(buffer, readWaiters, closed));
+				new UnboundedReader(buffer, readWaiters, closed, lock),
+				new UnboundedWriter(buffer, readWaiters, closed, lock));
 	}
 
 	public function tryRead(out:Out<T>):Bool {

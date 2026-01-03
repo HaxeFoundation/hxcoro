@@ -1,10 +1,10 @@
 package ds.channels;
 
+import haxe.coro.Mutex;
 import haxe.coro.context.Context;
 import haxe.coro.IContinuation;
 import haxe.Exception;
 import haxe.exceptions.CancellationException;
-import haxe.exceptions.NotImplementedException;
 import hxcoro.ds.channels.unbounded.UnboundedWriter;
 import hxcoro.ds.Out;
 import hxcoro.ds.PagedDeque;
@@ -37,7 +37,7 @@ class TestUnboundedWriter extends utest.Test {
 	function test_try_write() {
 		final out    = new Out();
 		final buffer = new PagedDeque();
-		final writer = new UnboundedWriter(buffer, new PagedDeque(), new Out());
+		final writer = new UnboundedWriter(buffer, new PagedDeque(), new Out(), new Mutex());
 
 		Assert.isTrue(writer.tryWrite(1));
 		Assert.isTrue(writer.tryWrite(2));
@@ -56,7 +56,7 @@ class TestUnboundedWriter extends utest.Test {
 	function test_try_write_wakeup_all_readers() {
 		final buffer      = new PagedDeque();
 		final readWaiters = new PagedDeque();
-		final writer      = new UnboundedWriter(buffer, readWaiters, new Out());
+		final writer      = new UnboundedWriter(buffer, readWaiters, new Out(), new Mutex());
 		final expected    = [];
 
 		readWaiters.push(new TestContinuation(expected, _ -> '1'));
@@ -70,7 +70,7 @@ class TestUnboundedWriter extends utest.Test {
 	function test_try_write_when_closed() {
 		final out    = new Out();
 		final buffer = new PagedDeque();
-		final writer = new UnboundedWriter(buffer, new PagedDeque(), out);
+		final writer = new UnboundedWriter(buffer, new PagedDeque(), out, new Mutex());
 
 		writer.close();
 
@@ -81,7 +81,7 @@ class TestUnboundedWriter extends utest.Test {
 	function test_wait_for_write() {
 		final buffer      = new PagedDeque();
 		final readWaiters = new PagedDeque();
-		final writer      = new UnboundedWriter(buffer, readWaiters, new Out());
+		final writer      = new UnboundedWriter(buffer, readWaiters, new Out(), new Mutex());
 		final scheduler   = new VirtualTimeScheduler();
 		final actual      = [];
 		final task        = CoroRun.with(scheduler).create(node -> {
@@ -103,7 +103,7 @@ class TestUnboundedWriter extends utest.Test {
 	function test_wait_for_write_prompt_cancellation() {
 		final buffer      = new PagedDeque();
 		final readWaiters = new PagedDeque();
-		final writer      = new UnboundedWriter(buffer, readWaiters, new Out());
+		final writer      = new UnboundedWriter(buffer, readWaiters, new Out(), new Mutex());
 		final scheduler   = new VirtualTimeScheduler();
 		final actual      = [];
 		final task        = CoroRun.with(scheduler).create(node -> {
@@ -123,7 +123,7 @@ class TestUnboundedWriter extends utest.Test {
 	function test_wait_for_write_when_closed() {
 		final buffer      = new PagedDeque();
 		final readWaiters = new PagedDeque();
-		final writer      = new UnboundedWriter(buffer, readWaiters, new Out());
+		final writer      = new UnboundedWriter(buffer, readWaiters, new Out(), new Mutex());
 		final scheduler   = new VirtualTimeScheduler();
 		final actual      = [];
 		final task        = CoroRun.with(scheduler).create(node -> {
@@ -142,7 +142,7 @@ class TestUnboundedWriter extends utest.Test {
 	function test_write() {
 		final out       = new Out();
 		final buffer    = new PagedDeque();
-		final writer    = new UnboundedWriter(buffer, new PagedDeque(), new Out());
+		final writer    = new UnboundedWriter(buffer, new PagedDeque(), new Out(), new Mutex());
 		final scheduler = new VirtualTimeScheduler();
 		final task      = CoroRun.with(scheduler).create(node -> {
 			writer.write(1);
@@ -169,7 +169,7 @@ class TestUnboundedWriter extends utest.Test {
 		final out         = new Out();
 		final buffer      = new PagedDeque();
 		final readWaiters = new PagedDeque();
-		final writer      = new UnboundedWriter(buffer, readWaiters, new Out());
+		final writer      = new UnboundedWriter(buffer, readWaiters, new Out(), new Mutex());
 		final scheduler   = new VirtualTimeScheduler();
 		final expected    = [];
 		final task        = CoroRun.with(scheduler).create(node -> {
@@ -192,7 +192,7 @@ class TestUnboundedWriter extends utest.Test {
 	function test_write_prompt_cancellation() {
 		final out       = new Out();
 		final buffer    = new PagedDeque();
-		final writer    = new UnboundedWriter(buffer, new PagedDeque(), new Out());
+		final writer    = new UnboundedWriter(buffer, new PagedDeque(), new Out(), new Mutex());
 		final scheduler = new VirtualTimeScheduler();
 		final task      = CoroRun.with(scheduler).create(node -> {
 			writer.write(1);
@@ -211,7 +211,7 @@ class TestUnboundedWriter extends utest.Test {
 	function test_write_when_closed() {
 		final buffer      = new PagedDeque();
 		final readWaiters = new PagedDeque();
-		final writer      = new UnboundedWriter(buffer, readWaiters, new Out());
+		final writer      = new UnboundedWriter(buffer, readWaiters, new Out(), new Mutex());
 		final scheduler   = new VirtualTimeScheduler();
 		final task        = CoroRun.with(scheduler).create(node -> {
 			writer.write(0);
@@ -230,7 +230,7 @@ class TestUnboundedWriter extends utest.Test {
 	function test_close_sets_out() {
 		final buffer      = new PagedDeque();
 		final closed      = new Out();
-		final writer      = new UnboundedWriter(buffer, new PagedDeque(), closed);
+		final writer      = new UnboundedWriter(buffer, new PagedDeque(), closed, new Mutex());
 
 		closed.set(false);
 		writer.close();
@@ -241,7 +241,7 @@ class TestUnboundedWriter extends utest.Test {
 	function test_closing_wakesup_read_waiters() {
 		final buffer      = new PagedDeque();
 		final readWaiters = new PagedDeque();
-		final writer      = new UnboundedWriter(buffer, readWaiters, new Out());
+		final writer      = new UnboundedWriter(buffer, readWaiters, new Out(), new Mutex());
 		final scheduler   = new VirtualTimeScheduler();
 		final actual      = [];
 		final task        = CoroRun.with(scheduler).create(node -> {

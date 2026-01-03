@@ -1,5 +1,6 @@
 package hxcoro.ds.channels.unbounded;
 
+import haxe.coro.Mutex;
 import haxe.coro.IContinuation;
 import hxcoro.Coro;
 import hxcoro.ds.Out;
@@ -7,6 +8,7 @@ import hxcoro.ds.PagedDeque;
 import hxcoro.ds.channels.exceptions.ChannelClosedException;
 
 using hxcoro.util.Convenience;
+using hxcoro.util.MutexExtensions;
 
 final class UnboundedWriter<T> implements IChannelWriter<T> {
 	final closed : Out<Bool>;
@@ -15,31 +17,36 @@ final class UnboundedWriter<T> implements IChannelWriter<T> {
 
 	final readWaiters : PagedDeque<IContinuation<Bool>>;
 
-	public function new(buffer, readWaiters, closed) {
+	final lock : Mutex;
+
+	public function new(buffer, readWaiters, closed, lock) {
 		this.buffer      = buffer;
 		this.readWaiters = readWaiters;
 		this.closed      = closed;
+		this.lock        = lock;
 	}
 
 	public function tryWrite(v:T):Bool {
-		if (closed.get()) {
-			return false;
-		}
-
-		final _ = buffer.push(v);
-
-		final cont = new Out();
-		while (readWaiters.tryPop(cont)) {
-			cont.get().succeedAsync(true);
-		}
-
-		return true;
+		return lock.with(() -> {
+			if (closed.get()) {
+				return false;
+			}
+	
+			final _ = buffer.push(v);
+	
+			final cont = new Out();
+			while (readWaiters.tryPop(cont)) {
+				cont.get().succeedAsync(true);
+			}
+	
+			return true;
+		});
 	}
 
 	@:coroutine public function waitForWrite():Bool {
 		checkCancellation();
 
-		if (closed.get()) {
+		if (lock.with(() -> closed.get())) {
 			return false;
 		}
 
@@ -57,16 +64,20 @@ final class UnboundedWriter<T> implements IChannelWriter<T> {
 	}
 
 	public function close() {
-		if (closed.get()) {
-			return;
-		}
+		lock.with(() -> {
+			if (closed.get()) {
+				return 0;
+			}
 
-		closed.set(true);
+			closed.set(true);
 
-		final cont = new Out();
-		while (readWaiters.tryPop(cont)) {
-			cont.get().succeedAsync(false);
-		}
+			final cont = new Out();
+			while (readWaiters.tryPop(cont)) {
+				cont.get().succeedAsync(false);
+			}
+
+			return 0;
+		});
 	}
 
 	@:coroutine function checkCancellation() {
