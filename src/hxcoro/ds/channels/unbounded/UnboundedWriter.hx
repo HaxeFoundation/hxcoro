@@ -27,20 +27,29 @@ final class UnboundedWriter<T> implements IChannelWriter<T> {
 	}
 
 	public function tryWrite(v:T):Bool {
-		return lock.with(() -> {
-			if (closed.get()) {
-				return false;
-			}
-	
-			final _ = buffer.push(v);
-	
-			final cont = new Out();
-			while (readWaiters.tryPop(cont)) {
-				cont.get().succeedAsync(true);
-			}
-	
-			return true;
-		});
+		lock.acquire();
+
+		if (closed.get()) {
+			lock.release();
+
+			return false;
+		}
+
+		buffer.push(v);
+
+		final out     = new Out();
+		final waiters = [];
+		while (readWaiters.tryPop(out)) {
+			waiters.push(out.get());
+		}
+
+		lock.release();
+
+		for (waiter in waiters) {
+			waiter.succeedAsync(true);
+		}
+
+		return true;
 	}
 
 	@:coroutine public function waitForWrite():Bool {
@@ -64,20 +73,24 @@ final class UnboundedWriter<T> implements IChannelWriter<T> {
 	}
 
 	public function close() {
-		lock.with(() -> {
+		final justClosed = lock.with(() -> {
 			if (closed.get()) {
-				return 0;
+				return false;
 			}
 
 			closed.set(true);
 
-			final cont = new Out();
-			while (readWaiters.tryPop(cont)) {
-				cont.get().succeedAsync(false);
-			}
-
-			return 0;
+			return true;
 		});
+
+		if (justClosed) {
+			// Should be safe to act on the read waiters without the lock at this point.
+			// All other code which pushes read waiters should be checking closed first.
+			final out = new Out();
+			while (readWaiters.tryPop(out)) {
+				out.get().succeedAsync(false);
+			}
+		}
 	}
 
 	@:coroutine function checkCancellation() {

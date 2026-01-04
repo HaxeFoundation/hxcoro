@@ -34,22 +34,34 @@ final class BoundedWriter<T> implements IChannelWriter<T> {
 	}
 
 	public function tryWrite(v:T):Bool {
-		return lock.with(() -> {
-			if (closed.get()) {
-				return false;
+		lock.acquire();
+
+		if (closed.get()) {
+			lock.release();
+
+			return false;
+		}
+
+		return if (buffer.tryPush(v)) {
+			final out     = new Out();
+			final waiters = [];
+
+			while (readWaiters.tryPop(out)) {
+				waiters.push(out.get());
 			}
-	
-			return if (buffer.tryPush(v)) {
-				final cont = new Out();
-				while (readWaiters.tryPop(cont)) {
-					cont.get().succeedAsync(true);
-				}
-	
-				true;
-			} else {
-				false;
+
+			lock.release();
+
+			for (waiter in waiters) {
+				waiter.succeedAsync(true);
 			}
-		});
+
+			true;
+		} else {
+			lock.release();
+
+			false;
+		}
 	}
 
 	@:coroutine public function write(v:T) {
@@ -124,13 +136,20 @@ final class BoundedWriter<T> implements IChannelWriter<T> {
 	}
 
 	public function close() {
-		lock.with(() -> {
+		final justClosed = lock.with(() -> {
 			if (closed.get()) {
-				return 0;
+				return false;
 			}
 
 			closed.set(true);
 
+			return true;
+		});
+
+		if (justClosed) {
+			// Should be safe to act on the read waiters without the lock at this point.
+			// All other code which pushes read waiters should be checking closed first.
+	
 			while (writeWaiters.isEmpty() == false) {
 				switch writeWaiters.pop() {
 					case null:
@@ -139,7 +158,7 @@ final class BoundedWriter<T> implements IChannelWriter<T> {
 						cont.succeedAsync(false);
 				}
 			};
-
+	
 			while (readWaiters.isEmpty() == false) {
 				switch (readWaiters.pop()) {
 					case null:
@@ -148,8 +167,6 @@ final class BoundedWriter<T> implements IChannelWriter<T> {
 						cont.succeedAsync(false);
 				}
 			};
-
-			return 0;
-		});
+		}
 	}
 }

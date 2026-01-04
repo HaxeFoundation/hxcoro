@@ -32,17 +32,17 @@ private final class WaitContinuation<T> implements IContinuation<Bool> {
 	}
 
 	public function resume(result:Bool, error:Exception) {
-		lock.with(() -> {
-			if (false == result) {
+		final result = lock.with(() -> {
+			return if (false == result) {
 				closed.set(false);
 	
-				cont.succeedAsync(buffer.isEmpty());
+				buffer.isEmpty();
 			} else {
-				cont.succeedAsync(true);
+				true;
 			}
-
-			return 0;
 		});
+
+		cont.succeedAsync(result);
 	}
 }
 

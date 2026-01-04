@@ -34,18 +34,17 @@ private final class WaitContinuation<T> implements IContinuation<Bool> {
 	}
 
 	public function resume(result:Bool, error:Exception) {
-		lock.with(() -> {
+		final result = lock.with(() -> {
 			if (false == result) {
 				closed.set(false);
 	
-				cont.succeedAsync(buffer.wasEmpty());
+				buffer.wasEmpty();
 			} else {
-				cont.succeedAsync(true);
+				true;
 			}
-
-			// Without this the variable in `with` gets type `Void` on cpp, need to see what other targets think.
-			return 0;
 		});
+
+		cont.succeedAsync(result);
 	}
 }
 
@@ -69,18 +68,28 @@ final class BoundedReader<T> implements IChannelReader<T> {
 	}
 
 	public function tryRead(out:Out<T>):Bool {
-		return lock.with(() -> {
-			return if (buffer.tryPopTail(out)) {
-				final cont = new Out();
-				while (writeWaiters.tryPop(cont)) {
-					cont.get().succeedAsync(true);
-				}
-	
-				true;
-			} else {
-				false;
+		lock.acquire();
+
+		return if (buffer.tryPopTail(out)) {
+			final out     = new Out();
+			final waiters = [];
+
+			while (writeWaiters.tryPop(out)) {
+				waiters.push(out.get());
 			}
-		});
+
+			lock.release();
+
+			for (waiter in waiters) {
+				waiter.succeedAsync(true);
+			}
+
+			true;
+		} else {
+			lock.release();
+
+			false;
+		}
 	}
 
 	public function tryPeek(out:Out<T>):Bool {
