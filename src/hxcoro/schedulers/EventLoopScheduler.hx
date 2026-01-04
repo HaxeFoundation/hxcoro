@@ -1,6 +1,6 @@
 package hxcoro.schedulers;
 
-import haxe.exceptions.NotImplementedException;
+import hxcoro.ds.Out;
 import haxe.Timer;
 import haxe.Int64;
 import haxe.coro.Mutex;
@@ -9,46 +9,182 @@ import haxe.coro.schedulers.IScheduleObject;
 import haxe.coro.schedulers.ISchedulerHandle;
 import haxe.exceptions.ArgumentException;
 
-private typedef Lambda = ()->Void;
+private typedef Lambda = () -> Void;
 
-private class ScheduledEvent implements ISchedulerHandle implements IScheduleObject {
-	var func : Null<Lambda>;
-	public final runTime : Int64;
-	var childEvents:Array<IScheduleObject>;
+private class Event implements ISchedulerHandle {
+	public var call:Null<Lambda>;
+	public var next:Null<Event>;
 
-	public function new(func, runTime) {
-		this.func    = func;
-		this.runTime = runTime;
-	}
-
-	public function addChildEvent(event:IScheduleObject) {
-		childEvents ??= [];
-		childEvents.push(event);
-	}
-
-	public inline function onSchedule() {
-		if (func != null) {
-			final func = func;
-			this.func = null;
-			func();
-		}
-
-		if (childEvents != null) {
-			final childEvents = childEvents;
-			this.childEvents = null;
-			for (childEvent in childEvents) {
-				childEvent.onSchedule();
-			}
-		}
+	public function new(call:() -> Void) {
+		this.call = call;
+		this.next = null;
 	}
 
 	public function close() {
-		func = null;
+		call = null;
+	}
+}
+
+private class ScheduledEvent {
+	public final runTime:Int64;
+	public var head:Null<Event>;
+	public var tail:Null<Event>;
+
+	public function new(runTime:Int64, event:Event) {
+		this.runTime = runTime;
+		this.head = event;
+		this.tail = event;
+	}
+
+	public function append(event:Event) {
+		tail.next = event;
+		tail = event;
+	}
+
+	public function run() {
+		var e = head;
+		while (null != e) {
+			if (e.call != null) {
+				e.call();
+			}
+
+			e = e.next;
+		}
+	}
+}
+
+private class Node {
+	public var key:ScheduledEvent;
+	public var left:Null<Node>;
+	public var right:Null<Node>;
+
+	public function new(key:ScheduledEvent) {
+		this.key = key;
+		this.left = null;
+		this.right = null;
+	}
+}
+
+private class BinarySearchTree {
+	private var root:Null<Node>;
+
+	public function new() {
+		root = null;
+	}
+
+	/**
+	 * Attempts to insert and event into the BST at the specified time.
+	 * @param out Contains either the newly created scheduled event on a successful insertion,
+	 * or the existing scheduled event if insertion failed.
+	 * @return True if the event was added, false if there was already a node in the tree at that time.
+	 */
+	public function tryInsert(key:Int64, event:Event, out:Out<ScheduledEvent>):Bool {
+		if (null == root) {
+			final o = new ScheduledEvent(key, event);
+
+			root = new Node(o);
+
+			out.set(o);
+
+			return true;
+		}
+
+		var current = root;
+		do {
+			if (current.key.runTime == key) {
+				out.set(current.key);
+
+				return false;
+			}
+
+			if (current.key.runTime > key && null != current.left) {
+				current = current.left;
+			} else if (current.key.runTime < key && null != current.right) {
+				current = current.right;
+			} else {
+				break;
+			}
+		} while (null != current);
+
+		final o = new ScheduledEvent(key, event);
+
+		out.set(o);
+
+		if (current.key.runTime > key) {
+			current.left = new Node(o);
+		} else {
+			current.right = new Node(o);
+		}
+
+		return true;
+	}
+
+	public function find(key:Int64):Null<ScheduledEvent> {
+		if (null == root) {
+			return null;
+		}
+
+		var searching = root;
+		while (null != searching) {
+			if (searching.key.runTime == key) {
+				return searching.key;
+			}
+
+			if (key > searching.key.runTime) {
+				searching = root.right;
+			} else {
+				searching = root.left;
+			}
+		}
+
+		return null;
+	}
+
+	public function delete(key:Int64) {
+		if (null == root) {
+			return;
+		}
+
+		doDelete(root, key);
+	}
+
+	private function doDelete(node:Node, key:Int64) {
+		if (null == node) {
+			return node;
+		}
+
+		if (node.key.runTime > key) {
+			node.left = doDelete(node.left, key);
+		} else if (node.key.runTime < key) {
+			node.right = doDelete(node.right, key);
+		} else {
+			if (null == node.left) {
+				return node.right;
+			}
+			if (null == node.right) {
+				return node.left;
+			}
+
+			final s = successor(node);
+			node.key = s.key;
+			node.right = doDelete(node.right, s.key.runTime);
+		}
+
+		return node;
+	}
+
+	private function successor(current:Node) {
+		current = current.right;
+		while (null != current && null != current.left) {
+			current = current.left;
+		}
+
+		return current;
 	}
 }
 
 private class MinimumHeap {
-	final storage : Array<ScheduledEvent>;
+	final storage:Array<ScheduledEvent>;
 
 	public function new() {
 		storage = [];
@@ -74,39 +210,16 @@ private class MinimumHeap {
 		return storage[0];
 	}
 
-	function revert(to:Int) {
-		function loop(iCurrent:Int) {
-			if (iCurrent != to) {
-				final iParent = parent(iCurrent);
-				loop(iParent);
-				swap(iCurrent, iParent);
-			}
-		}
-		loop(storage.length - 1);
-		storage.pop();
-	}
-
 	public function insert(event:ScheduledEvent) {
-		final minEvent = minimum();
-		if (minEvent != null && minEvent.runTime == event.runTime) {
-			minEvent.addChildEvent(event);
-			return;
-		}
 		storage.push(event);
-		final runTime = event.runTime;
+
 		var i = storage.length - 1;
-		while (i > 0) {
-			final iParent = parent(i);
-			final parentEvent = storage[iParent];
-			if (parentEvent.runTime < runTime) {
-				break;
-			} else if (parentEvent.runTime == runTime) {
-				parentEvent.addChildEvent(event);
-				revert(i);
-				break;
-			}
-			swap(i, iParent);
-			i = iParent;
+		while (i > 0 && storage[parent(i)].runTime > storage[i].runTime) {
+			final p = parent(i);
+
+			swap(i, p);
+
+			i = p;
 		}
 	}
 
@@ -128,7 +241,7 @@ private class MinimumHeap {
 		return root;
 	}
 
-	inline function swap(fst:Int, snd:Int) {
+	function swap(fst:Int, snd:Int) {
 		final temp = storage[fst];
 		storage[fst] = storage[snd];
 		storage[snd] = temp;
@@ -158,45 +271,42 @@ private class MinimumHeap {
 }
 
 class EventLoopScheduler extends Scheduler {
-	final futureMutex : Mutex;
-	final heap : MinimumHeap;
+	final futureMutex:Mutex;
+	final heap:MinimumHeap;
+	final bst:BinarySearchTree;
+	final out:Out<ScheduledEvent>;
 
 	public function new() {
 		super();
 
-		futureMutex  = new Mutex();
-		heap         = new MinimumHeap();
+		futureMutex = new Mutex();
+		heap = new MinimumHeap();
+		bst = new BinarySearchTree();
+		out = new Out();
 	}
 
-    public function schedule(ms:Int64, func:()->Void):ISchedulerHandle {
+	public function schedule(ms:Int64, func:() -> Void):ISchedulerHandle {
 		if (ms < 0) {
 			throw new ArgumentException("Time must be greater or equal to zero");
 		}
 
-		final event = new ScheduledEvent(func, now() + ms);
+		final event = new Event(func);
 
 		futureMutex.acquire();
 
-		heap.insert(event);
+		if (bst.tryInsert(now() + ms, event, out)) {
+			heap.insert(out.get());
+		} else {
+			out.get().append(event);
+		}
 
 		futureMutex.release();
 
 		return event;
-    }
+	}
 
 	public function scheduleObject(obj:IScheduleObject) {
-		final currentTime = now();
-		futureMutex.acquire();
-		final first = heap.minimum();
-		if (first == null || first.runTime > currentTime) {
-			// add normal event at front
-			final event = new ScheduledEvent(() -> obj.onSchedule(), currentTime);
-			heap.insert(event);
-		} else {
-			// attach to first event
-			first.addChildEvent(obj);
-		}
-		futureMutex.release();
+		schedule(0, () -> obj.onSchedule());
 	}
 
 	public function now() {
@@ -208,14 +318,18 @@ class EventLoopScheduler extends Scheduler {
 
 		while (true) {
 			futureMutex.acquire();
-			var minimum = heap.minimum();
+			final minimum = heap.minimum();
 			if (minimum == null || minimum.runTime > currentTime) {
 				break;
 			}
 
-			final toRun = heap.extract();
+			final extracted = heap.extract();
+
+			bst.delete(extracted.runTime);
+
+			extracted.run();
+
 			futureMutex.release();
-			toRun.onSchedule();
 		}
 
 		futureMutex.release();
