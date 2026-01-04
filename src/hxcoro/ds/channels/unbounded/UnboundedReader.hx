@@ -1,10 +1,13 @@
 package hxcoro.ds.channels.unbounded;
 
+import haxe.coro.Mutex;
 import haxe.Exception;
 import haxe.coro.IContinuation;
 import haxe.coro.context.Context;
 import hxcoro.ds.Out;
 import hxcoro.ds.channels.exceptions.ChannelClosedException;
+
+using hxcoro.util.MutexExtensions;
 
 private final class WaitContinuation<T> implements IContinuation<Bool> {
 	final cont : IContinuation<Bool>;
@@ -13,26 +16,33 @@ private final class WaitContinuation<T> implements IContinuation<Bool> {
 
 	final closed : Out<Bool>;
 
+	final lock : Mutex;
+
 	public var context (get, never) : Context;
 
 	function get_context() {
 		return cont.context;
 	}
 
-	public function new(cont, buffer, closed) {
+	public function new(cont, buffer, closed, lock) {
 		this.cont   = cont;
 		this.buffer = buffer;
 		this.closed = closed;
+		this.lock   = lock;
 	}
 
 	public function resume(result:Bool, error:Exception) {
-		if (false == result) {
-			closed.set(false);
+		final result = lock.with(() -> {
+			return if (false == result) {
+				closed.set(false);
+	
+				buffer.isEmpty();
+			} else {
+				true;
+			}
+		});
 
-			cont.succeedAsync(buffer.isEmpty());
-		} else {
-			cont.succeedAsync(true);
-		}
+		cont.succeedAsync(result);
 	}
 }
 
@@ -43,18 +53,21 @@ final class UnboundedReader<T> implements IChannelReader<T> {
 
 	final closed : Out<Bool>;
 
-	public function new(buffer, readWaiters, closed) {
+	final lock : Mutex;
+
+	public function new(buffer, readWaiters, closed, lock) {
 		this.buffer      = buffer;
 		this.readWaiters = readWaiters;
 		this.closed      = closed;
+		this.lock        = lock;
 	}
 
 	public function tryRead(out:Out<T>):Bool {
-		return buffer.tryPop(out);
+		return lock.with(() -> buffer.tryPop(out));
 	}
 
 	public function tryPeek(out:Out<T>):Bool {
-		return buffer.tryPeek(out);
+		return lock.with(() -> buffer.tryPeek(out));
 	}
 
 	@:coroutine public function read():T {
@@ -73,20 +86,28 @@ final class UnboundedReader<T> implements IChannelReader<T> {
 	}
 
 	@:coroutine public function waitForRead():Bool {
+		lock.acquire();
+
 		if (buffer.isEmpty() == false) {
+			lock.release();
+
 			return true;
 		}
 
 		if (closed.get()) {
+			lock.release();
+
 			return false;
 		}
 
 		return suspendCancellable(cont -> {
-			final obj       = new WaitContinuation(cont, buffer, closed);
+			final obj       = new WaitContinuation(cont, buffer, closed, lock);
 			final hostPage  = readWaiters.push(obj);
 
+			lock.release();
+
 			cont.onCancellationRequested = _ -> {
-				readWaiters.remove(hostPage, obj);
+				lock.with(() -> readWaiters.remove(hostPage, obj));
 			}
 		});
 	}
