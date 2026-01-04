@@ -177,12 +177,7 @@ class EventLoopScheduler extends Scheduler {
 
 		futureMutex.acquire();
 
-		final minimum = heap.minimum();
-		if (minimum != null && minimum.runTime == event.runTime) {
-			minimum.addChildEvent(event);
-		} else {
-			heap.insert(event);
-		}
+		heap.insert(event);
 
 		futureMutex.release();
 
