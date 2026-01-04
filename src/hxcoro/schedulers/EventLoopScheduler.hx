@@ -74,13 +74,35 @@ private class MinimumHeap {
 		return storage[0];
 	}
 
+	function revert(to:Int) {
+		function loop(iCurrent:Int) {
+			if (iCurrent != to) {
+				final iParent = parent(iCurrent);
+				loop(iParent);
+				swap(iCurrent, iParent);
+			}
+		}
+		loop(storage.length - 1);
+		storage.pop();
+	}
+
 	public function insert(event:ScheduledEvent) {
+		final minEvent = minimum();
+		if (minEvent != null && minEvent.runTime == event.runTime) {
+			minEvent.addChildEvent(event);
+			return;
+		}
 		storage.push(event);
 		final runTime = event.runTime;
 		var i = storage.length - 1;
 		while (i > 0) {
 			final iParent = parent(i);
-			if (storage[iParent].runTime <= runTime) {
+			final parentEvent = storage[iParent];
+			if (parentEvent.runTime < runTime) {
+				break;
+			} else if (parentEvent.runTime == runTime) {
+				parentEvent.addChildEvent(event);
+				revert(i);
 				break;
 			}
 			swap(i, iParent);
