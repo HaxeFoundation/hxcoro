@@ -34,6 +34,8 @@ private class ScheduledEvent implements ISchedulerHandle implements IScheduleObj
 		}
 
 		if (childEvents != null) {
+			final childEvents = childEvents;
+			this.childEvents = null;
 			for (childEvent in childEvents) {
 				childEvent.onSchedule();
 			}
@@ -74,14 +76,15 @@ private class MinimumHeap {
 
 	public function insert(event:ScheduledEvent) {
 		storage.push(event);
-
+		final runTime = event.runTime;
 		var i = storage.length - 1;
-		while (i > 0 && storage[parent(i)].runTime > storage[i].runTime) {
-			final p = parent(i);
-
-			swap(i, p);
-
-			i = p;
+		while (i > 0) {
+			final iParent = parent(i);
+			if (storage[iParent].runTime <= runTime) {
+				break;
+			}
+			swap(i, iParent);
+			i = iParent;
 		}
 	}
 
@@ -103,7 +106,7 @@ private class MinimumHeap {
 		return root;
 	}
 
-	function swap(fst:Int, snd:Int) {
+	inline function swap(fst:Int, snd:Int) {
 		final temp = storage[fst];
 		storage[fst] = storage[snd];
 		storage[snd] = temp;
