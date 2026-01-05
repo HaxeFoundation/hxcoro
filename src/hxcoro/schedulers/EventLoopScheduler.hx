@@ -74,6 +74,18 @@ private class MinimumHeap {
 		return storage[0];
 	}
 
+	function findFrom(i:Int, event:ScheduledEvent) {
+		final currentEvent = storage[i];
+		if (currentEvent == null || currentEvent.runTime > event.runTime) {
+			return false;
+		}
+		if (currentEvent.runTime == event.runTime) {
+			currentEvent.addChildEvent(event);
+			return true;
+		}
+		return findFrom(left(i), event) || findFrom(right(i), event);
+	}
+
 	function revert(to:Int) {
 		function loop(iCurrent:Int) {
 			if (iCurrent != to) {
@@ -99,6 +111,11 @@ private class MinimumHeap {
 			final iParent = parent(i);
 			final parentEvent = storage[iParent];
 			if (parentEvent.runTime < runTime) {
+				final iLeft = left(iParent);
+				// go upward from our sibling
+				if (findFrom(iLeft == i ? iLeft + 1 : iLeft, event)) {
+					revert(i);
+				}
 				break;
 			} else if (parentEvent.runTime == runTime) {
 				parentEvent.addChildEvent(event);
@@ -160,12 +177,15 @@ private class MinimumHeap {
 class EventLoopScheduler extends Scheduler {
 	final futureMutex : Mutex;
 	final heap : MinimumHeap;
+	var currentTime:Int64;
+	var inRun:Bool;
 
 	public function new() {
 		super();
 
 		futureMutex  = new Mutex();
 		heap         = new MinimumHeap();
+		inRun = false;
 	}
 
     public function schedule(ms:Int64, func:()->Void):ISchedulerHandle {
@@ -173,7 +193,12 @@ class EventLoopScheduler extends Scheduler {
 			throw new ArgumentException("Time must be greater or equal to zero");
 		}
 
-		final event = new ScheduledEvent(func, now() + ms);
+		if (!inRun) {
+			currentTime = now();
+			inRun = true;
+		}
+
+		final event = new ScheduledEvent(func, currentTime + ms);
 
 		futureMutex.acquire();
 
@@ -185,7 +210,10 @@ class EventLoopScheduler extends Scheduler {
     }
 
 	public function scheduleObject(obj:IScheduleObject) {
-		final currentTime = now();
+		if (!inRun) {
+			currentTime = now();
+			inRun = true;
+		}
 		futureMutex.acquire();
 		final first = heap.minimum();
 		if (first == null || first.runTime > currentTime) {
@@ -215,7 +243,11 @@ class EventLoopScheduler extends Scheduler {
 
 			final toRun = heap.extract();
 			futureMutex.release();
+
+			this.currentTime = toRun.runTime;
+			inRun = true;
 			toRun.onSchedule();
+			inRun = false;
 		}
 
 		futureMutex.release();
