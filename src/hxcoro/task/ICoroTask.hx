@@ -10,6 +10,7 @@ interface ICoroTask<T> extends ILocalContext {
 	function get():T;
 	function getError():Exception;
 	function isActive():Bool;
+	function onCompletion(callback:(result:T, error:Exception)->Void):Void;
 }
 
 interface IStartableCoroTask<T> extends ICoroTask<T> {
