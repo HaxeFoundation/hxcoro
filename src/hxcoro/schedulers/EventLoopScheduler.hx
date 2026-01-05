@@ -74,6 +74,18 @@ private class MinimumHeap {
 		return storage[0];
 	}
 
+	function findFrom(i:Int, event:ScheduledEvent) {
+		final currentEvent = storage[i];
+		if (currentEvent == null || currentEvent.runTime > event.runTime) {
+			return false;
+		}
+		if (currentEvent.runTime == event.runTime) {
+			currentEvent.addChildEvent(event);
+			return true;
+		}
+		return findFrom(left(i), event) || findFrom(right(i), event);
+	}
+
 	function revert(to:Int) {
 		function loop(iCurrent:Int) {
 			if (iCurrent != to) {
@@ -99,6 +111,11 @@ private class MinimumHeap {
 			final iParent = parent(i);
 			final parentEvent = storage[iParent];
 			if (parentEvent.runTime < runTime) {
+				final iLeft = left(iParent);
+				// go upward from our sibling
+				if (findFrom(iLeft == i ? iLeft + 1 : iLeft, event)) {
+					revert(i);
+				}
 				break;
 			} else if (parentEvent.runTime == runTime) {
 				parentEvent.addChildEvent(event);
