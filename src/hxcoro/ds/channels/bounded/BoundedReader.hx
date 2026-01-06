@@ -37,7 +37,7 @@ private final class WaitContinuation<T> implements IContinuation<Bool> {
 		final result = lock.with(() -> {
 			if (false == result) {
 				closed.set(false);
-	
+
 				buffer.wasEmpty();
 			} else {
 				true;
@@ -74,8 +74,12 @@ final class BoundedReader<T> implements IChannelReader<T> {
 			final out     = new Out();
 			final waiters = [];
 
-			while (writeWaiters.tryPop(out)) {
-				waiters.push(out.get());
+			for (_ in 0...buffer.getCapacity()) {
+				if (writeWaiters.tryPop(out)) {
+					waiters.push(out.get());
+				} else {
+					break;
+				}
 			}
 
 			lock.release();
@@ -126,7 +130,7 @@ final class BoundedReader<T> implements IChannelReader<T> {
 			return false;
 		}
 
-		return suspendCancellable(cont -> {
+		final result = suspendCancellable(cont -> {
 			final obj       = new WaitContinuation(cont, buffer, closed, lock);
 			final hostPage  = readWaiters.push(obj);
 
@@ -136,5 +140,12 @@ final class BoundedReader<T> implements IChannelReader<T> {
 				lock.with(() -> readWaiters.remove(hostPage, obj));
 			}
 		});
+		if (result) {
+			final out = new Out();
+			if (readWaiters.tryPop(out)) {
+				out.get().succeedAsync(true);
+			}
+		}
+		return result;
 	}
 }

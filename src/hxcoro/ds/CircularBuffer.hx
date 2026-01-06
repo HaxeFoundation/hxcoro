@@ -21,6 +21,10 @@ final class CircularBuffer<T> {
 		tail    = 0;
 	}
 
+	public function getCapacity() {
+		return storage.length;
+	}
+
 	public function tryPush(v:T) {
 		final nextHead = increment(head);
 

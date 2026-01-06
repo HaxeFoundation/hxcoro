@@ -46,8 +46,12 @@ final class BoundedWriter<T> implements IChannelWriter<T> {
 			final out     = new Out();
 			final waiters = [];
 
-			while (readWaiters.tryPop(out)) {
-				waiters.push(out.get());
+			for (_ in 0...buffer.getCapacity()) {
+				if (readWaiters.tryPop(out)) {
+					waiters.push(out.get());
+				} else {
+					break;
+				}
 			}
 
 			lock.release();
@@ -98,7 +102,7 @@ final class BoundedWriter<T> implements IChannelWriter<T> {
 						throw new Exception('Failed to drop oldest item');
 					}
 				}
-				
+
 				return;
 			case DropWrite(f):
 				f(v);
@@ -119,7 +123,7 @@ final class BoundedWriter<T> implements IChannelWriter<T> {
 		}
 
 		return if (buffer.wasFull()) {
-			return suspendCancellable(cont -> {
+			final result = suspendCancellable(cont -> {
 				final hostPage  = writeWaiters.push(cont);
 
 				lock.release();
@@ -128,6 +132,13 @@ final class BoundedWriter<T> implements IChannelWriter<T> {
 					lock.with(() -> writeWaiters.remove(hostPage, cont));
 				}
 			});
+			if (result) {
+				final out = new Out();
+				if (writeWaiters.tryPop(out)) {
+					out.get().succeedAsync(true);
+				}
+			}
+			return result;
 		} else {
 			lock.release();
 
@@ -149,7 +160,7 @@ final class BoundedWriter<T> implements IChannelWriter<T> {
 		if (justClosed) {
 			// Should be safe to act on the read waiters without the lock at this point.
 			// All other code which pushes read waiters should be checking closed first.
-	
+
 			while (writeWaiters.isEmpty() == false) {
 				switch writeWaiters.pop() {
 					case null:
@@ -158,7 +169,7 @@ final class BoundedWriter<T> implements IChannelWriter<T> {
 						cont.succeedAsync(false);
 				}
 			};
-	
+
 			while (readWaiters.isEmpty() == false) {
 				switch (readWaiters.pop()) {
 					case null:
