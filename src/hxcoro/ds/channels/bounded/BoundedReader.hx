@@ -36,7 +36,7 @@ private final class WaitContinuation<T> implements IContinuation<Bool> {
 	public function resume(result:Bool, error:Exception) {
 		final result = lock.with(() -> {
 			if (false == result) {
-				closed.set(false);
+				// closed.set(false);
 
 				buffer.wasEmpty();
 			} else {
