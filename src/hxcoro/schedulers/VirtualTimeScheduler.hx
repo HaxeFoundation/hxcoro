@@ -4,6 +4,8 @@ import haxe.Int64;
 import haxe.exceptions.ArgumentException;
 
 class VirtualTimeScheduler extends EventLoopScheduler {
+	var currentTime : Int64;
+
 	public function new() {
 		super();
 

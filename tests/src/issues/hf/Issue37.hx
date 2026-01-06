@@ -36,13 +36,13 @@ class Issue37 extends utest.Test {
 						final o = new Out();
 
 						while (channel.reader.waitForRead()) {
+							delay(1);
 							if (channel.reader.tryRead(o)) {
 								aggregateValue += o.get();
+								break;
 							} else {
 								continue;
 							}
-
-							delay(1);
 						}
 					});
 				}
