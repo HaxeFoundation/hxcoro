@@ -177,15 +177,12 @@ private class MinimumHeap {
 class EventLoopScheduler extends Scheduler {
 	final futureMutex : Mutex;
 	final heap : MinimumHeap;
-	var currentTime:Int64;
-	var inRun:Bool;
 
 	public function new() {
 		super();
 
 		futureMutex  = new Mutex();
 		heap         = new MinimumHeap();
-		inRun = false;
 	}
 
     public function schedule(ms:Int64, func:()->Void):ISchedulerHandle {
@@ -193,12 +190,7 @@ class EventLoopScheduler extends Scheduler {
 			throw new ArgumentException("Time must be greater or equal to zero");
 		}
 
-		if (!inRun) {
-			currentTime = now();
-			inRun = true;
-		}
-
-		final event = new ScheduledEvent(func, currentTime + ms);
+		final event = new ScheduledEvent(func, now() + ms);
 
 		futureMutex.acquire();
 
@@ -210,11 +202,8 @@ class EventLoopScheduler extends Scheduler {
     }
 
 	public function scheduleObject(obj:IScheduleObject) {
-		if (!inRun) {
-			currentTime = now();
-			inRun = true;
-		}
 		futureMutex.acquire();
+		final currentTime = now();
 		final first = heap.minimum();
 		if (first == null || first.runTime > currentTime) {
 			// add normal event at front
@@ -233,7 +222,6 @@ class EventLoopScheduler extends Scheduler {
 
 	public function run() {
 		final currentTime = now();
-
 		while (true) {
 			futureMutex.acquire();
 			var minimum = heap.minimum();
@@ -244,10 +232,7 @@ class EventLoopScheduler extends Scheduler {
 			final toRun = heap.extract();
 			futureMutex.release();
 
-			this.currentTime = toRun.runTime;
-			inRun = true;
 			toRun.onSchedule();
-			inRun = false;
 		}
 
 		futureMutex.release();
