@@ -1,5 +1,6 @@
 package issues.hf;
 
+import hxcoro.ds.channels.bounded.BoundedWriter;
 import hxcoro.ds.channels.Channel;
 import hxcoro.ds.Out;
 import hxcoro.CoroRun;
@@ -7,10 +8,11 @@ import hxcoro.Coro.*;
 
 class Issue32 extends utest.Test {
 	function test() {
-		for (_ in 0...10) {
+		for (_ in 0...100) {
 			final channel = Channel.createBounded({size: 3});
 			final expected = [for (i in 0...100) i];
 			final actual = [];
+			var completedReaders = 0;
 
 			CoroRun.runScoped(node -> {
 				try {
@@ -32,12 +34,17 @@ class Issue32 extends utest.Test {
 										actual.push(out.get());
 									}
 								}
+								++completedReaders;
 							});
 						}
 					});
 				} catch(e:Dynamic) {
-					trace(e);
-					trace(channel, actual);
+					var writer:BoundedWriter<Int> = cast channel.writer;
+					trace(@:privateAccess writer.closed.get());
+					trace(@:privateAccess writer.writeWaiters.isEmpty());
+					trace(actual.length);
+					trace('Completed readers', completedReaders);
+					trace(channel.waitForRead());
 					throw e;
 				}
 			});
