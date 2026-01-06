@@ -37,16 +37,11 @@ final class UnboundedWriter<T> implements IChannelWriter<T> {
 
 		buffer.push(v);
 
-		final out     = new Out();
-		final waiters = [];
-		while (readWaiters.tryPop(out)) {
-			waiters.push(out.get());
-		}
+		final out       = new Out();
+		final hasWaiter = readWaiters.tryPop(out);
 
-		lock.release();
-
-		for (waiter in waiters) {
-			waiter.succeedAsync(true);
+		if (hasWaiter) {
+			out.get().succeedAsync(true);
 		}
 
 		return true;

@@ -73,6 +73,8 @@ class Channel<T> implements IChannelReader<T> implements IChannelWriter<T> {
 		final writeWaiters = new PagedDeque();
 		final lock         = new Mutex();
 
+		closed.set(false);
+
 		return
 			new Channel(
 				new BoundedReader(buffer, writeWaiters, readWaiters, closed, lock),

@@ -61,7 +61,7 @@ class TestBoundedReader extends utest.Test {
 		Assert.isTrue(buffer.wasEmpty());
 	}
 
-	function test_try_read_wakup_all_writers() {
+	function test_try_read_wakeup_waiter_fifo() {
 		final buffer        = new CircularBuffer(1);
 		final writeWaiters  = new PagedDeque();
 		final readWaiters   = new PagedDeque();
@@ -74,8 +74,8 @@ class TestBoundedReader extends utest.Test {
 
 		Assert.isTrue(buffer.tryPush(0));
 		Assert.isTrue(reader.tryRead(out));
-		Assert.isTrue(writeWaiters.isEmpty());
-		Assert.same([ '1', '2' ], actual);
+		Assert.isFalse(writeWaiters.isEmpty());
+		Assert.same([ '1' ], actual);
 	}
 
 	function test_try_peek_has_data() {
@@ -255,7 +255,7 @@ class TestBoundedReader extends utest.Test {
 		Assert.isFalse(readWaiters.isEmpty());
 	}
 
-	function test_read_wakeup_all_writers() {
+	function test_read_wakeup_writers_fifo() {
 		final buffer       = new CircularBuffer(1);
 		final writeWaiters = new PagedDeque();
 		final readWaiters  = new PagedDeque();
@@ -277,8 +277,8 @@ class TestBoundedReader extends utest.Test {
 		scheduler.advanceBy(1);
 
 		Assert.isFalse(task.isActive());
-		Assert.isTrue(writeWaiters.isEmpty());
-		Assert.same([ '1', '2' ], actual);
+		Assert.isFalse(writeWaiters.isEmpty());
+		Assert.same([ '1', ], actual);
 	}
 
 	function test_read_empty_buffer_wakeup() {
