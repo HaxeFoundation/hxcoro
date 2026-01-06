@@ -74,13 +74,14 @@ final class BoundedReader<T> implements IChannelReader<T> {
 			final out     = new Out();
 			final waiters = [];
 
-			for (_ in 0...buffer.getCapacity()) {
+			// for (_ in 0...buffer.getCapacity()) {
 				if (writeWaiters.tryPop(out)) {
 					waiters.push(out.get());
-				} else {
-					break;
 				}
-			}
+				// else {
+					// break;
+				// }
+			// }
 
 			lock.release();
 

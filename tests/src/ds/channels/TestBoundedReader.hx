@@ -61,34 +61,34 @@ class TestBoundedReader extends utest.Test {
 		Assert.isTrue(buffer.wasEmpty());
 	}
 
-	function test_try_read_wakup_all_writers() {
-		final buffer        = new CircularBuffer(1);
-		final writeWaiters  = new PagedDeque();
-		final readWaiters   = new PagedDeque();
-		final reader        = new BoundedReader(buffer, writeWaiters, readWaiters, new Out(), new Mutex());
-		final out           = new Out();
-		final actual        = [];
+	// function test_try_read_wakup_all_writers() {
+	// 	final buffer        = new CircularBuffer(1);
+	// 	final writeWaiters  = new PagedDeque();
+	// 	final readWaiters   = new PagedDeque();
+	// 	final reader        = new BoundedReader(buffer, writeWaiters, readWaiters, new Out(), new Mutex());
+	// 	final out           = new Out();
+	// 	final actual        = [];
 
-		writeWaiters.push(new TestContinuation(actual, '1'));
-		writeWaiters.push(new TestContinuation(actual, '2'));
+	// 	writeWaiters.push(new TestContinuation(actual, '1'));
+	// 	writeWaiters.push(new TestContinuation(actual, '2'));
 
-		Assert.isTrue(buffer.tryPush(0));
-		Assert.isTrue(reader.tryRead(out));
-		Assert.isTrue(writeWaiters.isEmpty());
-		Assert.same([ '1', '2' ], actual);
-	}
+	// 	Assert.isTrue(buffer.tryPush(0));
+	// 	Assert.isTrue(reader.tryRead(out));
+	// 	Assert.isTrue(writeWaiters.isEmpty());
+	// 	Assert.same([ '1', '2' ], actual);
+	// }
 
 	function test_try_peek_has_data() {
 		final buffer = new CircularBuffer(1);
 		final reader = new BoundedReader(buffer, new PagedDeque(), new PagedDeque(), new Out(), new Mutex());
-		
+
 		Assert.isTrue(buffer.tryPush(10));
-		
+
 		final out = new Out();
 		if (Assert.isTrue(reader.tryPeek(out))) {
 			Assert.equals(10, out.get());
 		}
-		
+
 		Assert.isFalse(buffer.wasEmpty());
 	}
 
@@ -255,31 +255,31 @@ class TestBoundedReader extends utest.Test {
 		Assert.isFalse(readWaiters.isEmpty());
 	}
 
-	function test_read_wakeup_all_writers() {
-		final buffer       = new CircularBuffer(1);
-		final writeWaiters = new PagedDeque();
-		final readWaiters  = new PagedDeque();
-		final reader       = new BoundedReader(buffer, writeWaiters, readWaiters, new Out(), new Mutex());
-		final out          = new Out();
-		final scheduler    = new VirtualTimeScheduler();
-		final actual       = [];
-		final task         = CoroRun.with(scheduler).create(node -> {
-			reader.read();
-		});
+	// function test_read_wakeup_all_writers() {
+	// 	final buffer       = new CircularBuffer(1);
+	// 	final writeWaiters = new PagedDeque();
+	// 	final readWaiters  = new PagedDeque();
+	// 	final reader       = new BoundedReader(buffer, writeWaiters, readWaiters, new Out(), new Mutex());
+	// 	final out          = new Out();
+	// 	final scheduler    = new VirtualTimeScheduler();
+	// 	final actual       = [];
+	// 	final task         = CoroRun.with(scheduler).create(node -> {
+	// 		reader.read();
+	// 	});
 
-		Assert.isTrue(buffer.tryPush(10));
+	// 	Assert.isTrue(buffer.tryPush(10));
 
-		writeWaiters.push(new TestContinuation(actual, '1'));
-		writeWaiters.push(new TestContinuation(actual, '2'));
+	// 	writeWaiters.push(new TestContinuation(actual, '1'));
+	// 	writeWaiters.push(new TestContinuation(actual, '2'));
 
-		task.start();
+	// 	task.start();
 
-		scheduler.advanceBy(1);
+	// 	scheduler.advanceBy(1);
 
-		Assert.isFalse(task.isActive());
-		Assert.isTrue(writeWaiters.isEmpty());
-		Assert.same([ '1', '2' ], actual);
-	}
+	// 	Assert.isFalse(task.isActive());
+	// 	Assert.isTrue(writeWaiters.isEmpty());
+	// 	Assert.same([ '1', '2' ], actual);
+	// }
 
 	function test_read_empty_buffer_wakeup() {
 		final buffer       = new CircularBuffer(1);

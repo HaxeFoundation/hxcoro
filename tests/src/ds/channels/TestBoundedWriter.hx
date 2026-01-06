@@ -64,20 +64,20 @@ class TestBoundedWriter extends utest.Test {
 		}
 	}
 
-	function test_try_write_wakeup_all_readers() {
-		final buffer        = new CircularBuffer(1);
-		final writeWaiters  = new PagedDeque();
-		final readWaiters   = new PagedDeque();
-		final writer        = new BoundedWriter(buffer, writeWaiters, readWaiters, new Out(), Wait, new Mutex());
-		final expected      = [];
+	// function test_try_write_wakeup_all_readers() {
+	// 	final buffer        = new CircularBuffer(1);
+	// 	final writeWaiters  = new PagedDeque();
+	// 	final readWaiters   = new PagedDeque();
+	// 	final writer        = new BoundedWriter(buffer, writeWaiters, readWaiters, new Out(), Wait, new Mutex());
+	// 	final expected      = [];
 
-		readWaiters.push(new TestContinuation(expected, _ -> '1'));
-		readWaiters.push(new TestContinuation(expected, _ -> '2'));
+	// 	readWaiters.push(new TestContinuation(expected, _ -> '1'));
+	// 	readWaiters.push(new TestContinuation(expected, _ -> '2'));
 
-		Assert.isTrue(writer.tryWrite(10));
-		Assert.isTrue(readWaiters.isEmpty());
-		Assert.same([ '1', '2' ], expected);
-	}
+	// 	Assert.isTrue(writer.tryWrite(10));
+	// 	Assert.isTrue(readWaiters.isEmpty());
+	// 	Assert.same([ '1', '2' ], expected);
+	// }
 
 	function test_wait_for_write_empty_buffer() {
 		final buffer        = new CircularBuffer(2);
@@ -323,27 +323,27 @@ class TestBoundedWriter extends utest.Test {
 		}
 	}
 
-	function test_write_wakup_all_readers() {
-		final buffer        = new CircularBuffer(1);
-		final writeWaiters  = new PagedDeque();
-		final readWaiters   = new PagedDeque();
-		final writer        = new BoundedWriter(buffer, writeWaiters, readWaiters, new Out(), Wait, new Mutex());
-		final scheduler     = new VirtualTimeScheduler();
-		final expected      = [];
-		final task          = CoroRun.with(scheduler).create(node -> {
-			writer.write(10);
-		});
+	// function test_write_wakup_all_readers() {
+	// 	final buffer        = new CircularBuffer(1);
+	// 	final writeWaiters  = new PagedDeque();
+	// 	final readWaiters   = new PagedDeque();
+	// 	final writer        = new BoundedWriter(buffer, writeWaiters, readWaiters, new Out(), Wait, new Mutex());
+	// 	final scheduler     = new VirtualTimeScheduler();
+	// 	final expected      = [];
+	// 	final task          = CoroRun.with(scheduler).create(node -> {
+	// 		writer.write(10);
+	// 	});
 
-		readWaiters.push(new TestContinuation(expected, _ -> '1'));
-		readWaiters.push(new TestContinuation(expected, _ -> '2'));
+	// 	readWaiters.push(new TestContinuation(expected, _ -> '1'));
+	// 	readWaiters.push(new TestContinuation(expected, _ -> '2'));
 
-		task.start();
-		scheduler.advanceBy(1);
+	// 	task.start();
+	// 	scheduler.advanceBy(1);
 
-		Assert.isFalse(task.isActive());
-		Assert.isTrue(readWaiters.isEmpty());
-		Assert.same([ '1', '2' ], expected);
-	}
+	// 	Assert.isFalse(task.isActive());
+	// 	Assert.isTrue(readWaiters.isEmpty());
+	// 	Assert.same([ '1', '2' ], expected);
+	// }
 
 	function test_write_full_buffer_wakeup() {
 		final buffer        = new CircularBuffer(1);

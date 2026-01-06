@@ -46,13 +46,14 @@ final class BoundedWriter<T> implements IChannelWriter<T> {
 			final out     = new Out();
 			final waiters = [];
 
-			for (_ in 0...buffer.getCapacity()) {
+			// for (_ in 0...buffer.getCapacity()) {
 				if (readWaiters.tryPop(out)) {
 					waiters.push(out.get());
-				} else {
-					break;
 				}
-			}
+				// else {
+					// break;
+				// }
+			// }
 
 			lock.release();
 
