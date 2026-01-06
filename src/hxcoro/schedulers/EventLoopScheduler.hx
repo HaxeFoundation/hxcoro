@@ -54,6 +54,10 @@ private class MinimumHeap {
 		storage = [];
 	}
 
+	public function isEmpty() {
+		return storage.length == 0;
+	}
+
 	public function left(i:Int) {
 		return (i << 1) + 1;
 	}
@@ -183,6 +187,10 @@ class EventLoopScheduler extends Scheduler {
 
 		futureMutex  = new Mutex();
 		heap         = new MinimumHeap();
+	}
+
+	public function hasEvents() {
+		return !heap.isEmpty();
 	}
 
     public function schedule(ms:Int64, func:()->Void):ISchedulerHandle {
