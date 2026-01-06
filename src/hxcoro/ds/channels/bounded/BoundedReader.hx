@@ -35,9 +35,7 @@ private final class WaitContinuation<T> implements IContinuation<Bool> {
 
 	public function resume(result:Bool, error:Exception) {
 		final result = lock.with(() -> {
-			if (false == result) {
-				closed.set(false);
-	
+			if (false == result) {	
 				buffer.wasEmpty();
 			} else {
 				true;
@@ -71,17 +69,13 @@ final class BoundedReader<T> implements IChannelReader<T> {
 		lock.acquire();
 
 		return if (buffer.tryPopTail(out)) {
-			final out     = new Out();
-			final waiters = [];
-
-			while (writeWaiters.tryPop(out)) {
-				waiters.push(out.get());
-			}
+			final out       = new Out();
+			final hasWaiter = writeWaiters.tryPop(out);
 
 			lock.release();
 
-			for (waiter in waiters) {
-				waiter.succeedAsync(true);
+			if (hasWaiter) {
+				out.get().succeedAsync(true);
 			}
 
 			true;

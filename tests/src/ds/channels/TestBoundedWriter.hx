@@ -75,8 +75,8 @@ class TestBoundedWriter extends utest.Test {
 		readWaiters.push(new TestContinuation(expected, _ -> '2'));
 
 		Assert.isTrue(writer.tryWrite(10));
-		Assert.isTrue(readWaiters.isEmpty());
-		Assert.same([ '1', '2' ], expected);
+		Assert.isFalse(readWaiters.isEmpty());
+		Assert.same([ '1' ], expected);
 	}
 
 	function test_wait_for_write_empty_buffer() {
@@ -323,7 +323,7 @@ class TestBoundedWriter extends utest.Test {
 		}
 	}
 
-	function test_write_wakup_all_readers() {
+	function test_write_wakup_readers_fifo() {
 		final buffer        = new CircularBuffer(1);
 		final writeWaiters  = new PagedDeque();
 		final readWaiters   = new PagedDeque();
@@ -341,8 +341,8 @@ class TestBoundedWriter extends utest.Test {
 		scheduler.advanceBy(1);
 
 		Assert.isFalse(task.isActive());
-		Assert.isTrue(readWaiters.isEmpty());
-		Assert.same([ '1', '2' ], expected);
+		Assert.isFalse(readWaiters.isEmpty());
+		Assert.same([ '1', ], expected);
 	}
 
 	function test_write_full_buffer_wakeup() {

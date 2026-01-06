@@ -53,7 +53,7 @@ class TestUnboundedWriter extends utest.Test {
 		Assert.equals(3, out.get());
 	}
 
-	function test_try_write_wakeup_all_readers() {
+	function test_try_write_wakeup_readers_fifo() {
 		final buffer      = new PagedDeque();
 		final readWaiters = new PagedDeque();
 		final writer      = new UnboundedWriter(buffer, readWaiters, new Out(), new Mutex());
@@ -63,8 +63,8 @@ class TestUnboundedWriter extends utest.Test {
 		readWaiters.push(new TestContinuation(expected, _ -> '2'));
 
 		Assert.isTrue(writer.tryWrite(10));
-		Assert.isTrue(readWaiters.isEmpty());
-		Assert.same([ '1', '2' ], expected);
+		Assert.isFalse(readWaiters.isEmpty());
+		Assert.same([ '1' ], expected);
 	}
 
 	function test_try_write_when_closed() {
@@ -165,7 +165,7 @@ class TestUnboundedWriter extends utest.Test {
 		Assert.equals(3, out.get());
 	}
 
-	function test_write_wakup_all_readers() {
+	function test_write_wakeup_readers_fifo() {
 		final out         = new Out();
 		final buffer      = new PagedDeque();
 		final readWaiters = new PagedDeque();
@@ -185,8 +185,8 @@ class TestUnboundedWriter extends utest.Test {
 		scheduler.advanceBy(1);
 
 		Assert.isFalse(task.isActive());
-		Assert.isTrue(readWaiters.isEmpty());
-		Assert.same([ '1', '2' ], expected);
+		Assert.isFalse(readWaiters.isEmpty());
+		Assert.same([ '1' ], expected);
 	}
 
 	function test_write_prompt_cancellation() {
