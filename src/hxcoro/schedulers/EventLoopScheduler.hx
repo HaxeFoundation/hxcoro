@@ -1,5 +1,6 @@
 package hxcoro.schedulers;
 
+import haxe.ds.Vector;
 import haxe.exceptions.NotImplementedException;
 import haxe.Timer;
 import haxe.Int64;
@@ -48,14 +49,16 @@ private class ScheduledEvent implements ISchedulerHandle implements IScheduleObj
 }
 
 private class MinimumHeap {
-	final storage : Array<ScheduledEvent>;
+	var storage : Vector<ScheduledEvent>;
+	var length : Int;
 
 	public function new() {
-		storage = [];
+		storage = new Vector(16);
+		length = 0;
 	}
 
 	public function isEmpty() {
-		return storage.length == 0;
+		return length == 0;
 	}
 
 	public inline function left(i:Int) {
@@ -74,8 +77,16 @@ private class MinimumHeap {
 		return storage[0];
 	}
 
+	function ensureCapacity() {
+		if (length == storage.length) {
+			final newStorage = new Vector(storage.length << 1);
+			Vector.blit(storage, 0, newStorage, 0, storage.length);
+			storage = newStorage;
+		}
+	}
+
 	function findFrom(i:Int, event:ScheduledEvent) {
-		if (i >= storage.length) {
+		if (i >= length) {
 			return false;
 		}
 		final currentEvent = storage[i];
@@ -97,8 +108,8 @@ private class MinimumHeap {
 				swap(iCurrent, iParent);
 			}
 		}
-		loop(storage.length - 1);
-		storage.pop();
+		loop(--length);
+		storage[length] = null;
 	}
 
 	public function insert(event:ScheduledEvent) {
@@ -107,9 +118,10 @@ private class MinimumHeap {
 			minEvent.addChildEvent(event);
 			return;
 		}
-		storage.push(event);
+		ensureCapacity();
+		storage[length++] = event;
 		final runTime = event.runTime;
-		var i = storage.length - 1;
+		var i = length - 1;
 		while (i > 0) {
 			final iParent = parent(i);
 			final parentEvent = storage[iParent];
@@ -131,14 +143,17 @@ private class MinimumHeap {
 	}
 
 	public function extract() {
-		return switch (storage.length) {
+		return switch (length) {
 			case 0:
 				null;
 			case 1:
-				storage.pop();
+				final ret = storage[--length];
+				storage[0] = null;
+				return ret;
 			case _:
 				final root = minimum();
-				storage[0] = storage.pop();
+				storage[0] = storage[--length];
+				storage[length] = null;
 				heapify(0);
 				root;
 		}
@@ -156,10 +171,10 @@ private class MinimumHeap {
 			final r = right(index);
 
 			var smallest = index;
-			if (l < storage.length && storage[l].runTime < storage[smallest].runTime) {
+			if (l < length && storage[l].runTime < storage[smallest].runTime) {
 				smallest = l;
 			}
-			if (r < storage.length && storage[r].runTime < storage[smallest].runTime) {
+			if (r < length && storage[r].runTime < storage[smallest].runTime) {
 				smallest = r;
 			}
 
