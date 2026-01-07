@@ -24,7 +24,7 @@ class Issue106 extends utest.Test {
 			k;
 		});
 		task.start();
-		final atask:AbstractTask<Any> = cast task;
+		final atask:AbstractTask = cast task;
 		scheduler.advanceTo(5);
 		for (child in @:privateAccess atask.children) {
 			Assert.isTrue(child == null || child.isActive());

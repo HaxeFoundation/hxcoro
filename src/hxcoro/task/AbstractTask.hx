@@ -73,11 +73,11 @@ private class NoOpCancellationHandle implements ICancellationHandle {
 	and should be kept in a state where it could even be moved outside the hxcoro package. Also, `state` should
 	be treated like a truly private variable and only be modified from within this class.
 **/
-abstract class AbstractTask<T = Any> implements ICancellationToken {
+abstract class AbstractTask implements ICancellationToken {
 	static final atomicId = new AtomicInt(1); // start with 1 so we can use 0 for "no task" situations
 	static final noOpCancellationHandle = new NoOpCancellationHandle();
 
-	final parent:AbstractTask<Any>;
+	final parent:AbstractTask;
 
 	var children:Null<Array<AbstractTask>>;
 	var cancellationCallbacks:Null<Array<CancellationHandle>>;
@@ -192,11 +192,6 @@ abstract class AbstractTask<T = Any> implements ICancellationToken {
 				handle;
 		}
 	}
-
-	/**
-		Returns this task's value, if any.
-	**/
-	abstract public function get():Null<T>;
 
 	/**
 		Starts executing this task. Has no effect if the task is already active or has completed.

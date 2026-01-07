@@ -69,7 +69,7 @@ private class CallbackContinuation<T> implements IContinuation<T> {
 /**
 	CoroTask provides the basic functionality for coroutine tasks.
 **/
-abstract class CoroBaseTask<T> extends AbstractTask<T> implements ICoroNode implements ICoroTask<T> implements ILocalContext implements IElement<CoroBaseTask<Any>> {
+abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode implements ICoroTask<T> implements ILocalContext implements IElement<CoroBaseTask<Any>> {
 	/**
 		This task's immutable `Context`.
 	**/
@@ -97,6 +97,9 @@ abstract class CoroBaseTask<T> extends AbstractTask<T> implements ICoroNode impl
 		return context;
 	}
 
+	/**
+		Returns this task's value, if any.
+	**/
 	public function get() {
 		return result;
 	}
