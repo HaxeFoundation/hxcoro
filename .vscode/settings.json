@@ -5,5 +5,7 @@
 		{"label": "HashLink/JIT", "args": ["--cwd", "tests", "build-hl.hxml"]},
 		{"label": "JVM", "args": ["--cwd", "tests", "build-jvm.hxml"]},
 		{"label": "Interp", "args": ["--cwd", "tests", "build-eval.hxml"]},
-	]
+		{"label": "Neko", "args": ["--cwd", "tests", "build-neko.hxml"]},
+	],
+	"haxe.enableCompilationServer": false
 }
