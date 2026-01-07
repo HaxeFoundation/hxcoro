@@ -58,27 +58,26 @@ private class MinimumHeap {
 		return storage.length == 0;
 	}
 
-	public function left(i:Int) {
+	public inline function left(i:Int) {
 		return (i << 1) + 1;
 	}
 
-	public function right(i:Int) {
+	public inline function right(i:Int) {
 		return (i << 1) + 2;
 	}
 
-	public function parent(i:Int) {
+	public inline function parent(i:Int) {
 		return (i - 1) >> 1;
 	}
 
-	public function minimum() {
-		if (storage.length == 0) {
-			return null;
-		}
-
+	public inline function minimum() {
 		return storage[0];
 	}
 
 	function findFrom(i:Int, event:ScheduledEvent) {
+		if (i >= storage.length) {
+			return false;
+		}
 		final currentEvent = storage[i];
 		if (currentEvent == null || currentEvent.runTime > event.runTime) {
 			return false;
@@ -132,21 +131,17 @@ private class MinimumHeap {
 	}
 
 	public function extract() {
-		if (storage.length == 0) {
-			return null;
+		return switch (storage.length) {
+			case 0:
+				null;
+			case 1:
+				storage.pop();
+			case _:
+				final root = minimum();
+				storage[0] = storage.pop();
+				heapify(0);
+				root;
 		}
-
-		if (storage.length == 1) {
-			return storage.pop();
-		}
-
-		final root = minimum();
-		storage[0] = storage[storage.length - 1];
-		storage.pop();
-
-		heapify(0);
-
-		return root;
 	}
 
 	inline function swap(fst:Int, snd:Int) {
