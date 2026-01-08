@@ -1,5 +1,6 @@
 package hxcoro.task;
 
+import hxcoro.components.NonCancellable;
 import hxcoro.task.CoroTask;
 import hxcoro.task.node.INodeStrategy;
 import hxcoro.task.ICoroTask;
@@ -89,9 +90,15 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 		Creates a new task using the provided `context`.
 	**/
 	public function new(context:Context, nodeStrategy:INodeStrategy, initialState:TaskState) {
-		super(context.get(CoroTask), initialState);
+		final parent = context.get(CoroTask);
+		super(parent, initialState);
 		initialContext = context;
 		this.nodeStrategy = nodeStrategy;
+
+		// If our parent is already cancelling, we probably want to cancel too
+		if (parent != null && parent.state == Cancelling) {
+			cancel();
+		}
 	}
 
 	inline function get_context() {
@@ -182,6 +189,13 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 				awaitingContinuations.push(cont);
 				start();
 		}
+	}
+
+	override function cancel(?cause:CancellationException) {
+		if (context.get(NonCancellable) != null || localContext.get(NonCancellable) != null) {
+			return;
+		}
+		super.cancel(cause);
 	}
 
 	public function onCompletion(callback:(result:T, error:Exception)->Void) {
