@@ -21,11 +21,11 @@ class CoroTask<T> extends CoroBaseTask<T> implements IContinuation<T> {
 	var wasResumed:Bool;
 
 	public function new(context:Context, nodeStrategy:INodeStrategy, initialState:TaskState = Running) {
-		super(context, nodeStrategy, initialState);
 		// If we never start we can consider the task resumed for checkCompletion
 		if (initialState == Created) {
 			wasResumed = true;
 		}
+		super(context, nodeStrategy, initialState);
 	}
 
 	public function doStart() {
