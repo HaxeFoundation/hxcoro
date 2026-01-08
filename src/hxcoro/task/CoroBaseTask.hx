@@ -42,6 +42,10 @@ private class CoroTaskWith<T> implements ICoroNodeWith {
 	public function with(...elements:IElement<Any>) {
 		return task.with(...elements);
 	}
+
+	public function without(...keys:Key<Any>) {
+		return task.without(...keys);
+	}
 }
 
 private class CoroKeys {
@@ -103,7 +107,7 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 
 	inline function get_context() {
 		if (context == null) {
-			context = initialContext.clone().with(this).add(CancellationToken, this);
+			context = initialContext.clone().with(this).set(CancellationToken, this);
 		}
 		return context;
 	}
@@ -164,10 +168,17 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 	}
 
 	/**
-		Returns a copy of this tasks `Context` with `elements` added, which can be used to start child tasks.
+		Returns a copy of this tasks' `Context` with `elements` added, which can be used to start child tasks.
 	**/
 	public function with(...elements:IElement<Any>) {
 		return new CoroTaskWith(context.clone().with(...elements), this);
+	}
+
+	/**
+		Returns a copy of this tasks' `Context` where all `keys` are unset, which can be used to start child tasks.
+	**/
+	public function without(...keys:Key<Any>) {
+		return new CoroTaskWith(context.clone().without(...keys), this);
 	}
 
 	/**
@@ -216,7 +227,7 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 			return;
 		}
 		startChildren();
-		Coro.suspend(cont -> localContext.add(CoroKeys.awaitingChildContinuation, cont));
+		Coro.suspend(cont -> localContext.set(CoroKeys.awaitingChildContinuation, cont));
 	}
 
 	/**
