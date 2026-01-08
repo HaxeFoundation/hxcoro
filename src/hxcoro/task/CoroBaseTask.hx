@@ -75,8 +75,12 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 	**/
 	public var context(get, null):Context;
 
+	/**
+		This task's mutable local `Context`.
+	**/
+	public var localContext(get, null):Null<AdjustableContext>;
+
 	final nodeStrategy:INodeStrategy;
-	var coroLocalContext:Null<AdjustableContext>;
 	var initialContext:Context;
 	var result:Null<T>;
 	var awaitingContinuations:Null<Array<IContinuation<T>>>;
@@ -97,6 +101,13 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 		return context;
 	}
 
+	inline function get_localContext() {
+		if (localContext == null) {
+			localContext = Context.create();
+		}
+		return localContext;
+	}
+
 	/**
 		Returns this task's value, if any.
 	**/
@@ -106,17 +117,6 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 
 	public function getKey() {
 		return CoroTask.key;
-	}
-
-	public function getLocalElement<T>(key:Key<T>):Null<T> {
-		return coroLocalContext?.get(key);
-	}
-
-	public function setLocalElement<T>(key:Key<T>, element:T) {
-		if (coroLocalContext == null) {
-			coroLocalContext = Context.create();
-		}
-		coroLocalContext.add(key, element);
 	}
 
 	/**
@@ -198,11 +198,11 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 
 	@:coroutine public function awaitChildren() {
 		if (allChildrenCompleted) {
-			getLocalElement(CoroKeys.awaitingChildContinuation)?.callSync();
+			localContext.get(CoroKeys.awaitingChildContinuation)?.callSync();
 			return;
 		}
 		startChildren();
-		Coro.suspend(cont -> setLocalElement(CoroKeys.awaitingChildContinuation, cont));
+		Coro.suspend(cont -> localContext.add(CoroKeys.awaitingChildContinuation, cont));
 	}
 
 	/**
@@ -232,7 +232,7 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 	}
 
 	function childrenCompleted() {
-		getLocalElement(CoroKeys.awaitingChildContinuation)?.callSync();
+		localContext.get(CoroKeys.awaitingChildContinuation)?.callSync();
 	}
 
 	// strategy dispatcher
