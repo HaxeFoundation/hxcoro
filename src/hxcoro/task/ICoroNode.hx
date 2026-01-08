@@ -2,6 +2,7 @@ package hxcoro.task;
 
 import haxe.exceptions.CancellationException;
 import haxe.coro.context.Context;
+import haxe.coro.context.Key;
 import haxe.coro.context.IElement;
 import hxcoro.task.ICoroTask;
 
@@ -10,6 +11,7 @@ interface ICoroNodeWith {
 	function async<T>(lambda:NodeLambda<T>):ICoroTask<T>;
 	function lazy<T>(lambda:NodeLambda<T>):IStartableCoroTask<T>;
 	function with(...elements:IElement<Any>):ICoroNodeWith;
+	function without(...keys:Key<Any>):ICoroNodeWith;
 }
 
 interface ICoroNode extends ICoroNodeWith extends ILocalContext {
