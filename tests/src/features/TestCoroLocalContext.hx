@@ -11,7 +11,7 @@ class TestCoroLocalContext extends utest.Test {
 		function visit(node:ILocalContext) {
 			final element = node.localContext.get(stackKey);
 			if (element == null) {
-				node.localContext.set(stackKey, ["first time"]);
+				node.localContext.add(stackKey, ["first time"]);
 				return;
 			}
 			if (element.length == 1) {

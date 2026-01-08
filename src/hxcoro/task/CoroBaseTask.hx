@@ -96,7 +96,7 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 
 	inline function get_context() {
 		if (context == null) {
-			context = initialContext.clone().with(this).set(CancellationToken, this);
+			context = initialContext.clone().with(this).add(CancellationToken, this);
 		}
 		return context;
 	}
@@ -202,7 +202,7 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 			return;
 		}
 		startChildren();
-		Coro.suspend(cont -> localContext.set(CoroKeys.awaitingChildContinuation, cont));
+		Coro.suspend(cont -> localContext.add(CoroKeys.awaitingChildContinuation, cont));
 	}
 
 	/**
