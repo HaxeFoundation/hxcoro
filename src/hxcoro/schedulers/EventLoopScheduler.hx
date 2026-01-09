@@ -239,7 +239,7 @@ class EventLoopScheduler extends Scheduler {
 
 		futureMutex  = new Mutex();
 		heap         = new MinimumHeap();
-		#if target.threaded
+		#if (target.threaded && !eval)
 		this.dispatcher = dispatcher ?? new ThreadPoolDispatcher(new FixedThreadPool(1));
 		#else
 		this.dispatcher = dispatcher ?? new ImmediateDispatcher();
