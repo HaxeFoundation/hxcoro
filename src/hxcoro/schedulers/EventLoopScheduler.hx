@@ -1,5 +1,9 @@
 package hxcoro.schedulers;
 
+#if target.threaded
+import hxcoro.thread.FixedThreadPool;
+import hxcoro.thread.IThreadPool;
+#end
 import haxe.ds.Vector;
 import haxe.exceptions.NotImplementedException;
 import haxe.Timer;
@@ -39,6 +43,17 @@ private class ScheduledEvent implements ISchedulerHandle implements IScheduleObj
 			this.childEvents = null;
 			for (childEvent in childEvents) {
 				childEvent.onSchedule();
+			}
+		}
+	}
+
+	public function iterateEvents(f:IScheduleObject->Void) {
+		final childEvents = childEvents;
+		this.childEvents = null;
+		f(this);
+		if (childEvents != null) {
+			for (childEvent in childEvents) {
+				f(childEvent);
 			}
 		}
 	}
@@ -188,15 +203,47 @@ private class MinimumHeap {
 	}
 }
 
+interface IDispatcher {
+	function dispatch(obj:IScheduleObject):Void;
+}
+
+class ImmediateDispatcher implements IDispatcher {
+	public function new() {}
+
+	public function dispatch(obj:IScheduleObject) {
+		obj.onSchedule();
+	}
+}
+
+#if target.threaded
+class ThreadPoolDispatcher implements IDispatcher {
+	final pool : IThreadPool;
+
+	public function new(pool:IThreadPool) {
+		this.pool = pool;
+	}
+
+	public function dispatch(obj:IScheduleObject) {
+		pool.run(obj.onSchedule);
+	}
+}
+#end
+
 class EventLoopScheduler extends Scheduler {
 	final futureMutex : Mutex;
 	final heap : MinimumHeap;
+	final dispatcher : IDispatcher;
 
-	public function new() {
+	public function new(?dispatcher:IDispatcher) {
 		super();
 
 		futureMutex  = new Mutex();
 		heap         = new MinimumHeap();
+		#if target.threaded
+		this.dispatcher = dispatcher ?? new ThreadPoolDispatcher(new FixedThreadPool(1));
+		#else
+		this.dispatcher = dispatcher ?? new ImmediateDispatcher();
+		#end
 	}
 
 	public function hasEvents() {
@@ -250,13 +297,20 @@ class EventLoopScheduler extends Scheduler {
 			final toRun = heap.extract();
 			futureMutex.release();
 
-			toRun.onSchedule();
+			toRun.iterateEvents(dispatch);
 		}
 
+		#if eval
+		eval.vm.NativeThread.yield();
+		#end
 		futureMutex.release();
 	}
 
 	public function toString() {
 		return '[EventLoopScheduler]';
+	}
+
+	function dispatch(obj:IScheduleObject) {
+		dispatcher.dispatch(obj);
 	}
 }

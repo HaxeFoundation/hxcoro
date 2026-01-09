@@ -1,5 +1,6 @@
 package hxcoro.schedulers;
 
+import hxcoro.schedulers.EventLoopScheduler;
 import haxe.Int64;
 import haxe.exceptions.ArgumentException;
 
@@ -7,7 +8,7 @@ class VirtualTimeScheduler extends EventLoopScheduler {
 	var currentTime : Int64;
 
 	public function new() {
-		super();
+		super(new ImmediateDispatcher());
 
 		currentTime = 0i64;
 	}

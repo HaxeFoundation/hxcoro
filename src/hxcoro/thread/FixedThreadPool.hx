@@ -5,6 +5,11 @@ package hxcoro.thread;
 #end
 
 import haxe.Exception;
+import sys.thread.Thread;
+import sys.thread.Mutex;
+import sys.thread.Deque;
+
+typedef ThreadPoolException = haxe.Exception; // TODO: this class is missing
 
 /**
 	Thread pool with a constant amount of threads.
