@@ -31,10 +31,6 @@ class Coro {
 		return cast safe;
 	}
 
-	static function cancellationRequested(cont:IContinuation<Any>) {
-		return cont.context.get(CancellationToken)?.isCancellationRequested();
-	}
-
 	static function delayImpl<T>(ms:Int, cont:ICancellableContinuation<T>) {
 		final handle = cont.context.get(Scheduler).schedule(ms, () -> {
 			cont.callSync();
