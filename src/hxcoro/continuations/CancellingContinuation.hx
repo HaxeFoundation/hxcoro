@@ -57,24 +57,20 @@ class CancellingContinuation<T> extends SuspensionResult<T> implements ICancella
 	}
 
 	public function resume(result:T, error:Exception) {
-		if (resumeState.compareExchange(Active, Resumed) == Active) {
+		this.result = result;
+		this.error  = error;
 
-			this.result = result;
-			this.error = error;
-
+		if (resumeState.compareExchange(Active, Resumed) != Active) {
 			handle.close();
 			context.get(Scheduler).scheduleObject(this);
-		} else {
-			cont.failAsync(error.orCancellationException());
 		}
-
 	}
 
 	public function onCancellation(cause:CancellationException) {
 		handle?.close();
 
 		if (resumeState.compareExchange(Active, Resumed) == Active) {
-			error = cause;
+			this.error = error.orCancellationException();
 
 			if (null != onCancellationRequested) {
 				onCancellationRequested(cause);
@@ -84,17 +80,20 @@ class CancellingContinuation<T> extends SuspensionResult<T> implements ICancella
 		}
 	}
 
-	// public function resolve():Void {
-	// 	if (resumeState.compareExchange(Active, Resolved) == Active) {
-	// 		state = Pending;
-	// 	} else {
-	// 		if (error != null) {
-	// 			state = Thrown;
-	// 		} else {
-	// 			state = Returned;
-	// 		}
-	// 	}
-	// }
+	public function resolve():Void {
+		if (resumeState.compareExchange(Active, Resolved) == Active) {
+			trace('pending');
+			state = Pending;
+		} else {
+			if (error != null) {
+				trace('thrown');
+				state = Thrown;
+			} else {
+				trace('returned');
+				state = Returned;
+			}
+		}
+	}
 
 	public function onSchedule() {
 		cont.resume(result, error);

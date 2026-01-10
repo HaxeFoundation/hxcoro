@@ -28,7 +28,7 @@ class Coro {
 	@:coroutine @:coroutine.transformed public static function suspendCancellable<T>(completion:IContinuation<T>, func:ICancellableContinuation<T>->Void):T {
 		var safe = new CancellingContinuation(completion);
 		func(safe);
-		// safe.resolve();
+		safe.resolve();
 		return cast safe;
 	}
 
