@@ -16,7 +16,7 @@ import haxe.coro.cancellation.ICancellationCallback;
 private enum abstract State(Int) to Int {
 	var Active;
 	var Resumed;
-	var Cancelled;
+	var Resolved;
 }
 
 class CancellingContinuation<T> extends SuspensionResult<T> implements ICancellableContinuation<T> implements ICancellationCallback implements IScheduleObject {
@@ -57,9 +57,11 @@ class CancellingContinuation<T> extends SuspensionResult<T> implements ICancella
 	}
 
 	public function resume(result:T, error:Exception) {
-		this.result = result;
-		this.error = error;
 		if (resumeState.compareExchange(Active, Resumed) == Active) {
+
+			this.result = result;
+			this.error = error;
+
 			handle.close();
 			context.get(Scheduler).scheduleObject(this);
 		} else {
@@ -71,14 +73,28 @@ class CancellingContinuation<T> extends SuspensionResult<T> implements ICancella
 	public function onCancellation(cause:CancellationException) {
 		handle?.close();
 
-		if (resumeState.compareExchange(Active, Cancelled) == Active) {
+		if (resumeState.compareExchange(Active, Resumed) == Active) {
+			error = cause;
+
 			if (null != onCancellationRequested) {
 				onCancellationRequested(cause);
 			}
 
-			cont.failAsync(cause);
+			context.get(Scheduler).scheduleObject(this);
 		}
 	}
+
+	// public function resolve():Void {
+	// 	if (resumeState.compareExchange(Active, Resolved) == Active) {
+	// 		state = Pending;
+	// 	} else {
+	// 		if (error != null) {
+	// 			state = Thrown;
+	// 		} else {
+	// 			state = Returned;
+	// 		}
+	// 	}
+	// }
 
 	public function onSchedule() {
 		cont.resume(result, error);

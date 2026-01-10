@@ -1,10 +1,10 @@
 package hxcoro;
 
+import hxcoro.continuations.RacingContinuation;
 import hxcoro.continuations.CancellingContinuation;
 import haxe.coro.IContinuation;
 import haxe.coro.ICancellableContinuation;
 import haxe.coro.schedulers.Scheduler;
-import haxe.coro.cancellation.CancellationToken;
 import haxe.exceptions.ArgumentException;
 import hxcoro.task.NodeLambda;
 import hxcoro.task.CoroTask;
@@ -14,7 +14,7 @@ import hxcoro.continuations.TimeoutContinuation;
 class Coro {
 	@:coroutine @:coroutine.transformed
 	public static function suspend<T>(completion:IContinuation<T>, func:IContinuation<T>->Void):T {
-		var safe = new hxcoro.continuations.RacingContinuation(completion);
+		var safe = new RacingContinuation(completion);
 		func(safe);
 		safe.resolve();
 		return cast safe;
@@ -28,6 +28,7 @@ class Coro {
 	@:coroutine @:coroutine.transformed public static function suspendCancellable<T>(completion:IContinuation<T>, func:ICancellableContinuation<T>->Void):T {
 		var safe = new CancellingContinuation(completion);
 		func(safe);
+		// safe.resolve();
 		return cast safe;
 	}
 
