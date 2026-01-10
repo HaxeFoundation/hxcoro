@@ -1,14 +1,11 @@
 package hxcoro.schedulers;
 
-#if target.threaded
-import hxcoro.thread.FixedThreadPool;
-import hxcoro.thread.IThreadPool;
-#end
 import haxe.ds.Vector;
-import haxe.exceptions.NotImplementedException;
 import haxe.Timer;
 import haxe.Int64;
 import haxe.coro.Mutex;
+import hxcoro.dispatchers.IDispatcher;
+import hxcoro.dispatchers.SelfDispatcher;
 import haxe.coro.schedulers.Scheduler;
 import haxe.coro.schedulers.IScheduleObject;
 import haxe.coro.schedulers.ISchedulerHandle;
@@ -203,32 +200,6 @@ private class MinimumHeap {
 	}
 }
 
-interface IDispatcher {
-	function dispatch(obj:IScheduleObject):Void;
-}
-
-class ImmediateDispatcher implements IDispatcher {
-	public function new() {}
-
-	public function dispatch(obj:IScheduleObject) {
-		obj.onSchedule();
-	}
-}
-
-#if target.threaded
-class ThreadPoolDispatcher implements IDispatcher {
-	final pool : IThreadPool;
-
-	public function new(pool:IThreadPool) {
-		this.pool = pool;
-	}
-
-	public function dispatch(obj:IScheduleObject) {
-		pool.run(obj.onSchedule);
-	}
-}
-#end
-
 class EventLoopScheduler extends Scheduler {
 	final futureMutex : Mutex;
 	final heap : MinimumHeap;
@@ -239,10 +210,10 @@ class EventLoopScheduler extends Scheduler {
 
 		futureMutex  = new Mutex();
 		heap         = new MinimumHeap();
-		#if (target.threaded && !eval)
-		this.dispatcher = dispatcher ?? new ThreadPoolDispatcher(new FixedThreadPool(1));
+		#if (target.threaded && !eval && !python)
+		this.dispatcher = dispatcher ?? new hxcoro.dispatchers.ThreadPoolDispatcher(new hxcoro.thread.FixedThreadPool(1));
 		#else
-		this.dispatcher = dispatcher ?? new ImmediateDispatcher();
+		this.dispatcher = dispatcher ?? new SelfDispatcher();
 		#end
 	}
 
@@ -300,9 +271,6 @@ class EventLoopScheduler extends Scheduler {
 			toRun.iterateEvents(dispatch);
 		}
 
-		#if eval
-		eval.vm.NativeThread.yield();
-		#end
 		futureMutex.release();
 	}
 
