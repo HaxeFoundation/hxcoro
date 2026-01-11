@@ -1,7 +1,6 @@
 package hxcoro.schedulers;
 
 import hxcoro.dispatchers.SelfDispatcher;
-import hxcoro.schedulers.EventLoopScheduler;
 import haxe.Int64;
 import haxe.exceptions.ArgumentException;
 

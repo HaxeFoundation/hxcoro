@@ -210,11 +210,7 @@ class EventLoopScheduler extends Scheduler {
 
 		futureMutex  = new Mutex();
 		heap         = new MinimumHeap();
-		#if (target.threaded && !eval && !python)
-		this.dispatcher = dispatcher ?? new hxcoro.dispatchers.ThreadPoolDispatcher(new hxcoro.thread.FixedThreadPool(1));
-		#else
 		this.dispatcher = dispatcher ?? new SelfDispatcher();
-		#end
 	}
 
 	public function hasEvents() {
