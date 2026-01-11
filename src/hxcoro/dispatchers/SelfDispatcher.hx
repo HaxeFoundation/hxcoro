@@ -17,4 +17,9 @@ class SelfDispatcher implements IDispatcher {
 	public function dispatch(obj:IScheduleObject) {
 		obj.onSchedule();
 	}
+
+	/**
+		@see `IDispatcher.shutdown
+	**/
+	public function shutdown() {}
 }

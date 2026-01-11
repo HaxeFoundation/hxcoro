@@ -26,4 +26,11 @@ class ThreadPoolDispatcher implements IDispatcher {
 	public function dispatch(obj:IScheduleObject) {
 		pool.run(obj);
 	}
+
+	/**
+		@see `IDispatcher.shutdown
+	**/
+	public function shutdown() {
+		pool.shutdown();
+	}
 }

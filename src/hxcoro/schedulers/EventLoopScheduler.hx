@@ -270,6 +270,10 @@ class EventLoopScheduler extends Scheduler {
 		futureMutex.release();
 	}
 
+	public function shutdown() {
+		dispatcher.shutdown();
+	}
+
 	public function toString() {
 		return '[EventLoopScheduler]';
 	}
