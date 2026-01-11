@@ -10,6 +10,7 @@ import sys.thread.Thread;
 import sys.thread.Mutex;
 import sys.thread.Deque;
 import sys.thread.Lock;
+import haxe.coro.schedulers.IScheduleObject;
 
 /**
 	Thread pool with a varying amount of threads.
@@ -27,7 +28,7 @@ class ElasticThreadPool implements IThreadPool {
 	function get_isShutdown():Bool return _isShutdown;
 
 	final pool:Array<Worker> = [];
-	final queue = new Deque<()->Void>();
+	final queue = new Deque<IScheduleObject>();
 	final mutex = new Mutex();
 	final threadTimeout:Float;
 
@@ -47,10 +48,10 @@ class ElasticThreadPool implements IThreadPool {
 		Submit a task to run in a thread.
 		Throws an exception if the pool is shut down.
 	**/
-	public function run(task:()->Void):Void {
+	public function run(obj:IScheduleObject):Void {
 		if(_isShutdown)
 			throw new ThreadPoolException('Task is rejected. Thread pool is shut down.');
-		if(task == null)
+		if(obj == null)
 			throw new ThreadPoolException('Task to run must not be null.');
 
 		mutex.acquire();
@@ -62,19 +63,19 @@ class ElasticThreadPool implements IThreadPool {
 			}
 			if(worker.task == null) {
 				submitted = true;
-				worker.wakeup(task);
+				worker.wakeup(obj);
 				break;
 			}
 		}
 		if(!submitted) {
 			if(deadWorker != null) {
-				deadWorker.wakeup(task);
+				deadWorker.wakeup(obj);
 			} else if(pool.length < maxThreadsCount) {
 				var worker = new Worker(queue, threadTimeout);
 				pool.push(worker);
-				worker.wakeup(task);
+				worker.wakeup(obj);
 			} else {
-				queue.add(task);
+				queue.add(obj);
 			}
 		}
 		mutex.release();
@@ -106,23 +107,23 @@ class ElasticThreadPool implements IThreadPool {
 }
 
 private class Worker {
-	public var task(default,null):Null<()->Void>;
+	public var task(default,null):Null<IScheduleObject>;
 	public var dead(default,null) = false;
 
 	final deathMutex = new Mutex();
 	final waiter = new Lock();
-	final queue:Deque<()->Void>;
+	final queue:Deque<IScheduleObject>;
 	final timeout:Float;
 	var thread:Thread;
 	var isShutdown = false;
 
-	public function new(queue:Deque<()->Void>, timeout:Float) {
+	public function new(queue:Deque<IScheduleObject>, timeout:Float) {
 		this.queue = queue;
 		this.timeout = timeout;
 		start();
 	}
 
-	public function wakeup(task:()->Void) {
+	public function wakeup(task:IScheduleObject) {
 		deathMutex.acquire();
 		if(dead)
 			start();
@@ -148,13 +149,13 @@ private class Worker {
 					case null:
 						if(isShutdown)
 							break;
-					case fn:
-						fn();
+					case obj:
+						obj.onSchedule();
 						//if more tasks were added while all threads were busy
 						while(true) {
 							switch queue.pop(false) {
 								case null: break;
-								case fn: fn();
+								case obj: obj.onSchedule();
 							}
 						}
 						task = null;
