@@ -1,10 +1,11 @@
 package hxcoro.schedulers;
 
 import haxe.ds.Vector;
-import haxe.exceptions.NotImplementedException;
 import haxe.Timer;
 import haxe.Int64;
 import haxe.coro.Mutex;
+import hxcoro.dispatchers.IDispatcher;
+import hxcoro.dispatchers.SelfDispatcher;
 import haxe.coro.schedulers.Scheduler;
 import haxe.coro.schedulers.IScheduleObject;
 import haxe.coro.schedulers.ISchedulerHandle;
@@ -39,6 +40,17 @@ private class ScheduledEvent implements ISchedulerHandle implements IScheduleObj
 			this.childEvents = null;
 			for (childEvent in childEvents) {
 				childEvent.onSchedule();
+			}
+		}
+	}
+
+	public function iterateEvents(f:IScheduleObject->Void) {
+		final childEvents = childEvents;
+		this.childEvents = null;
+		f(this);
+		if (childEvents != null) {
+			for (childEvent in childEvents) {
+				f(childEvent);
 			}
 		}
 	}
@@ -191,12 +203,14 @@ private class MinimumHeap {
 class EventLoopScheduler extends Scheduler {
 	final futureMutex : Mutex;
 	final heap : MinimumHeap;
+	final dispatcher : IDispatcher;
 
-	public function new() {
+	public function new(?dispatcher:IDispatcher) {
 		super();
 
 		futureMutex  = new Mutex();
 		heap         = new MinimumHeap();
+		this.dispatcher = dispatcher ?? new SelfDispatcher();
 	}
 
 	public function hasEvents() {
@@ -250,7 +264,7 @@ class EventLoopScheduler extends Scheduler {
 			final toRun = heap.extract();
 			futureMutex.release();
 
-			toRun.onSchedule();
+			toRun.iterateEvents(dispatch);
 		}
 
 		futureMutex.release();
@@ -258,5 +272,9 @@ class EventLoopScheduler extends Scheduler {
 
 	public function toString() {
 		return '[EventLoopScheduler]';
+	}
+
+	function dispatch(obj:IScheduleObject) {
+		dispatcher.dispatch(obj);
 	}
 }
