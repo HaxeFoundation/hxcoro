@@ -4,12 +4,9 @@ package hxcoro.thread;
 #error "This class is not available on this target"
 #end
 
-import haxe.Exception;
 import sys.thread.Thread;
 import sys.thread.Mutex;
 import sys.thread.Deque;
-
-typedef ThreadPoolException = haxe.Exception; // TODO: this class is missing
 
 /**
 	Thread pool with a constant amount of threads.
@@ -70,7 +67,7 @@ class FixedThreadPool implements IThreadPool {
 	}
 }
 
-private class ShutdownException extends Exception {}
+private class ShutdownException extends ThreadPoolException {}
 
 private class Worker {
 	var thread:Thread;

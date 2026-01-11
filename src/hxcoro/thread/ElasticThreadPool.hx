@@ -4,14 +4,18 @@ package hxcoro.thread;
 #error "This class is not available on this target"
 #end
 
-import haxe.Exception;
+#error "This class doesn't work properly at the moment"
+
+import sys.thread.Thread;
+import sys.thread.Mutex;
+import sys.thread.Deque;
+import sys.thread.Lock;
 
 /**
 	Thread pool with a varying amount of threads.
 	A new thread is spawned every time a task is submitted while all existing
 	threads are busy.
 **/
-@:coreApi
 class ElasticThreadPool implements IThreadPool {
 	/* Amount of alive threads in this pool. */
 	public var threadsCount(get,null):Int;
