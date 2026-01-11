@@ -61,11 +61,7 @@ class CoroRun {
 		scope.runNodeLambda(lambda);
 		while (scope.isActive()) {
 			schedulerComponent.run();
-			#if eval
-			eval.vm.NativeThread.yield();
-			#end
 		}
-		schedulerComponent.shutdown();
 		switch (scope.getError()) {
 			case null:
 				return scope.get();

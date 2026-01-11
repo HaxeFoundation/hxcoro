@@ -10,9 +10,4 @@ interface IDispatcher {
 		Dispatches `obj` to be executed.
 	**/
 	function dispatch(obj:IScheduleObject):Void;
-
-	/**
-		Shuts down the dispatcher. All already dispatched events finish executing.
-	**/
-	function shutdown():Void;
 }
