@@ -1,21 +1,19 @@
 package hxcoro.thread;
 
+import haxe.coro.schedulers.IScheduleObject;
 #if (!target.threaded)
 #error "This class is not available on this target"
 #end
 
-import haxe.Exception;
 import sys.thread.Thread;
 import sys.thread.Mutex;
 import sys.thread.Deque;
-
-typedef ThreadPoolException = haxe.Exception; // TODO: this class is missing
 
 /**
 	Thread pool with a constant amount of threads.
 	Threads in the pool will exist until the pool is explicitly shut down.
 **/
-class FixedThreadPool implements IThreadPool {
+class FixedThreadPool implements IThreadPool implements IScheduleObject {
 	/* Amount of threads in this pool. */
 	public var threadsCount(get,null):Int;
 	function get_threadsCount():Int return threadsCount;
@@ -27,7 +25,7 @@ class FixedThreadPool implements IThreadPool {
 
 	final pool:Array<Worker>;
 	final poolMutex = new Mutex();
-	final queue = new Deque<()->Void>();
+	final queue = new Deque<IScheduleObject>();
 
 	/**
 		Create a new thread pool with `threadsCount` threads.
@@ -43,12 +41,12 @@ class FixedThreadPool implements IThreadPool {
 		Submit a task to run in a thread.
 		Throws an exception if the pool is shut down.
 	**/
-	public function run(task:()->Void):Void {
+	public function run(obj:IScheduleObject):Void {
 		if(_isShutdown)
 			throw new ThreadPoolException('Task is rejected. Thread pool is shut down.');
-		if(task == null)
+		if(obj == null)
 			throw new ThreadPoolException('Task to run must not be null.');
-		queue.add(task);
+		queue.add(obj);
 	}
 
 	/**
@@ -61,22 +59,22 @@ class FixedThreadPool implements IThreadPool {
 		if(_isShutdown) return;
 		_isShutdown = true;
 		for(_ in pool) {
-			queue.add(shutdownTask);
+			queue.add(this);
 		}
 	}
 
-	static function shutdownTask():Void {
+	public function onSchedule():Void {
 		throw new ShutdownException('');
 	}
 }
 
-private class ShutdownException extends Exception {}
+private class ShutdownException extends ThreadPoolException {}
 
 private class Worker {
 	var thread:Thread;
-	final queue:Deque<Null<()->Void>>;
+	final queue:Deque<Null<IScheduleObject>>;
 
-	public function new(queue:Deque<Null<()->Void>>) {
+	public function new(queue:Deque<Null<IScheduleObject>>) {
 		this.queue = queue;
 		thread = Thread.create(loop);
 	}
@@ -85,7 +83,7 @@ private class Worker {
 		try {
 			while(true) {
 				var task = queue.pop(true);
-				task();
+				task.onSchedule();
 			}
 		} catch(_:ShutdownException) {
 		} catch(e) {

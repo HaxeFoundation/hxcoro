@@ -24,6 +24,6 @@ class ThreadPoolDispatcher implements IDispatcher {
 		@see `IDispatcher.dispatch`
 	**/
 	public function dispatch(obj:IScheduleObject) {
-		pool.run(obj.onSchedule);
+		pool.run(obj);
 	}
 }
