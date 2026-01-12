@@ -66,10 +66,16 @@ class CoroRun {
 		final scope = new CoroTask(context.clone().with(schedulerComponent), CoroTask.CoroScopeStrategy);
 		scope.runNodeLambda(lambda);
 
+		var isActive = true;
 		do {
-			schedulerComponent.run();
-		} while (loop.run(NOWAIT) || scope.isActive());
+			isActive = scope.isActive();
+			if (!isActive && !schedulerComponent.isShutdown) {
+				schedulerComponent.shutdown();
+			}
+		} while (loop.run(NOWAIT) || isActive);
+
 		pool.shutdown();
+		loop.close();
 
 		switch (scope.getError()) {
 			case null:

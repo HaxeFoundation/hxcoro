@@ -1,8 +1,8 @@
 package hxcoro.schedulers;
 
+import eval.luv.Async;
 import haxe.atomic.AtomicInt;
 import sys.thread.Deque;
-import sys.thread.Thread;
 import hxcoro.dispatchers.SelfDispatcher;
 import hxcoro.dispatchers.IDispatcher;
 import haxe.Int64;
@@ -11,6 +11,30 @@ import haxe.coro.schedulers.IScheduleObject;
 import haxe.coro.schedulers.ISchedulerHandle;
 import eval.luv.Timer;
 import eval.luv.Loop;
+
+class AsyncDeque<T> {
+	final deque:Deque<T>;
+	var async:Null<Async>;
+
+	public function new(loop:Loop, f:Async -> Void) {
+		this.deque = new Deque<T>();
+		this.async = Async.init(loop, f).resolve();
+	}
+
+	public function add(x:T) {
+		deque.add(x);
+		async.send();
+	}
+
+	public function pop(block:Bool) {
+		return deque.pop(block);
+	}
+
+	public function close() {
+		async.send();
+		async.close(() -> {});
+	}
+}
 
 private enum abstract LuvTimerEventState(Int) to Int {
 	final Created;
@@ -22,12 +46,12 @@ private enum abstract LuvTimerEventState(Int) to Int {
 private class LuvTimerEvent implements ISchedulerHandle {
 	final dispatcher:IDispatcher;
 	final delayMs:Int64;
-	final closeQueue:Deque<LuvTimerEvent>;
+	final closeQueue:AsyncDeque<LuvTimerEvent>;
 	final obj:IScheduleObject;
 	var timer:Null<Timer>;
 	var state:AtomicInt;
 
-	public function new(dispatcher:IDispatcher, closeQueue:Deque<LuvTimerEvent>, ms:Int64, obj:IScheduleObject) {
+	public function new(dispatcher:IDispatcher, closeQueue:AsyncDeque<LuvTimerEvent>, ms:Int64, obj:IScheduleObject) {
 		this.dispatcher = dispatcher;
 		this.delayMs = ms;
 		this.closeQueue = closeQueue;
@@ -89,7 +113,7 @@ private class LuvTimerEvent implements ISchedulerHandle {
 private class LuvTimerEventFunction extends LuvTimerEvent implements IScheduleObject {
 	final func:() -> Void;
 
-	public function new(dispatcher:IDispatcher, closeQueue:Deque<LuvTimerEvent>, ms:Int64, func:() -> Void) {
+	public function new(dispatcher:IDispatcher, closeQueue:AsyncDeque<LuvTimerEvent>, ms:Int64, func:() -> Void) {
 		super(dispatcher, closeQueue, ms, this);
 		this.func = func;
 	}
@@ -103,22 +127,23 @@ private class LuvTimerEventFunction extends LuvTimerEvent implements IScheduleOb
 	A scheduler for a libuv loop.
 **/
 class LuvScheduler extends Scheduler {
+	public var isShutdown(default, null):Bool;
+
 	final loop:Loop;
 	final dispatcher:IDispatcher;
-	final loopThread:Thread;
-	final eventQueue:Deque<LuvTimerEvent>;
-	final closeQueue:Deque<LuvTimerEvent>;
+	final eventQueue:AsyncDeque<LuvTimerEvent>;
+	final closeQueue:AsyncDeque<LuvTimerEvent>;
 
 	/**
 		Creates a new `LuvScheduler` instance.
 	**/
 	public function new(loop:Loop, ?dispatcher:IDispatcher) {
 		super();
+		isShutdown = false;
 		this.loop = loop;
 		this.dispatcher = dispatcher ?? new SelfDispatcher();
-		loopThread = Thread.current();
-		eventQueue = new Deque();
-		closeQueue = new Deque();
+		eventQueue = new AsyncDeque(loop, loopEvents);
+		closeQueue = new AsyncDeque(loop, loopCloses);
 	}
 
 	@:inheritDoc
@@ -139,15 +164,32 @@ class LuvScheduler extends Scheduler {
 		return loop.now().toInt64();
 	}
 
-	public function run() {
-		var event = eventQueue.pop(false);
-		if (event != null) {
+	function loopEvents(_:Async) {
+		do {
+			final event = eventQueue.pop(false);
+			if (event == null) {
+				break;
+			}
 			event.start(loop);
-		}
+		} while(true);
+	}
 
-		// close all timers from the close-queue because we want to cancel promptly
-		while ((event = closeQueue.pop(false)) != null) {
+	function loopCloses(_:Async) {
+		do {
+			final event = closeQueue.pop(false);
+			if (event == null) {
+				break;
+			}
 			event.stop();
+		} while (true);
+	}
+
+	public function shutdown() {
+		if (isShutdown) {
+			return;
 		}
+		isShutdown = true;
+		eventQueue.close();
+		closeQueue.close();
 	}
 }
