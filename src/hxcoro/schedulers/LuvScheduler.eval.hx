@@ -1,5 +1,6 @@
 package hxcoro.schedulers;
 
+import haxe.atomic.AtomicInt;
 import sys.thread.Deque;
 import sys.thread.Thread;
 import hxcoro.dispatchers.SelfDispatcher;
@@ -11,26 +12,34 @@ import haxe.coro.schedulers.ISchedulerHandle;
 import eval.luv.Timer;
 import eval.luv.Loop;
 
+private enum abstract LuvTimerEventState(Int) to Int {
+	final Created;
+	final Started;
+	final Cancelled;
+	final Stopped;
+}
+
 private class LuvTimerEvent implements ISchedulerHandle {
 	final dispatcher:IDispatcher;
 	final delayMs:Int64;
 	final closeQueue:Deque<LuvTimerEvent>;
 	final obj:IScheduleObject;
-	var closed:Bool;
 	var timer:Null<Timer>;
+	var state:AtomicInt;
 
 	public function new(dispatcher:IDispatcher, closeQueue:Deque<LuvTimerEvent>, ms:Int64, obj:IScheduleObject) {
 		this.dispatcher = dispatcher;
 		this.delayMs = ms;
 		this.closeQueue = closeQueue;
 		this.obj = obj;
-		closed = false;
+		state = new AtomicInt(Created);
 	}
 
 	// only from loop thread
 
 	public function start(loop:Loop) {
-		if (closed) {
+		if (state.compareExchange(Created, Started) != Created) {
+			// Probably already cancelled
 			return;
 		}
 		timer = Timer.init(loop).resolve();
@@ -38,31 +47,42 @@ private class LuvTimerEvent implements ISchedulerHandle {
 	}
 
 	public function stop() {
-		if (timer != null) {
+		if (state.compareExchange(Created, Stopped) == Created) {
+			// Never started, nothing to do
+			return false;
+		}
+		if (state.compareExchange(Started, Stopped) == Started) {
+			// This is the expected state
+			timer.stop();
+			timer = null;
+			return true;
+		}
+		if (state.compareExchange(Cancelled, Stopped) == Cancelled) {
+			// Already cancelled
 			timer.stop();
 			timer = null;
 		}
+		return false;
 	}
 
 	function run() {
-		if (closed) {
-			stop();
-			return;
+		if (stop()) {
+			dispatcher.dispatch(obj);
 		}
-		dispatcher.dispatch(obj);
 	}
 
 	// maybe from other threads
 
 	public function close() {
-		if (closed) {
+		if (state.compareExchange(Created, Stopped) == Created) {
+			// Never started, nothing to do
 			return;
 		}
-		closed = true;
-		if (timer != null) {
-			// we need to do it like this because only the loop thread may close timers
+		if (state.compareExchange(Started, Cancelled) == Started) {
+			// Add to queue so loop thread can close it
 			closeQueue.add(this);
 		}
+		// Already cancelled or stopped, ignore
 	}
 }
 
