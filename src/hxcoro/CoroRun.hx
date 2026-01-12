@@ -64,13 +64,10 @@ class CoroRun {
 		final schedulerComponent = new hxcoro.schedulers.LuvScheduler(loop);
 
 		final scope = new CoroTask(context.clone().with(schedulerComponent), CoroTask.CoroScopeStrategy);
+		scope.onCompletion((_, _) -> schedulerComponent.shutdown());
 		scope.runNodeLambda(lambda);
 
-		do {
-			if (!schedulerComponent.isShutdown && !scope.isActive()) {
-				schedulerComponent.shutdown();
-			}
-		} while (loop.run(NOWAIT));
+		while (loop.run(DEFAULT)) {}
 
 		pool.shutdown();
 		loop.close();
