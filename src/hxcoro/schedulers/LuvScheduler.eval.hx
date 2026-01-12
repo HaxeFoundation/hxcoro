@@ -31,7 +31,6 @@ class AsyncDeque<T> {
 	}
 
 	public function close() {
-		async.send();
 		async.close(() -> {});
 	}
 }
@@ -131,8 +130,6 @@ private class LuvTimerEventFunction extends LuvTimerEvent implements IScheduleOb
 	A scheduler for a libuv loop.
 **/
 class LuvScheduler extends Scheduler {
-	public var isShutdown(default, null):Bool;
-
 	final loop:Loop;
 	final dispatcher:IDispatcher;
 	final eventQueue:AsyncDeque<LuvTimerEvent>;
@@ -143,7 +140,6 @@ class LuvScheduler extends Scheduler {
 	**/
 	public function new(loop:Loop, ?dispatcher:IDispatcher) {
 		super();
-		isShutdown = false;
 		this.loop = loop;
 		this.dispatcher = dispatcher ?? new SelfDispatcher();
 		eventQueue = new AsyncDeque(loop, loopEvents);
@@ -168,31 +164,25 @@ class LuvScheduler extends Scheduler {
 		return loop.now().toInt64();
 	}
 
-	function loopEvents(_:Async) {
+	inline function consumeDeque<T>(deque:AsyncDeque<T>, f:T->Void) {
 		do {
-			final event = eventQueue.pop(false);
+			final event = deque.pop(false);
 			if (event == null) {
 				break;
 			}
-			event.start(loop);
-		} while(true);
-	}
-
-	function loopCloses(_:Async) {
-		do {
-			final event = closeQueue.pop(false);
-			if (event == null) {
-				break;
-			}
-			event.stop();
+			f(event);
 		} while (true);
 	}
 
+	function loopEvents(_:Async) {
+		consumeDeque(eventQueue, event -> event.start(loop));
+	}
+
+	function loopCloses(_:Async) {
+		consumeDeque(closeQueue, event -> event.stop());
+	}
+
 	public function shutdown() {
-		if (isShutdown) {
-			return;
-		}
-		isShutdown = true;
 		eventQueue.close();
 		closeQueue.close();
 	}
