@@ -1,5 +1,6 @@
 package hxcoro.task;
 
+import hxcoro.components.NonCancellable;
 import hxcoro.task.CoroTask;
 import hxcoro.task.node.INodeStrategy;
 import hxcoro.task.ICoroTask;
@@ -41,23 +42,50 @@ private class CoroTaskWith<T> implements ICoroNodeWith {
 	public function with(...elements:IElement<Any>) {
 		return task.with(...elements);
 	}
+
+	public function without(...keys:Key<Any>) {
+		return task.without(...keys);
+	}
 }
 
 private class CoroKeys {
 	static public final awaitingChildContinuation = new Key<IContinuation<Any>>("AwaitingChildContinuation");
 }
 
+private class CallbackContinuation<T> implements IContinuation<T> {
+	final callback:(result:T, error:Exception)->Void;
+
+	public var context (get, default) : Context;
+
+	inline function get_context() {
+		return context;
+	}
+
+	public function new(context, callback) {
+		this.callback = callback;
+		this.context  = context;
+	}
+
+	public function resume(value:T, error:Exception) {
+		callback(value, error);
+	}
+}
+
 /**
 	CoroTask provides the basic functionality for coroutine tasks.
 **/
-abstract class CoroBaseTask<T> extends AbstractTask<T> implements ICoroNode implements ICoroTask<T> implements ILocalContext implements IElement<CoroBaseTask<Any>> {
+abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode implements ICoroTask<T> implements ILocalContext implements IElement<CoroBaseTask<Any>> {
 	/**
 		This task's immutable `Context`.
 	**/
 	public var context(get, null):Context;
 
+	/**
+		This task's mutable local `Context`.
+	**/
+	public var localContext(get, null):Null<AdjustableContext>;
+
 	final nodeStrategy:INodeStrategy;
-	var coroLocalContext:Null<AdjustableContext>;
 	var initialContext:Context;
 	var result:Null<T>;
 	var awaitingContinuations:Null<Array<IContinuation<T>>>;
@@ -66,35 +94,40 @@ abstract class CoroBaseTask<T> extends AbstractTask<T> implements ICoroNode impl
 		Creates a new task using the provided `context`.
 	**/
 	public function new(context:Context, nodeStrategy:INodeStrategy, initialState:TaskState) {
-		super(context.get(CoroTask), initialState);
+		final parent = context.get(CoroTask);
+		super(parent, initialState);
 		initialContext = context;
 		this.nodeStrategy = nodeStrategy;
+
+		// If our parent is already cancelling, we probably want to cancel too
+		if (parent != null && parent.state == Cancelling) {
+			cancel();
+		}
 	}
 
 	inline function get_context() {
 		if (context == null) {
-			context = initialContext.clone().with(this).add(CancellationToken, this);
+			context = initialContext.clone().with(this).set(CancellationToken, this);
 		}
 		return context;
 	}
 
+	inline function get_localContext() {
+		if (localContext == null) {
+			localContext = Context.create();
+		}
+		return localContext;
+	}
+
+	/**
+		Returns this task's value, if any.
+	**/
 	public function get() {
 		return result;
 	}
 
 	public function getKey() {
 		return CoroTask.key;
-	}
-
-	public function getLocalElement<T>(key:Key<T>):Null<T> {
-		return coroLocalContext?.get(key);
-	}
-
-	public function setLocalElement<T>(key:Key<T>, element:T) {
-		if (coroLocalContext == null) {
-			coroLocalContext = Context.create();
-		}
-		coroLocalContext.add(key, element);
 	}
 
 	/**
@@ -135,10 +168,17 @@ abstract class CoroBaseTask<T> extends AbstractTask<T> implements ICoroNode impl
 	}
 
 	/**
-		Returns a copy of this tasks `Context` with `elements` added, which can be used to start child tasks.
+		Returns a copy of this tasks' `Context` with `elements` added, which can be used to start child tasks.
 	**/
 	public function with(...elements:IElement<Any>) {
 		return new CoroTaskWith(context.clone().with(...elements), this);
+	}
+
+	/**
+		Returns a copy of this tasks' `Context` where all `keys` are unset, which can be used to start child tasks.
+	**/
+	public function without(...keys:Key<Any>) {
+		return new CoroTaskWith(context.clone().without(...keys), this);
 	}
 
 	/**
@@ -162,13 +202,32 @@ abstract class CoroBaseTask<T> extends AbstractTask<T> implements ICoroNode impl
 		}
 	}
 
+	override function cancel(?cause:CancellationException) {
+		if (context.get(NonCancellable) != null || localContext.get(NonCancellable) != null) {
+			return;
+		}
+		super.cancel(cause);
+	}
+
+	public function onCompletion(callback:(result:T, error:Exception)->Void) {
+		switch state {
+			case Completed:
+				callback(result, null);
+			case Cancelled:
+				callback(null, error);
+			case _:
+				awaitingContinuations ??= [];
+				awaitingContinuations.push(new CallbackContinuation(context.clone(), callback));
+		}
+	}
+
 	@:coroutine public function awaitChildren() {
 		if (allChildrenCompleted) {
-			getLocalElement(CoroKeys.awaitingChildContinuation)?.callSync();
+			localContext.get(CoroKeys.awaitingChildContinuation)?.callSync();
 			return;
 		}
 		startChildren();
-		Coro.suspend(cont -> setLocalElement(CoroKeys.awaitingChildContinuation, cont));
+		Coro.suspend(cont -> localContext.set(CoroKeys.awaitingChildContinuation, cont));
 	}
 
 	/**
@@ -198,7 +257,7 @@ abstract class CoroBaseTask<T> extends AbstractTask<T> implements ICoroNode impl
 	}
 
 	function childrenCompleted() {
-		getLocalElement(CoroKeys.awaitingChildContinuation)?.callSync();
+		localContext.get(CoroKeys.awaitingChildContinuation)?.callSync();
 	}
 
 	// strategy dispatcher

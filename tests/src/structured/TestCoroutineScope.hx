@@ -2,7 +2,7 @@ package structured;
 
 import haxe.Exception;
 import haxe.exceptions.CancellationException;
-import haxe.coro.schedulers.VirtualTimeScheduler;
+import hxcoro.schedulers.VirtualTimeScheduler;
 
 private class FooException extends Exception {
 	public function new() {
@@ -134,7 +134,7 @@ class TestCoroutineScope extends utest.Test {
 				try {
 					scope(node -> {
 						while (true) {
-							yield();
+							delay(1);
 						}
 						acc.push("scope 1");
 					});
@@ -185,7 +185,7 @@ class TestCoroutineScope extends utest.Test {
 				scope(_ -> {
 					acc.push("before yield 1");
 					while (true) {
-						yield();
+						delay(1);
 					}
 					acc.push("after yield 1");
 				});

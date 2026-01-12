@@ -9,9 +9,9 @@ class TestCoroLocalContext extends utest.Test {
 		final stackKey = new Key<Array<String>>("stack");
 
 		function visit(node:ILocalContext) {
-			final element = node.getLocalElement(stackKey);
+			final element = node.localContext.get(stackKey);
 			if (element == null) {
-				node.setLocalElement(stackKey, ["first time"]);
+				node.localContext.set(stackKey, ["first time"]);
 				return;
 			}
 			if (element.length == 1) {
@@ -26,12 +26,12 @@ class TestCoroLocalContext extends utest.Test {
 				visit(node);
 				visit(node);
 				visit(node);
-				node.getLocalElement(stackKey);
+				node.localContext.get(stackKey);
 			});
 			final child2 = node.async(node -> { });
 			visit(child2);
 			visit(child2);
-			Assert.same(["first time", "second time"], child2.getLocalElement(stackKey));
+			Assert.same(["first time", "second time"], child2.localContext.get(stackKey));
 			child1.await();
 		});
 		Assert.same(["first time", "second time", "number 3"], result);

@@ -1,13 +1,15 @@
 package hxcoro.ds.channels.bounded;
 
+import haxe.coro.Mutex;
 import haxe.Exception;
 import haxe.coro.IContinuation;
 import hxcoro.ds.Out;
 import hxcoro.ds.CircularBuffer;
 import hxcoro.ds.channels.Channel;
-import hxcoro.exceptions.ChannelClosedException;
+import hxcoro.ds.channels.exceptions.ChannelClosedException;
 
 using hxcoro.util.Convenience;
+using hxcoro.util.MutexExtensions;
 
 final class BoundedWriter<T> implements IChannelWriter<T> {
 	final closed : Out<Bool>;
@@ -20,27 +22,40 @@ final class BoundedWriter<T> implements IChannelWriter<T> {
 
 	final behaviour : FullBehaviour<T>;
 
-	public function new(buffer, writeWaiters, readWaiters, closed, behaviour) {
+	final lock : Mutex;
+
+	public function new(buffer, writeWaiters, readWaiters, closed, behaviour, lock) {
 		this.buffer        = buffer;
 		this.writeWaiters  = writeWaiters;
 		this.readWaiters   = readWaiters;
 		this.closed        = closed;
 		this.behaviour     = behaviour;
+		this.lock          = lock;
 	}
 
 	public function tryWrite(v:T):Bool {
+		lock.acquire();
+
 		if (closed.get()) {
+			lock.release();
+
 			return false;
 		}
 
 		return if (buffer.tryPush(v)) {
-			final cont = new Out();
-			while (readWaiters.tryPop(cont)) {
-				cont.get().succeedAsync(true);
+			final out       = new Out();
+			final hasWaiter = readWaiters.tryPop(out);
+
+			lock.release();
+
+			if (hasWaiter) {
+				out.get().succeedAsync(true);
 			}
 
 			true;
 		} else {
+			lock.release();
+
 			false;
 		}
 	}
@@ -61,7 +76,7 @@ final class BoundedWriter<T> implements IChannelWriter<T> {
 				final out = new Out();
 
 				while (tryWrite(v) == false) {
-					if (buffer.tryPopHead(out)) {
+					if (lock.with(() -> buffer.tryPopHead(out))) {
 						f(out.get());
 					} else {
 						throw new Exception('Failed to drop newest item');
@@ -73,7 +88,7 @@ final class BoundedWriter<T> implements IChannelWriter<T> {
 				final out = new Out();
 
 				while (tryWrite(v) == false) {
-					if (buffer.tryPopTail(out)) {
+					if (lock.with(() -> buffer.tryPopTail(out))) {
 						f(out.get());
 					} else {
 						throw new Exception('Failed to drop oldest item');
@@ -91,7 +106,11 @@ final class BoundedWriter<T> implements IChannelWriter<T> {
 	}
 
 	@:coroutine public function waitForWrite():Bool {
+		lock.acquire();
+
 		if (closed.get()) {
+			lock.release();
+
 			return false;
 		}
 
@@ -99,38 +118,51 @@ final class BoundedWriter<T> implements IChannelWriter<T> {
 			return suspendCancellable(cont -> {
 				final hostPage  = writeWaiters.push(cont);
 
+				lock.release();
+
 				cont.onCancellationRequested = _ -> {
-					writeWaiters.remove(hostPage, cont);
+					lock.with(() -> writeWaiters.remove(hostPage, cont));
 				}
 			});
 		} else {
+			lock.release();
+
 			true;
 		}
 	}
 
 	public function close() {
-		if (closed.get()) {
-			return;
+		final justClosed = lock.with(() -> {
+			if (closed.get()) {
+				return false;
+			}
+
+			closed.set(true);
+
+			return true;
+		});
+
+		if (justClosed) {
+			// Should be safe to act on the read waiters without the lock at this point.
+			// All other code which pushes read waiters should be checking closed first.
+	
+			while (writeWaiters.isEmpty() == false) {
+				switch writeWaiters.pop() {
+					case null:
+						continue;
+					case cont:
+						cont.succeedAsync(false);
+				}
+			};
+	
+			while (readWaiters.isEmpty() == false) {
+				switch (readWaiters.pop()) {
+					case null:
+						continue;
+					case cont:
+						cont.succeedAsync(false);
+				}
+			};
 		}
-
-		closed.set(true);
-
-		while (writeWaiters.isEmpty() == false) {
-			switch writeWaiters.pop() {
-				case null:
-					continue;
-				case cont:
-					cont.succeedAsync(false);
-			}
-		};
-
-		while (readWaiters.isEmpty() == false) {
-			switch (readWaiters.pop()) {
-				case null:
-					continue;
-				case cont:
-					cont.succeedAsync(false);
-			}
-		};
 	}
 }

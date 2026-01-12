@@ -1,6 +1,6 @@
 package issues.aidan;
 
-import haxe.coro.schedulers.VirtualTimeScheduler;
+import hxcoro.schedulers.VirtualTimeScheduler;
 import hxcoro.CoroRun;
 import hxcoro.Coro.*;
 import hxcoro.task.AbstractTask;
@@ -24,7 +24,7 @@ class Issue106 extends utest.Test {
 			k;
 		});
 		task.start();
-		final atask:AbstractTask<Any> = cast task;
+		final atask:AbstractTask = cast task;
 		scheduler.advanceTo(5);
 		for (child in @:privateAccess atask.children) {
 			Assert.isTrue(child == null || child.isActive());

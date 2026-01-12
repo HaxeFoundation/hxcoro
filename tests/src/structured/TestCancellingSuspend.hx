@@ -1,7 +1,7 @@
 package structured;
 
 import haxe.coro.ICancellableContinuation;
-import haxe.coro.schedulers.VirtualTimeScheduler;
+import hxcoro.schedulers.VirtualTimeScheduler;
 import haxe.coro.cancellation.CancellationToken;
 import haxe.exceptions.ArgumentException;
 import haxe.exceptions.CancellationException;

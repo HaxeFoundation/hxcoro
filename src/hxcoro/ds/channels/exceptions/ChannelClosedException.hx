@@ -1,4 +1,4 @@
-package hxcoro.exceptions;
+package hxcoro.ds.channels.exceptions;
 
 import haxe.Exception;
 

@@ -1,6 +1,8 @@
 package hxcoro.concurrent;
 
+import hxcoro.concurrent.exceptions.SemaphoreFullException;
 import haxe.coro.Mutex;
+import haxe.exceptions.ArgumentException;
 import hxcoro.task.CoroTask;
 import hxcoro.ds.PagedDeque;
 import haxe.coro.IContinuation;
@@ -13,14 +15,26 @@ class CoroSemaphore {
 	var free:AtomicInt;
 
 	public function new(free:Int) {
+		if (free < 1) {
+			throw new ArgumentException("free", "Maximum free count must be greater than 1");
+		}
+
 		maxFree = free;
 		dequeMutex = new Mutex();
 		this.free = new AtomicInt(free);
 	}
 
 	@:coroutine public function acquire() {
-		if (free.sub(1) > 0) {
-			return;
+		// CAS loop until we update the free atomic or it reports full.
+		while (true) {
+			final old = free.load();
+			if (0 == old) {
+				break;
+			}
+
+			if (free.compareExchange(old, old - 1) == old) {
+				return;
+			}
 		}
 		suspendCancellable(cont -> {
 			final task = cont.context.get(CoroTask);
@@ -47,7 +61,18 @@ class CoroSemaphore {
 	}
 
 	public function release() {
-		free.add(1);
+		// CAS loop until we update the free atomic or it reports full.
+		while (true) {
+			final old = free.load();
+			if (maxFree == old) {
+				throw new SemaphoreFullException();
+			}
+
+			if (free.compareExchange(old, old + 1) == old) {
+				break;
+			}
+		}
+
 		dequeMutex.acquire();
 		if (deque == null) {
 			dequeMutex.release();
@@ -66,6 +91,13 @@ class CoroSemaphore {
 				// ignore, back to the loop
 			} else {
 				// continue normally
+				while (true) {
+					// we need to CAS-decrement the free value here as if we acquired it normally
+					final old = free.load();
+					if (free.compareExchange(old, old - 1) == old) {
+						break;
+					}
+				}
 				dequeMutex.release();
 				cont.callAsync();
 				return;

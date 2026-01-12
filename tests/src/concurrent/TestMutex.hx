@@ -1,11 +1,13 @@
 package concurrent;
 
-import hxcoro.ds.channels.Channel;
-import haxe.exceptions.CancellationException;
-import hxcoro.concurrent.CoroSemaphore;
-import haxe.coro.schedulers.VirtualTimeScheduler;
 import haxe.coro.Mutex;
+import haxe.exceptions.ArgumentException;
+import haxe.exceptions.CancellationException;
+import hxcoro.ds.channels.Channel;
 import hxcoro.concurrent.CoroMutex;
+import hxcoro.concurrent.CoroSemaphore;
+import hxcoro.concurrent.exceptions.SemaphoreFullException;
+import hxcoro.schedulers.VirtualTimeScheduler;
 
 class TestMutex extends utest.Test {
 	function testSimple() {
@@ -116,9 +118,9 @@ class TestMutex extends utest.Test {
 					delay(odd ? 1 : 0);
 					if (m.tryAcquire()) {
 						numEarlyAcquires++;
-						delay(odd ? 0 : 1);
+						delay(odd ? 0 : 2);
 					} else {
-						delay(odd ? 0 : 1);
+						delay(odd ? 2 : 0);
 						Assert.isTrue(m.tryAcquire());
 						numLateAcquires++;
 					}
@@ -134,6 +136,16 @@ class TestMutex extends utest.Test {
 		Assert.equals(numTasks, numTasksCompleted);
 		Assert.equals(numTasksHalved, numEarlyAcquires);
 		Assert.equals(numTasksHalved, numLateAcquires);
+	}
+
+	function testSemaphoreInvalidMaxFree() {
+		Assert.raises(() -> new CoroSemaphore(0), ArgumentException);
+	}
+
+	function testSemaphoreRelease() {
+		final semaphore = new CoroSemaphore(5);
+
+		Assert.raises(() -> semaphore.release(), SemaphoreFullException);
 	}
 
 	function testMutexCancelling() {
@@ -223,7 +235,7 @@ class TestMutex extends utest.Test {
 						node.async(node -> {
 							delay(Std.random(15));
 							semaphore.acquire();
-							semaphoreHolders.writer.write(node);
+							semaphoreHolders.write(node);
 							try {
 								hangingMutex.acquire(); // will never succeed
 							} catch(e:CancellationException) {
@@ -235,7 +247,7 @@ class TestMutex extends utest.Test {
 					}
 					delay(1);
 					while (numCompletedTasks != numTasks) {
-						var holder = semaphoreHolders.reader.read();
+						var holder = semaphoreHolders.read();
 						holder.cancel();
 						// this is weird, how do we wait here properly?
 						yield();

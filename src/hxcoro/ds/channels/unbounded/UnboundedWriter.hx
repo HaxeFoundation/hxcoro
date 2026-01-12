@@ -1,12 +1,14 @@
 package hxcoro.ds.channels.unbounded;
 
+import haxe.coro.Mutex;
 import haxe.coro.IContinuation;
 import hxcoro.Coro;
 import hxcoro.ds.Out;
 import hxcoro.ds.PagedDeque;
-import hxcoro.exceptions.ChannelClosedException;
+import hxcoro.ds.channels.exceptions.ChannelClosedException;
 
 using hxcoro.util.Convenience;
+using hxcoro.util.MutexExtensions;
 
 final class UnboundedWriter<T> implements IChannelWriter<T> {
 	final closed : Out<Bool>;
@@ -15,22 +17,31 @@ final class UnboundedWriter<T> implements IChannelWriter<T> {
 
 	final readWaiters : PagedDeque<IContinuation<Bool>>;
 
-	public function new(buffer, readWaiters, closed) {
+	final lock : Mutex;
+
+	public function new(buffer, readWaiters, closed, lock) {
 		this.buffer      = buffer;
 		this.readWaiters = readWaiters;
 		this.closed      = closed;
+		this.lock        = lock;
 	}
 
 	public function tryWrite(v:T):Bool {
+		lock.acquire();
+
 		if (closed.get()) {
+			lock.release();
+
 			return false;
 		}
 
-		final _ = buffer.push(v);
+		buffer.push(v);
 
-		final cont = new Out();
-		while (readWaiters.tryPop(cont)) {
-			cont.get().succeedAsync(true);
+		final out       = new Out();
+		final hasWaiter = readWaiters.tryPop(out);
+
+		if (hasWaiter) {
+			out.get().succeedAsync(true);
 		}
 
 		return true;
@@ -39,7 +50,7 @@ final class UnboundedWriter<T> implements IChannelWriter<T> {
 	@:coroutine public function waitForWrite():Bool {
 		checkCancellation();
 
-		if (closed.get()) {
+		if (lock.with(() -> closed.get())) {
 			return false;
 		}
 
@@ -57,15 +68,23 @@ final class UnboundedWriter<T> implements IChannelWriter<T> {
 	}
 
 	public function close() {
-		if (closed.get()) {
-			return;
-		}
+		final justClosed = lock.with(() -> {
+			if (closed.get()) {
+				return false;
+			}
 
-		closed.set(true);
+			closed.set(true);
 
-		final cont = new Out();
-		while (readWaiters.tryPop(cont)) {
-			cont.get().succeedAsync(false);
+			return true;
+		});
+
+		if (justClosed) {
+			// Should be safe to act on the read waiters without the lock at this point.
+			// All other code which pushes read waiters should be checking closed first.
+			final out = new Out();
+			while (readWaiters.tryPop(out)) {
+				out.get().succeedAsync(false);
+			}
 		}
 	}
 

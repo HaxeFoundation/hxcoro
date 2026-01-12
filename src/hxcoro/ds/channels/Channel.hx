@@ -1,5 +1,6 @@
 package hxcoro.ds.channels;
 
+import haxe.coro.Mutex;
 import haxe.coro.IContinuation;
 import haxe.exceptions.ArgumentException;
 import hxcoro.ds.Out;
@@ -9,10 +10,8 @@ import hxcoro.ds.channels.bounded.BoundedReader;
 import hxcoro.ds.channels.bounded.BoundedWriter;
 import hxcoro.ds.channels.bounded.SingleBoundedReader;
 import hxcoro.ds.channels.bounded.SingleBoundedWriter;
-import hxcoro.ds.channels.bounded.BoundedChannel;
 import hxcoro.ds.channels.unbounded.UnboundedReader;
 import hxcoro.ds.channels.unbounded.UnboundedWriter;
-import hxcoro.ds.channels.unbounded.UnboundedChannel;
 import hxcoro.concurrent.AtomicObject;
 
 typedef DropCallback<T> = (dropped : T)->Void;
@@ -36,25 +35,25 @@ typedef BoundedChannelOptions<T> = ChannelOptions & {
 	var ?writeBehaviour : FullBehaviour<T>;
 }
 
-abstract class Channel<T> {
+class Channel<T> implements IChannelReader<T> implements IChannelWriter<T> {
 
 	public final reader : IChannelReader<T>;
 
 	public final writer : IChannelWriter<T>;
 
-	function new(reader, writer) {
+	public function new(reader, writer) {
 		this.reader = reader;
 		this.writer = writer;
 	}
 
-	public static function createBounded<T>(options : BoundedChannelOptions<T>):Channel<T> { 
+	public static function createBounded<T>(options : BoundedChannelOptions<T>):Channel<T> {
 		if (options.size < 1) {
 			throw new ArgumentException("size");
 		}
 
 		final closed         = new Out();
 		final writeBehaviour = options.writeBehaviour ?? Wait;
-		
+
 		// TODO : Revisit this single consumer producer implementation once we have threading in and can make some comparisons.
 		// final singleReader   = options.singleReader ?? false;
 		// final singleWriter   = options.singleWriter ?? false;
@@ -62,7 +61,7 @@ abstract class Channel<T> {
 		// 	final buffer      = new ConcurrentCircularBuffer(options.size);
 		// 	final readWaiter  = new AtomicObject<IContinuation<Bool>>(null);
 		// 	final writeWaiter = new AtomicObject<IContinuation<Bool>>(null);
-			
+
 		// 	return
 		// 		new BoundedChannel(
 		// 			new SingleBoundedReader(buffer, writeWaiter, readWaiter, closed),
@@ -72,21 +71,57 @@ abstract class Channel<T> {
 		final buffer       = new CircularBuffer(options.size);
 		final readWaiters  = new PagedDeque();
 		final writeWaiters = new PagedDeque();
+		final lock         = new Mutex();
+
+		closed.set(false);
 
 		return
-			new BoundedChannel(
-				new BoundedReader(buffer, writeWaiters, readWaiters, closed),
-				new BoundedWriter(buffer, writeWaiters, readWaiters, closed, writeBehaviour));
+			new Channel(
+				new BoundedReader(buffer, writeWaiters, readWaiters, closed, lock),
+				new BoundedWriter(buffer, writeWaiters, readWaiters, closed, writeBehaviour, lock));
 	}
 
 	public static function createUnbounded<T>(options : ChannelOptions):Channel<T> {
 		final closed      = new Out();
 		final buffer      = new PagedDeque();
 		final readWaiters = new PagedDeque();
+		final lock        = new Mutex();
 
 		return
-			new UnboundedChannel(
-				new UnboundedReader(buffer, readWaiters, closed),
-				new UnboundedWriter(buffer, readWaiters, closed));
+			new Channel(
+				new UnboundedReader(buffer, readWaiters, closed, lock),
+				new UnboundedWriter(buffer, readWaiters, closed, lock));
+	}
+
+	public function tryRead(out:Out<T>):Bool {
+		return reader.tryRead(out);
+	}
+
+	public function tryPeek(out:Out<T>):Bool {
+		return reader.tryPeek(out);
+	}
+
+	@:coroutine public function read():T {
+		return reader.read();
+	}
+
+	@:coroutine public function waitForRead():Bool {
+		return reader.waitForRead();
+	}
+
+	public function tryWrite(out:T):Bool {
+		return writer.tryWrite(out);
+	}
+
+	@:coroutine public function write(v:T) {
+		return writer.write(v);
+	}
+
+	@:coroutine public function waitForWrite():Bool {
+		return writer.waitForWrite();
+	}
+
+	public function close() {
+		writer.close();
 	}
 }
