@@ -59,6 +59,8 @@ private class LuvTimerEvent implements ISchedulerHandle {
 		state = new AtomicInt(Created);
 	}
 
+	static function noOpCb() {}
+
 	// only from loop thread
 
 	public function start(loop:Loop) {
@@ -78,12 +80,14 @@ private class LuvTimerEvent implements ISchedulerHandle {
 		if (state.compareExchange(Started, Stopped) == Started) {
 			// This is the expected state
 			timer.stop();
+			timer.close(noOpCb);
 			timer = null;
 			return true;
 		}
 		if (state.compareExchange(Cancelled, Stopped) == Cancelled) {
-			// Already cancelled
+			// Cancelled
 			timer.stop();
+			timer.close(noOpCb);
 			timer = null;
 		}
 		return false;
