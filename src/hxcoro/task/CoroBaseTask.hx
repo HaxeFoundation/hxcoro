@@ -88,7 +88,7 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 	final nodeStrategy:INodeStrategy;
 	var initialContext:Context;
 	var result:Null<T>;
-	var awaitingContinuations:Null<Array<IContinuation<T>>>;
+	var awaitingContinuations:ThreadSafeAccess<Array<IContinuation<T>>>;
 
 	/**
 		Creates a new task using the provided `context`.
@@ -98,6 +98,7 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 		super(parent, initialState);
 		initialContext = context;
 		this.nodeStrategy = nodeStrategy;
+		awaitingContinuations = new ThreadSafeAccess([]);
 
 		// If our parent is already cancelling, we probably want to cancel too
 		if (parent != null && parent.state.load() == Cancelling) {
@@ -139,9 +140,6 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 	**/
 	public function putOnHold() {
 		context = null;
-		if (awaitingContinuations != null && awaitingContinuations.length == 0) {
-			awaitingContinuations = null;
-		}
 		if (allChildrenCompleted) {
 			children = null;
 		}
@@ -193,8 +191,7 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 			case Cancelled:
 				cont.failSync(error);
 			case _:
-				awaitingContinuations ??= [];
-				awaitingContinuations.push(cont);
+				awaitingContinuations.access(a -> a.push(cont));
 				start();
 		}
 	}
@@ -213,8 +210,7 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 			case Cancelled:
 				callback(null, error);
 			case _:
-				awaitingContinuations ??= [];
-				awaitingContinuations.push(new CallbackContinuation(context.clone(), callback));
+				awaitingContinuations.access(a -> a.push(new CallbackContinuation(context.clone(), callback)));
 		}
 	}
 
@@ -238,9 +234,11 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 		if (awaitingContinuations == null) {
 			return;
 		}
-		while (awaitingContinuations.length > 0) {
-			final continuations = awaitingContinuations;
-			awaitingContinuations = [];
+		do {
+			final continuations = awaitingContinuations.exchange([]);
+			if (continuations.length == 0) {
+				break;
+			}
 			if (error != null) {
 				for (cont in continuations) {
 					cont.failAsync(error);
@@ -250,7 +248,7 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 					cont.succeedAsync(result);
 				}
 			}
-		}
+		} while(true);
 	}
 
 	function childrenCompleted() {

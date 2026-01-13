@@ -20,7 +20,7 @@ enum abstract TaskState(Int) to Int {
 
 private class TaskException extends Exception {}
 
-private class ThreadSafeAccess<T> {
+class ThreadSafeAccess<T> {
 	var obj:T;
 	var mutex:Mutex;
 
@@ -34,6 +34,13 @@ private class ThreadSafeAccess<T> {
 		final r = f(obj);
 		mutex.release();
 		return r;
+	}
+
+	public function exchange(replacement:T) {
+		mutex.acquire();
+		final current = obj;
+		obj = replacement;
+		return current;
 	}
 }
 
