@@ -174,17 +174,18 @@ class TestCoroutineScope extends utest.Test {
 					push("after throw 2");
 				});
 			});
+			var open = false;
 			node.async(_ -> {
 				scope(_ -> {
 					push("before yield 1");
+					open = true;
 					while (true) {
 						yield();
 					}
 					push("after yield 1");
 				});
 			});
-			// wait for task to push "before yield 1"
-			while (acc.length == 0) {
+			while (!open) {
 				yield();
 			}
 			task1.start();
