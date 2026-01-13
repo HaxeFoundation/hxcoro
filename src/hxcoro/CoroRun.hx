@@ -1,6 +1,6 @@
 package hxcoro;
 
-#if target.threaded
+#if (target.threaded && !python)
 import hxcoro.dispatchers.ThreadPoolDispatcher;
 import hxcoro.thread.FixedThreadPool;
 #end
@@ -61,7 +61,7 @@ class CoroRun {
 	}
 
 	static public function runWith<T>(context:Context, lambda:NodeLambda<T>):T {
-		#if target.threaded
+		#if (target.threaded && !python)
 		final pool = new FixedThreadPool(10);
 		final dispatcher = new ThreadPoolDispatcher(pool);
 		#else
@@ -73,7 +73,7 @@ class CoroRun {
 		while (scope.isActive()) {
 			schedulerComponent.run();
 		}
-		#if target.threaded
+		#if (target.threaded && !python)
 		pool.shutdown();
 		#end
 		switch (scope.getError()) {
