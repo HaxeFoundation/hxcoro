@@ -142,9 +142,6 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 		if (awaitingContinuations != null && awaitingContinuations.length == 0) {
 			awaitingContinuations = null;
 		}
-		if (cancellationCallbacks != null && cancellationCallbacks.length == 0) {
-			cancellationCallbacks = null;
-		}
 		if (allChildrenCompleted) {
 			children = null;
 		}

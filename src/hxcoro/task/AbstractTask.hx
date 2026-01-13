@@ -20,6 +20,23 @@ enum abstract TaskState(Int) to Int {
 
 private class TaskException extends Exception {}
 
+private class ThreadSafeAccess<T> {
+	var obj:T;
+	var mutex:Mutex;
+
+	public function new(obj:T) {
+		this.obj = obj;
+		mutex = new Mutex();
+	}
+
+	public function access<R>(f:T -> R) {
+		mutex.acquire();
+		final r = f(obj);
+		mutex.release();
+		return r;
+	}
+}
+
 private class CancellationHandle implements ICancellationHandle {
 	final callback:ICancellationCallback;
 	final task:AbstractTask;
@@ -50,13 +67,13 @@ private class CancellationHandle implements ICancellationHandle {
 		}
 		final all = @:privateAccess task.cancellationCallbacks;
 
-		if (all != null) {
+		all.access(all -> {
 			if (all.length == 1 && all[0] == this) {
 				all.resize(0);
 			} else {
 				all.remove(this);
 			}
-		}
+		});
 
 		closed = true;
 	}
@@ -83,7 +100,7 @@ abstract class AbstractTask implements ICancellationToken {
 	var childrenMutex:Mutex;
 
 	var children:Null<Array<AbstractTask>>;
-	var cancellationCallbacks:Null<Array<CancellationHandle>>;
+	var cancellationCallbacks:ThreadSafeAccess<Array<CancellationHandle>>;
 	var state:AtomicState<TaskState>;
 	var error:Null<Exception>;
 	var numCompletedChildren:AtomicInt;
@@ -115,7 +132,7 @@ abstract class AbstractTask implements ICancellationToken {
 		state = new AtomicState(Created);
 		children = null;
 		childrenMutex = new Mutex();
-		cancellationCallbacks = null;
+		cancellationCallbacks = new ThreadSafeAccess([]);
 		numCompletedChildren = new AtomicInt(0);
 		indexInParent = -1;
 		allChildrenCompleted = false;
@@ -169,11 +186,11 @@ abstract class AbstractTask implements ICancellationToken {
 					error = cause;
 				}
 
-				if (null != cancellationCallbacks) {
-					for (h in cancellationCallbacks) {
+				cancellationCallbacks.access(a -> {
+					for (h in a) {
 						h.run();
 					}
-				}
+				});
 
 				cancelChildren(cause);
 				checkCompletion();
@@ -200,10 +217,11 @@ abstract class AbstractTask implements ICancellationToken {
 
 				return noOpCancellationHandle;
 			case _:
-				final container = cancellationCallbacks ??= [];
-				final handle = new CancellationHandle(callback, this);
-
-				container.push(handle);
+				final handle = cancellationCallbacks.access(container -> {
+					final handle = new CancellationHandle(callback, this);
+					container.push(handle);
+					handle;
+				});
 
 				handle;
 		}
