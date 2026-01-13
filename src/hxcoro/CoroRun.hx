@@ -55,13 +55,23 @@ class CoroRun {
 		return runWith(defaultContext, lambda);
 	}
 
+	#if (eval && !macro)
+
 	static public function runWith<T>(context:Context, lambda:NodeLambda<T>):T {
-		final schedulerComponent = new EventLoopScheduler();
+		final loop = eval.luv.Loop.init().resolve();
+		final pool = new hxcoro.thread.FixedThreadPool(1);
+		final dispatcher = new hxcoro.dispatchers.ThreadPoolDispatcher(pool);
+		final schedulerComponent = new hxcoro.schedulers.LuvScheduler(loop);
+
 		final scope = new CoroTask(context.clone().with(schedulerComponent), CoroTask.CoroScopeStrategy);
+		scope.onCompletion((_, _) -> schedulerComponent.shutdown());
 		scope.runNodeLambda(lambda);
-		while (scope.isActive()) {
-			schedulerComponent.run();
-		}
+
+		while (loop.run(DEFAULT)) {}
+
+		pool.shutdown();
+		loop.close();
+
 		switch (scope.getError()) {
 			case null:
 				return scope.get();
@@ -69,4 +79,25 @@ class CoroRun {
 				throw error;
 		}
 	}
+
+	#else
+
+	static public function runWith<T>(context:Context, lambda:NodeLambda<T>):T {
+		final schedulerComponent = new EventLoopScheduler();
+		final scope = new CoroTask(context.clone().with(schedulerComponent), CoroTask.CoroScopeStrategy);
+		scope.runNodeLambda(lambda);
+
+		while (scope.isActive()) {
+			schedulerComponent.run();
+		}
+
+		switch (scope.getError()) {
+			case null:
+				return scope.get();
+			case error:
+				throw error;
+		}
+	}
+
+	#end
 }
