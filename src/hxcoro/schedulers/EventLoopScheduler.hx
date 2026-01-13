@@ -1,25 +1,26 @@
 package hxcoro.schedulers;
 
-import haxe.ds.Vector;
 import haxe.Timer;
 import haxe.Int64;
+import haxe.ds.Vector;
 import haxe.coro.Mutex;
-import hxcoro.dispatchers.IDispatcher;
-import hxcoro.dispatchers.SelfDispatcher;
 import haxe.coro.schedulers.Scheduler;
 import haxe.coro.schedulers.IScheduleObject;
 import haxe.coro.schedulers.ISchedulerHandle;
 import haxe.exceptions.ArgumentException;
+import hxcoro.concurrent.AtomicObject;
+import hxcoro.dispatchers.IDispatcher;
+import hxcoro.dispatchers.SelfDispatcher;
 
 private typedef Lambda = ()->Void;
 
 private class ScheduledEvent implements ISchedulerHandle implements IScheduleObject {
-	var func : Null<Lambda>;
+	final func : AtomicObject<Dynamic>;
 	public final runTime : Int64;
 	var childEvents:Array<IScheduleObject>;
 
-	public function new(func, runTime) {
-		this.func    = func;
+	public function new(func:Null<Lambda>, runTime:Int64) {
+		this.func    = new AtomicObject<Dynamic>(func);
 		this.runTime = runTime;
 	}
 
@@ -29,10 +30,9 @@ private class ScheduledEvent implements ISchedulerHandle implements IScheduleObj
 	}
 
 	public inline function onSchedule() {
-		if (func != null) {
-			final func = func;
-			this.func = null;
-			func();
+		final previous : Null<Lambda> = func.exchange(null);
+		if (previous != null) {
+			previous();
 		}
 
 		if (childEvents != null) {
@@ -56,7 +56,7 @@ private class ScheduledEvent implements ISchedulerHandle implements IScheduleObj
 	}
 
 	public function close() {
-		func = null;
+		func.store(null);
 	}
 }
 
