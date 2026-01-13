@@ -3,6 +3,7 @@ package structured;
 import haxe.Exception;
 import haxe.exceptions.CancellationException;
 import hxcoro.schedulers.VirtualTimeScheduler;
+import haxe.coro.Mutex;
 
 private class FooException extends Exception {
 	public function new() {
@@ -156,26 +157,33 @@ class TestCoroutineScope extends utest.Test {
 
 	function test_cancel_due_to_sibling_exception() {
 		final acc = [];
+		final mutex = new Mutex();
+		function push(s:String) {
+			mutex.acquire();
+			acc.push(s);
+			mutex.release();
+		}
+
 		Assert.raises(() -> CoroRun.runScoped(node -> {
 			node.async(_ -> {
 				scope(_ -> {
-					acc.push("before yield 2");
+					push("before yield 2");
 					yield();
-					acc.push("after yield 2");
+					push("after yield 2");
 					throw new FooException();
-					acc.push("after throw 2");
+					push("after throw 2");
 				});
 			});
 			node.async(_ -> {
 				scope(_ -> {
-					acc.push("before yield 1");
+					push("before yield 1");
 					while (true) {
 						yield();
 					}
-					acc.push("after yield 1");
+					push("after yield 1");
 				});
 			});
-			acc.push("at exit");
+			push("at exit");
 		}), FooException);
 		has(acc, ["before yield 1", "before yield 2", "after yield 2", "at exit"], ["after yield 1", "after throw 2"]);
 
