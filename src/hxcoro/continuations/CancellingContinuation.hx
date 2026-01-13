@@ -80,6 +80,7 @@ class CancellingContinuation<T> extends SuspensionResult<T> implements ICancella
 			if (null != onCancellationRequested) {
 				onCancellationRequested(cause);
 			}
+			result = null;
 			error = cause;
 			handle?.close();
 		}
