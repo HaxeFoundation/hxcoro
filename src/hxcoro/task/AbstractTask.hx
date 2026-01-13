@@ -1,5 +1,6 @@
 package hxcoro.task;
 
+import hxcoro.concurrent.AtomicObject;
 import haxe.coro.Mutex;
 import hxcoro.concurrent.AtomicState;
 import hxcoro.concurrent.AtomicInt;
@@ -109,7 +110,7 @@ abstract class AbstractTask implements ICancellationToken {
 	var children:Null<Array<AbstractTask>>;
 	var cancellationCallbacks:ThreadSafeAccess<Array<CancellationHandle>>;
 	var state:AtomicState<TaskState>;
-	var error:Null<Exception>;
+	var error:AtomicObject<Null<Exception>>;
 	var numCompletedChildren:AtomicInt;
 	var indexInParent:Int;
 	var allChildrenCompleted:Bool;
@@ -120,7 +121,7 @@ abstract class AbstractTask implements ICancellationToken {
 	inline function get_cancellationException() {
 		return switch state.load() {
 			case Cancelling | Cancelled:
-				error.orCancellationException();
+				getError().orCancellationException();
 			case _:
 				null;
 		}
@@ -143,6 +144,7 @@ abstract class AbstractTask implements ICancellationToken {
 		numCompletedChildren = new AtomicInt(0);
 		indexInParent = -1;
 		allChildrenCompleted = false;
+		error = new AtomicObject(null);
 		if (parent != null) {
 			parent.addChild(this);
 		}
@@ -159,7 +161,7 @@ abstract class AbstractTask implements ICancellationToken {
 		Returns the task's error value, if any/
 	**/
 	public function getError() {
-		return error;
+		return error.load();
 	}
 
 	/**
@@ -189,9 +191,7 @@ abstract class AbstractTask implements ICancellationToken {
 						return;
 				}
 				cause ??= new CancellationException();
-				if (error == null) {
-					error = cause;
-				}
+				error.compareExchange(null, cause);
 
 				cancellationCallbacks.access(a -> {
 					for (h in a) {
@@ -220,7 +220,7 @@ abstract class AbstractTask implements ICancellationToken {
 	public function onCancellationRequested(callback:ICancellationCallback):ICancellationHandle {
 		return switch (state.load()) {
 			case Cancelling | Cancelled:
-				callback.onCancellation(error.orCancellationException());
+				callback.onCancellation(getError().orCancellationException());
 
 				return noOpCancellationHandle;
 			case _:
@@ -334,11 +334,12 @@ abstract class AbstractTask implements ICancellationToken {
 	function childCompletes(child:AbstractTask, processResult:Bool) {
 		numCompletedChildren.add(1);
 		if (processResult) {
-			if (child.error != null) {
-				if (child.error is CancellationException) {
-					childCancels(child, cast child.error);
+			final childError = child.getError();
+			if (childError != null) {
+				if (childError is CancellationException) {
+					childCancels(child, cast childError);
 				} else {
-					childErrors(child, child.error);
+					childErrors(child, childError);
 				}
 			} else {
 				childSucceeds(child);

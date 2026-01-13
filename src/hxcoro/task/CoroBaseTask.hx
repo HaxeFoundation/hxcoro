@@ -189,7 +189,7 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 			case Completed:
 				cont.succeedSync(result);
 			case Cancelled:
-				cont.failSync(error);
+				cont.failSync(getError());
 			case _:
 				awaitingContinuations.access(a -> a.push(cont));
 				start();
@@ -208,7 +208,7 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 			case Completed:
 				callback(result, null);
 			case Cancelled:
-				callback(null, error);
+				callback(null, getError());
 			case _:
 				awaitingContinuations.access(a -> a.push(new CallbackContinuation(context.clone(), callback)));
 		}
@@ -239,6 +239,7 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 			if (continuations.length == 0) {
 				break;
 			}
+			final error = getError();
 			if (error != null) {
 				for (cont in continuations) {
 					cont.failAsync(error);

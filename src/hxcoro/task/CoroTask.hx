@@ -59,9 +59,7 @@ class CoroTask<T> extends CoroBaseTask<T> implements IContinuation<T> {
 			}
 			checkCompletion();
 		} else {
-			if (this.error == null) {
-				this.error = error;
-			}
+			this.error.compareExchange(null, error);
 			cancel();
 		}
 	}
