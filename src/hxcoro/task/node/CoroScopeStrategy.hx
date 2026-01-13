@@ -16,7 +16,7 @@ class CoroScopeStrategy implements INodeStrategy {
 	public function childSucceeds<T>(task:CoroBaseTask<T>, child:AbstractTask) {}
 
 	public function childErrors<T>(task:CoroBaseTask<T>, child:AbstractTask, cause:Exception) {
-		switch (task.state) {
+		switch (task.state.load()) {
 			case Created | Running | Completing:
 				// inherit child error
 				if (task.error == null) {

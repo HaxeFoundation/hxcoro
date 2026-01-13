@@ -51,7 +51,7 @@ class CoroTask<T> extends CoroBaseTask<T> implements IContinuation<T> {
 	public function resume(result:T, error:Exception) {
 		wasResumed = true;
 		if (error == null) {
-			switch (state) {
+			switch (state.load()) {
 				case Running:
 					this.result = result;
 					beginCompleting();
