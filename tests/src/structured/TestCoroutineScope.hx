@@ -165,7 +165,7 @@ class TestCoroutineScope extends utest.Test {
 		}
 
 		Assert.raises(() -> CoroRun.runScoped(node -> {
-			final task2 = node.lazy(_ -> {
+			final task1 = node.lazy(_ -> {
 				scope(_ -> {
 					push("before yield 2");
 					yield();
@@ -174,16 +174,19 @@ class TestCoroutineScope extends utest.Test {
 					push("after throw 2");
 				});
 			});
-			final task1 = node.lazy(_ -> {
+			node.async(_ -> {
 				scope(_ -> {
 					push("before yield 1");
-					task2.start(); // is this legal?
 					while (true) {
 						yield();
 					}
 					push("after yield 1");
 				});
 			});
+			// wait for task to push "before yield 1"
+			while (acc.length == 0) {
+				yield();
+			}
 			task1.start();
 			push("at exit");
 		}), FooException);
