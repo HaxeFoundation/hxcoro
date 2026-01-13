@@ -143,6 +143,7 @@ class TestCancellingSuspend extends utest.Test {
 
 				cont.resume(null, null);
 			});
+			delay(1);
 		});
 
 		task.start();
