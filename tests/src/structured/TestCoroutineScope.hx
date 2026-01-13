@@ -177,6 +177,7 @@ class TestCoroutineScope extends utest.Test {
 			final task1 = node.lazy(_ -> {
 				scope(_ -> {
 					push("before yield 1");
+					task2.start(); // is this legal?
 					while (true) {
 						yield();
 					}
@@ -184,8 +185,6 @@ class TestCoroutineScope extends utest.Test {
 				});
 			});
 			task1.start();
-			delay(1);
-			task2.start();
 			push("at exit");
 		}), FooException);
 		has(acc, ["before yield 1", "before yield 2", "after yield 2", "at exit"], ["after yield 1", "after throw 2"]);
