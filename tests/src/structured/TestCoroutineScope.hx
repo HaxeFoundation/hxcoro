@@ -195,25 +195,31 @@ class TestCoroutineScope extends utest.Test {
 
 		acc.resize(0);
 		Assert.raises(() -> CoroRun.runScoped(node -> {
+			var open = false;
 			node.async(_ -> {
 				scope(_ -> {
-					acc.push("before yield 1");
+					push("before yield 1");
+					open = true;
 					while (true) {
 						delay(1);
 					}
-					acc.push("after yield 1");
+					push("after yield 1");
 				});
 			});
-			node.async(_ -> {
+			final task1 = node.lazy(_ -> {
 				scope(_ -> {
-					acc.push("before yield 2");
+					push("before yield 2");
 					yield();
-					acc.push("after yield 2");
+					push("after yield 2");
 					throw new FooException();
-					acc.push("after throw 2");
+					push("after throw 2");
 				});
 			});
-			acc.push("at exit");
+			while (!open) {
+				yield();
+			}
+			task1.start();
+			push("at exit");
 		}), FooException);
 		has(acc, ["before yield 1", "before yield 2", "after yield 2", "at exit"], ["after yield 1", "after throw 2"]);
 	}
