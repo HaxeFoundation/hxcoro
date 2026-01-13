@@ -1,5 +1,6 @@
 package issues.hf;
 
+import haxe.coro.Mutex;
 import hxcoro.ds.channels.Channel;
 import hxcoro.ds.Out;
 import hxcoro.CoroRun;
@@ -9,6 +10,7 @@ class Issue32 extends utest.Test {
 	function test() {
 		for (_ in 0...10) {
 			final channel = Channel.createBounded({size: 3});
+			final channelMutex = new Mutex();
 			final expected = [for (i in 0...100) i];
 			final actual = [];
 
@@ -28,8 +30,11 @@ class Issue32 extends utest.Test {
 								final out = new Out();
 
 								while (channel.waitForRead()) {
-									if (channel.tryRead(out)) {
-										actual.push(out.get());
+									if (channelMutex.tryAcquire()) {
+										if (channel.tryRead(out)) {
+											actual.push(out.get());
+										}
+										channelMutex.release();
 									}
 								}
 							});

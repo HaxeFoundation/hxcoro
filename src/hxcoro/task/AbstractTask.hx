@@ -1,5 +1,6 @@
 package hxcoro.task;
 
+import haxe.coro.Mutex;
 import hxcoro.concurrent.AtomicState;
 import hxcoro.concurrent.AtomicInt;
 import haxe.coro.cancellation.ICancellationToken;
@@ -79,12 +80,13 @@ abstract class AbstractTask implements ICancellationToken {
 	static final noOpCancellationHandle = new NoOpCancellationHandle();
 
 	final parent:AbstractTask;
+	var childrenMutex:Mutex;
 
 	var children:Null<Array<AbstractTask>>;
 	var cancellationCallbacks:Null<Array<CancellationHandle>>;
 	var state:AtomicState<TaskState>;
 	var error:Null<Exception>;
-	var numCompletedChildren:Int;
+	var numCompletedChildren:AtomicInt;
 	var indexInParent:Int;
 	var allChildrenCompleted:Bool;
 
@@ -112,8 +114,9 @@ abstract class AbstractTask implements ICancellationToken {
 		this.parent = parent;
 		state = new AtomicState(Created);
 		children = null;
+		childrenMutex = new Mutex();
 		cancellationCallbacks = null;
-		numCompletedChildren = 0;
+		numCompletedChildren = new AtomicInt(0);
 		indexInParent = -1;
 		allChildrenCompleted = false;
 		if (parent != null) {
@@ -216,16 +219,24 @@ abstract class AbstractTask implements ICancellationToken {
 	}
 
 	public function cancelChildren(?cause:CancellationException) {
+		childrenMutex.acquire();
 		if (null == children || children.length == 0) {
+			childrenMutex.release();
 			return;
 		}
 
 		cause ??= new CancellationException();
 
+		final childrenToCancel = [];
 		for (child in children) {
 			if (child != null) {
-				child.cancel(cause);
+				childrenToCancel.push(child);
 			}
+		}
+		childrenMutex.release();
+
+		for (child in childrenToCancel) {
+			child.cancel(cause);
 		}
 	}
 
@@ -236,15 +247,22 @@ abstract class AbstractTask implements ICancellationToken {
 	}
 
 	function startChildren() {
+		childrenMutex.acquire();
 		if (null == children) {
+			childrenMutex.release();
 			return;
 		}
 
+		final childrenToStart = [];
 		for (child in children) {
 			if (child == null) {
 				continue;
 			}
-			//
+			childrenToStart.push(child);
+		}
+		childrenMutex.release();
+
+		for (child in childrenToStart) {
 			child.start();
 		}
 	}
@@ -263,13 +281,15 @@ abstract class AbstractTask implements ICancellationToken {
 		if (allChildrenCompleted) {
 			return;
 		}
+		childrenMutex.acquire();
 		if (children == null) {
 			allChildrenCompleted = true;
 			childrenCompleted();
-		} else if (numCompletedChildren == children.length) {
+		} else if (numCompletedChildren.load() == children.length) {
 			allChildrenCompleted = true;
 			childrenCompleted();
 		}
+		childrenMutex.release();
 	}
 
 	abstract function doStart():Void;
@@ -287,7 +307,7 @@ abstract class AbstractTask implements ICancellationToken {
 	// called from child
 
 	function childCompletes(child:AbstractTask, processResult:Bool) {
-		numCompletedChildren++;
+		numCompletedChildren.add(1);
 		if (processResult) {
 			if (child.error != null) {
 				if (child.error is CancellationException) {
@@ -307,8 +327,10 @@ abstract class AbstractTask implements ICancellationToken {
 	}
 
 	function addChild(child:AbstractTask) {
+		childrenMutex.acquire();
 		final container = children ??= [];
 		final index = container.push(child);
+		childrenMutex.release();
 		child.indexInParent = index - 1;
 	}
 }

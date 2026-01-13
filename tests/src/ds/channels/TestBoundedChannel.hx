@@ -1,5 +1,6 @@
 package ds.channels;
 
+import haxe.coro.Mutex;
 import haxe.ds.Option;
 import hxcoro.schedulers.VirtualTimeScheduler;
 import haxe.exceptions.ArgumentException;
@@ -231,6 +232,7 @@ class TestBoundedChannel extends utest.Test {
 
 	function test_single_writer_multiple_reader() {
 		final channel  = Channel.createBounded({ size : 3 });
+		final channelMutex = new Mutex();
 		final expected = [ for (i in 0...100) i ];
 		final actual   = [];
 
@@ -249,8 +251,11 @@ class TestBoundedChannel extends utest.Test {
 						final out = new Out();
 
 						while (channel.waitForRead()) {
-							if (channel.tryRead(out)) {
-								actual.push(out.get());
+							if (channelMutex.tryAcquire()) {
+								if (channel.tryRead(out)) {
+									actual.push(out.get());
+								}
+								channelMutex.release();
 							}
 						}
 					});

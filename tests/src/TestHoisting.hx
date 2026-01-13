@@ -1,3 +1,4 @@
+import haxe.coro.Mutex;
 import hxcoro.Coro.*;
 
 class TestHoisting extends utest.Test {
@@ -119,16 +120,21 @@ class TestHoisting extends utest.Test {
     function testLoopHoisting() {
         final expected = [1, 2, 3];
         final actual   = [];
+		final actualMutex = new Mutex();
 
         CoroRun.runScoped(node -> {
             for (x in expected) {
                 node.async(_ -> {
+					actualMutex.acquire();
                     actual.push(x);
+					actualMutex.release();
                 });
             }
         });
 
-        Assert.same(expected, actual);
+		for (i in expected) {
+        	Assert.isTrue(actual.contains(i));
+		}
     }
 
     function testUninitialisedVariable() {

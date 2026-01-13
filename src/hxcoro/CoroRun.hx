@@ -62,7 +62,7 @@ class CoroRun {
 
 	static public function runWith<T>(context:Context, lambda:NodeLambda<T>):T {
 		#if target.threaded
-		final pool = new FixedThreadPool(1);
+		final pool = new FixedThreadPool(10);
 		final dispatcher = new ThreadPoolDispatcher(pool);
 		#else
 		final dispatcher = new SelfDispatcher();
