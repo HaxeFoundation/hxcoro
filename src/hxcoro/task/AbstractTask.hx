@@ -173,34 +173,19 @@ abstract class AbstractTask implements ICancellationToken {
 		task has completed and initiates the appropriate behavior.
 	**/
 	public function cancel(?cause:CancellationException) {
-		switch (state.load()) {
-			case Cancelled | Completed:
-				// final states, nothing to do
-			case Cancelling:
-				checkCompletion();
-			case Created | Running | Completing:
-				switch (state.exchange(Cancelling)) {
-					case Created | Running | Completing:
-						// expected, keep going
-					case Cancelling:
-						// someone else got here first, but the state is fine
-						return;
-					case value = Cancelled | Completed:
-						// final states, revert
-						state.store(value);
-						return;
+		if (state.change(Created, Cancelling) || state.change(Running, Cancelling) || state.change(Completing, Cancelling)) {
+			cause ??= new CancellationException();
+			error.compareExchange(null, cause);
+
+			cancellationCallbacks.access(a -> {
+				for (h in a) {
+					h.run();
 				}
-				cause ??= new CancellationException();
-				error.compareExchange(null, cause);
-
-				cancellationCallbacks.access(a -> {
-					for (h in a) {
-						h.run();
-					}
-				});
-
-				cancelChildren(cause);
-				checkCompletion();
+			});
+			cancelChildren(cause);
+			checkCompletion();
+		} else if (state.load() == Cancelling) {
+			checkCompletion();
 		}
 	}
 
