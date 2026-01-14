@@ -14,9 +14,10 @@ import haxe.coro.cancellation.CancellationToken;
 import haxe.coro.cancellation.ICancellationCallback;
 
 private enum abstract State(Int) to Int {
-	var Active;
-	var Resumed;
-	var Cancelled;
+	final Active;
+	final Resolved;
+	final Completing;
+	final Completed;
 }
 
 class CancellingContinuation<T> extends SuspensionResult<T> implements ICancellableContinuation<T> implements ICancellationCallback implements IScheduleObject {
@@ -56,27 +57,68 @@ class CancellingContinuation<T> extends SuspensionResult<T> implements ICancella
 		this.state  = Pending;
 	}
 
-	public function resume(result:T, error:Exception) {
-		this.result = result;
-		this.error = error;
-		if (resumeState.compareExchange(Active, Resumed) == Active) {
-			handle.close();
-			context.get(Scheduler).scheduleObject(this);
-		} else {
-			cont.failAsync(error.orCancellationException());
+	/**
+		Returning `true` means that we did update the state, so result and error are set.
+	**/
+	function updateState(result:T, error:Exception) {
+		return switch (resumeState.compareExchange(Active, Completing)) {
+			case Active:
+				// We're first, set for resolve
+				this.result = result;
+				this.error = error;
+				resumeState.store(Completed);
+				true;
+			case Resolved:
+				// Already resolved: set & schedule
+				// The CAS is here in case updateState gets called multiple times
+				if (resumeState.compareExchange(Resolved, Completing) == Resolved) {
+					this.result = result;
+					this.error = error;
+					resumeState.store(Completed);
+					context.get(Scheduler).scheduleObject(this);
+					true;
+				} else {
+					false;
+				}
+			case Completing | Completed:
+				// Already cancelled
+				false;
+			case _:
+				// Invalid state
+				false;
 		}
+	}
 
+	public function resume(result:T, error:Exception) {
+		if (updateState(result, error)) {
+			handle.close();
+		}
 	}
 
 	public function onCancellation(cause:CancellationException) {
-		handle?.close();
-
-		if (resumeState.compareExchange(Active, Cancelled) == Active) {
+		if (updateState(null, cause)) {
 			if (null != onCancellationRequested) {
 				onCancellationRequested(cause);
 			}
+			handle?.close();
+		}
+	}
 
-			cont.failAsync(cause);
+	public function resolve():Void {
+		if (resumeState.compareExchange(Active, Resolved) == Active) {
+			state = Pending;
+		} else {
+			while (resumeState.load() == Completing) {
+				// Wait until the values are set
+				#if eval
+				eval.vm.NativeThread.yield();
+				#end
+			}
+			if (error != null) {
+				state = Thrown;
+			} else {
+				state = Returned;
+			}
 		}
 	}
 
