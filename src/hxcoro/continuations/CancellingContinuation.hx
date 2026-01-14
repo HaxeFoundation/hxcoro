@@ -110,6 +110,9 @@ class CancellingContinuation<T> extends SuspensionResult<T> implements ICancella
 		} else {
 			while (resumeState.load() == Completing) {
 				// Wait until the values are set
+				#if eval
+				eval.vm.NativeThread.yield();
+				#end
 			}
 			if (error != null) {
 				state = Thrown;
