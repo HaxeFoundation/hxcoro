@@ -57,54 +57,50 @@ class CancellingContinuation<T> extends SuspensionResult<T> implements ICancella
 		this.state  = Pending;
 	}
 
-	public function resume(result:T, error:Exception) {
-		switch (resumeState.compareExchange(Active, Completing)) {
+	/**
+		Returning `true` means that we did update the state, so result and error are set.
+	**/
+	function updateState(result:T, error:Exception) {
+		return switch (resumeState.compareExchange(Active, Completing)) {
 			case Active:
 				// We're first, set for resolve
 				this.result = result;
 				this.error = error;
 				resumeState.store(Completed);
+				true;
 			case Resolved:
 				// Already resolved: set & schedule
+				// The CAS is here in case updateState gets called multiple times
 				if (resumeState.compareExchange(Resolved, Completing) == Resolved) {
 					this.result = result;
 					this.error = error;
 					resumeState.store(Completed);
-					handle.close();
 					context.get(Scheduler).scheduleObject(this);
+					true;
+				} else {
+					false;
 				}
 			case Completing | Completed:
 				// Already cancelled
+				false;
+			case _:
+				// Invalid state
+				false;
+		}
+	}
+
+	public function resume(result:T, error:Exception) {
+		if (updateState(result, error)) {
+			handle.close();
 		}
 	}
 
 	public function onCancellation(cause:CancellationException) {
-		function cancel() {
+		if (updateState(null, cause)) {
 			if (null != onCancellationRequested) {
 				onCancellationRequested(cause);
 			}
 			handle?.close();
-		}
-
-		switch (resumeState.compareExchange(Active, Completing)) {
-			case Active:
-				// We're first, set for resolve
-				result = null;
-				error = cause;
-				resumeState.store(Completed);
-				cancel();
-			case Resolved:
-				// Already resolved: set & schedule.
-				// The CAS is here in case onCancellation gets called multiple times (can that happen?)
-				if (resumeState.compareExchange(Resolved, Completing) == Resolved) {
-					result = null;
-					error = cause;
-					resumeState.store(Completed);
-					cancel();
-					context.get(Scheduler).scheduleObject(this);
-				}
-			case Completing | Completed:
-				// Already completed or cancelled
 		}
 	}
 
