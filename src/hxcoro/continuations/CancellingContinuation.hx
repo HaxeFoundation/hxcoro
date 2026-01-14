@@ -16,6 +16,7 @@ import haxe.coro.cancellation.ICancellationCallback;
 private enum abstract State(Int) to Int {
 	final Active;
 	final Resolved;
+	final Completing;
 	final Completed;
 }
 
@@ -57,20 +58,22 @@ class CancellingContinuation<T> extends SuspensionResult<T> implements ICancella
 	}
 
 	public function resume(result:T, error:Exception) {
-		switch (resumeState.compareExchange(Active, Completed)) {
+		switch (resumeState.compareExchange(Active, Completing)) {
 			case Active:
 				// We're first, set for resolve
 				this.result = result;
 				this.error = error;
+				resumeState.store(Completed);
 			case Resolved:
 				// Already resolved: set & schedule
-				if (resumeState.compareExchange(Resolved, Completed) == Resolved) {
+				if (resumeState.compareExchange(Resolved, Completing) == Resolved) {
 					this.result = result;
 					this.error = error;
+					resumeState.store(Completed);
 					handle.close();
 					context.get(Scheduler).scheduleObject(this);
 				}
-			case Completed:
+			case Completing | Completed:
 				// Already cancelled
 		}
 	}
@@ -80,22 +83,27 @@ class CancellingContinuation<T> extends SuspensionResult<T> implements ICancella
 			if (null != onCancellationRequested) {
 				onCancellationRequested(cause);
 			}
-			result = null;
-			error = cause;
 			handle?.close();
 		}
 
-		switch (resumeState.compareExchange(Active, Completed)) {
+		switch (resumeState.compareExchange(Active, Completing)) {
 			case Active:
 				// We're first, set for resolve
+				result = null;
+				error = cause;
+				resumeState.store(Completed);
 				cancel();
 			case Resolved:
-				// Already resolved: set & schedule
-				if (resumeState.compareExchange(Resolved, Completed) == Resolved) {
+				// Already resolved: set & schedule.
+				// The CAS is here in case onCancellation gets called multiple times (can that happen?)
+				if (resumeState.compareExchange(Resolved, Completing) == Resolved) {
+					result = null;
+					error = cause;
+					resumeState.store(Completed);
 					cancel();
 					context.get(Scheduler).scheduleObject(this);
 				}
-			case Completed:
+			case Completing | Completed:
 				// Already completed or cancelled
 		}
 	}
@@ -104,6 +112,9 @@ class CancellingContinuation<T> extends SuspensionResult<T> implements ICancella
 		if (resumeState.compareExchange(Active, Resolved) == Active) {
 			state = Pending;
 		} else {
+			while (resumeState.load() == Completing) {
+				// Wait until the values are set
+			}
 			if (error != null) {
 				state = Thrown;
 			} else {
