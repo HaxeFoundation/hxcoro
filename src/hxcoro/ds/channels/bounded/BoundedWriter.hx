@@ -94,7 +94,7 @@ final class BoundedWriter<T> implements IChannelWriter<T> {
 						throw new Exception('Failed to drop oldest item');
 					}
 				}
-				
+
 				return;
 			case DropWrite(f):
 				f(v);
@@ -143,9 +143,7 @@ final class BoundedWriter<T> implements IChannelWriter<T> {
 		});
 
 		if (justClosed) {
-			// Should be safe to act on the read waiters without the lock at this point.
-			// All other code which pushes read waiters should be checking closed first.
-	
+			lock.acquire();
 			while (writeWaiters.isEmpty() == false) {
 				switch writeWaiters.pop() {
 					case null:
@@ -154,7 +152,7 @@ final class BoundedWriter<T> implements IChannelWriter<T> {
 						cont.succeedAsync(false);
 				}
 			};
-	
+
 			while (readWaiters.isEmpty() == false) {
 				switch (readWaiters.pop()) {
 					case null:
@@ -163,6 +161,7 @@ final class BoundedWriter<T> implements IChannelWriter<T> {
 						cont.succeedAsync(false);
 				}
 			};
+			lock.release();
 		}
 	}
 }
