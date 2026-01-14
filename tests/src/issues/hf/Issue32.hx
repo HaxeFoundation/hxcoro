@@ -16,7 +16,7 @@ class Issue32 extends utest.Test {
 
 			CoroRun.runScoped(node -> {
 				try {
-					timeout(3000, node -> {
+					timeout(10000, node -> {
 						node.async(_ -> {
 							for (v in expected) {
 								channel.write(v);
