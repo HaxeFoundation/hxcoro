@@ -51,10 +51,10 @@ class CancellingContinuation<T> extends SuspensionResult<T> implements ICancella
 	}
 
 	public function new(cont) {
+		super(Pending);
 		this.resumeState  = new AtomicInt(Active);
 		this.cont   = cont;
 		this.handle = this.cont.context.get(CancellationToken).onCancellationRequested(this);
-		this.state  = Pending;
 	}
 
 	/**
