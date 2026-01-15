@@ -1,31 +1,37 @@
 package hxcoro.thread;
 
-import haxe.coro.schedulers.IScheduleObject;
 #if (!target.threaded)
 #error "This class is not available on this target"
 #end
 
-import sys.thread.Thread;
-import sys.thread.Mutex;
+import sys.thread.Condition;
 import sys.thread.Deque;
+import sys.thread.Thread;
+import hxcoro.concurrent.AtomicInt;
+import haxe.coro.schedulers.IScheduleObject;
 
 /**
 	Thread pool with a constant amount of threads.
 	Threads in the pool will exist until the pool is explicitly shut down.
 **/
 class FixedThreadPool implements IThreadPool implements IScheduleObject {
-	/* Amount of threads in this pool. */
+	/**
+		@see `IThreadPool.threadsCount`
+	**/
 	public var threadsCount(get,null):Int;
 	function get_threadsCount():Int return threadsCount;
 
-	/** Indicates if `shutdown` method of this pool has been called. */
+	/**
+		@see `IThreadPool.isShutdown`
+	**/
 	public var isShutdown(get,never):Bool;
 	var _isShutdown = false;
 	function get_isShutdown():Bool return _isShutdown;
 
 	final pool:Array<Worker>;
-	final poolMutex = new Mutex();
 	final queue = new Deque<IScheduleObject>();
+	final shutdownCounter = new AtomicInt(0);
+	final shutdownCond = new Condition();
 
 	/**
 		Create a new thread pool with `threadsCount` threads.
@@ -38,8 +44,7 @@ class FixedThreadPool implements IThreadPool implements IScheduleObject {
 	}
 
 	/**
-		Submit a task to run in a thread.
-		Throws an exception if the pool is shut down.
+		@see `IThreadPool.run`
 	**/
 	public function run(obj:IScheduleObject):Void {
 		if(_isShutdown)
@@ -50,20 +55,34 @@ class FixedThreadPool implements IThreadPool implements IScheduleObject {
 	}
 
 	/**
-		Initiates a shutdown.
-		All previously submitted tasks will be executed, but no new tasks will
-		be accepted.
-		Multiple calls to this method have no effect.
+		@see `IThreadPool.shutdown`
 	**/
-	public function shutdown():Void {
+	public function shutdown(block:Bool = false):Void {
 		if(_isShutdown) return;
 		_isShutdown = true;
+		if (block) {
+			shutdownCounter.store(pool.length);
+		}
 		for(_ in pool) {
 			queue.add(this);
 		}
+		if (block) {
+			shutdownCond.acquire();
+			while (shutdownCounter.load() > 0) {
+				shutdownCond.wait();
+			}
+			shutdownCond.release();
+		}
 	}
 
+	/**
+		@see `IScheduleObject.onSchedule`
+	**/
 	public function onSchedule():Void {
+		shutdownCounter.sub(1);
+		shutdownCond.acquire();
+		shutdownCond.signal();
+		shutdownCond.release();
 		throw new ShutdownException('');
 	}
 }

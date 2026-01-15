@@ -25,7 +25,10 @@ interface IThreadPool {
 		All previousely submitted tasks will be executed, but no new tasks will
 		be accepted.
 
+		If `block == true`, the calling thread blocks until all threads in the pool
+		have shut down.
+
 		Multiple calls to this method have no effect.
 	**/
-	function shutdown():Void;
+	function shutdown(block:Bool = false):Void;
 }
