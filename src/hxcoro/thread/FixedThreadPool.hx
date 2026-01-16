@@ -31,9 +31,7 @@ class FixedThreadPool implements IThreadPool implements IScheduleObject {
 	final pool:Array<Worker>;
 	final queue = new Deque<IScheduleObject>();
 	final shutdownCounter = new AtomicInt(0);
-	#if !neko
 	final shutdownCond = new Condition();
-	#end
 
 	/**
 		Create a new thread pool with `threadsCount` threads.
@@ -69,14 +67,11 @@ class FixedThreadPool implements IThreadPool implements IScheduleObject {
 			queue.add(this);
 		}
 		if (block) {
-			// TODO: need Condition implementation
-			#if !neko
 			shutdownCond.acquire();
 			while (shutdownCounter.load() > 0) {
 				shutdownCond.wait();
 			}
 			shutdownCond.release();
-			#end
 		}
 	}
 
@@ -84,12 +79,10 @@ class FixedThreadPool implements IThreadPool implements IScheduleObject {
 		@see `IScheduleObject.onSchedule`
 	**/
 	public function onSchedule():Void {
-		#if !neko
 		shutdownCounter.sub(1);
 		shutdownCond.acquire();
 		shutdownCond.signal();
 		shutdownCond.release();
-		#end
 		throw new ShutdownException('');
 	}
 }
