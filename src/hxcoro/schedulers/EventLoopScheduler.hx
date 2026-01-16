@@ -254,16 +254,14 @@ class EventLoopScheduler extends Scheduler {
 
 	public function run() {
 		final currentTime = now();
+		futureMutex.acquire();
 		while (true) {
-			futureMutex.acquire();
 			var minimum = heap.minimum();
 			if (minimum == null || minimum.runTime > currentTime) {
 				break;
 			}
 
 			final toRun = heap.extract();
-			futureMutex.release();
-
 			toRun.iterateEvents(dispatch);
 		}
 
