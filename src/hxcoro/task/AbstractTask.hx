@@ -1,6 +1,6 @@
 package hxcoro.task;
 
-import haxe.atomic.AtomicObject;
+import hxcoro.concurrent.AtomicObject;
 import hxcoro.concurrent.AtomicState;
 import hxcoro.concurrent.AtomicInt;
 import haxe.coro.cancellation.ICancellationToken;
