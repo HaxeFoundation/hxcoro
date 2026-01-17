@@ -216,14 +216,25 @@ abstract class AbstractTask implements ICancellationToken {
 		}
 	}
 
+	/**
+		Cancels all current children of this task, using `cause` as the reason.
+
+		This task itself is not cancelled and continues to run. Newly created children
+		are also not affected by this.
+	**/
 	public function cancelChildren(?cause:CancellationException) {
-		if (null == children || children.length == 0) {
+		if (null == children) {
+			return;
+		}
+		final childrenLength = children.length;
+		if (childrenLength == 0) {
 			return;
 		}
 
 		cause ??= new CancellationException();
 
-		for (child in children) {
+		for (i in 0...childrenLength) {
+			final child = children[i];
 			if (child != null) {
 				child.cancel(cause);
 			}
@@ -323,16 +334,16 @@ abstract class AbstractTask implements ICancellationToken {
 		}
 	}
 
+	// single-threaded
+
 	function addChild(child:AbstractTask) {
+		allChildrenCompleted = false;
 		final container = children ??= [];
 		final index = container.push(child);
 		child.indexInParent = index - 1;
 		switch (state.load()) {
 			case Cancelling:
-				// If we're already cancelling, cancel the child too.
-				if (state.load() == Cancelling) {
-					child.cancel();
-				}
+				child.cancel();
 			case state = Cancelled | Completed:
 				throw new TaskException('Invalid state $state in addChild');
 			case Created | Running | Completing:

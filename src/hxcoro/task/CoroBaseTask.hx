@@ -216,6 +216,12 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 		}
 	}
 
+	/**
+		Suspends this task until all its current children complete.
+
+		Children can still be created after this function resumes and are not
+		affected by this call.
+	**/
 	@:coroutine public function awaitChildren() {
 		if (allChildrenCompleted) {
 			localContext.get(CoroKeys.awaitingChildContinuation)?.callSync();
