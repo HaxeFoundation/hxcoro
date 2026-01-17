@@ -19,7 +19,7 @@ class CoroChildStrategy implements INodeStrategy {
 		switch (task.state.load()) {
 			case Created | Running | Completing:
 				// inherit child error
-				task.error.compareExchange(null, cause);
+				task.error ??= cause;
 				task.cancel();
 			case Cancelling:
 				// not sure about this one, what if we cancel normally and then get a real exception?

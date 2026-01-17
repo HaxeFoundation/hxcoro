@@ -189,7 +189,7 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 			case Completed:
 				cont.succeedSync(result);
 			case Cancelled:
-				cont.failSync(getError());
+				cont.failSync(error);
 			case _:
 				awaitingContinuations ??= [];
 				awaitingContinuations.push(cont);
@@ -209,7 +209,7 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 			case Completed:
 				callback(result, null);
 			case Cancelled:
-				callback(null, getError());
+				callback(null, error);
 			case _:
 				awaitingContinuations ??= [];
 				awaitingContinuations.push(new CallbackContinuation(context.clone(), callback));
@@ -239,15 +239,17 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 		while (awaitingContinuations.length > 0) {
 			final continuations = awaitingContinuations;
 			awaitingContinuations = [];
-			final error = getError();
-			if (error != null) {
-				for (cont in continuations) {
-					cont.failAsync(error);
-				}
-			} else {
-				for (cont in continuations) {
-					cont.succeedAsync(result);
-				}
+			switch (state.load()) {
+				case Completed:
+					for (cont in continuations) {
+						cont.succeedAsync(result);
+					}
+				case Cancelled:
+					for (cont in continuations) {
+						cont.failAsync(error);
+					}
+				case state:
+					throw new TaskException('Invalid state $state in handleAwaitingContinuations');
 			}
 		}
 	}

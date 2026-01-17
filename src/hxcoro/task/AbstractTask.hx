@@ -1,6 +1,5 @@
 package hxcoro.task;
 
-import hxcoro.concurrent.AtomicObject;
 import hxcoro.concurrent.AtomicState;
 import hxcoro.concurrent.AtomicInt;
 import haxe.coro.cancellation.ICancellationToken;
@@ -18,7 +17,7 @@ enum abstract TaskState(Int) to Int {
 	final Cancelled;
 }
 
-private class TaskException extends Exception {}
+class TaskException extends Exception {}
 
 private class CancellationHandle implements ICancellationHandle {
 	final callback:ICancellationCallback;
@@ -84,7 +83,7 @@ abstract class AbstractTask implements ICancellationToken {
 	var children:Null<Array<AbstractTask>>;
 	var cancellationCallbacks:Null<Array<CancellationHandle>>;
 	var state:AtomicState<TaskState>;
-	var error:AtomicObject<Null<Exception>>;
+	var error:Null<Exception>;
 	var numCompletedChildren:Int;
 	var indexInParent:Int;
 	var allChildrenCompleted:Bool;
@@ -95,7 +94,7 @@ abstract class AbstractTask implements ICancellationToken {
 	inline function get_cancellationException() {
 		return switch state.load() {
 			case Cancelling | Cancelled:
-				getError().orCancellationException();
+				error.orCancellationException();
 			case _:
 				null;
 		}
@@ -112,7 +111,7 @@ abstract class AbstractTask implements ICancellationToken {
 		id = atomicId.add(1);
 		this.parent = parent;
 		state = new AtomicState(Created);
-		error = new AtomicObject(null);
+		error = null;
 		children = null;
 		cancellationCallbacks = null;
 		numCompletedChildren = 0;
@@ -134,7 +133,7 @@ abstract class AbstractTask implements ICancellationToken {
 		Returns the task's error value, if any/
 	**/
 	public function getError() {
-		return error.load();
+		return error;
 	}
 
 	/**
@@ -155,7 +154,8 @@ abstract class AbstractTask implements ICancellationToken {
 					if (nextState == currentState) {
 						// Update successful, so this is the first and only time we get here
 						cause ??= new CancellationException();
-						error.compareExchange(null, cause);
+						// This has to happen before the state update!
+						error ??= cause;
 						state.store(Cancelling);
 
 						if (null != cancellationCallbacks) {
@@ -194,7 +194,7 @@ abstract class AbstractTask implements ICancellationToken {
 	public function onCancellationRequested(callback:ICancellationCallback):ICancellationHandle {
 		return switch (state.load()) {
 			case Cancelling | Cancelled:
-				callback.onCancellation(getError().orCancellationException());
+				callback.onCancellation(error.orCancellationException());
 
 				return noOpCancellationHandle;
 			case _:
