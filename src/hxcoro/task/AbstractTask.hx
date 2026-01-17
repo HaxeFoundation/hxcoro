@@ -1,5 +1,6 @@
 package hxcoro.task;
 
+import hxcoro.concurrent.AtomicState;
 import hxcoro.concurrent.AtomicInt;
 import haxe.coro.cancellation.ICancellationToken;
 import haxe.coro.cancellation.ICancellationHandle;
@@ -7,7 +8,7 @@ import haxe.coro.cancellation.ICancellationCallback;
 import haxe.exceptions.CancellationException;
 import haxe.Exception;
 
-enum abstract TaskState(Int) {
+enum abstract TaskState(Int) to Int {
 	final Created;
 	final Running;
 	final Completing;
@@ -16,7 +17,7 @@ enum abstract TaskState(Int) {
 	final Cancelled;
 }
 
-private class TaskException extends Exception {}
+class TaskException extends Exception {}
 
 private class CancellationHandle implements ICancellationHandle {
 	final callback:ICancellationCallback;
@@ -81,7 +82,7 @@ abstract class AbstractTask implements ICancellationToken {
 
 	var children:Null<Array<AbstractTask>>;
 	var cancellationCallbacks:Null<Array<CancellationHandle>>;
-	var state:TaskState;
+	var state:AtomicState<TaskState>;
 	var error:Null<Exception>;
 	var numCompletedChildren:Int;
 	var indexInParent:Int;
@@ -91,7 +92,7 @@ abstract class AbstractTask implements ICancellationToken {
 	public var cancellationException(get, never):Null<CancellationException>;
 
 	inline function get_cancellationException() {
-		return switch state {
+		return switch state.load() {
 			case Cancelling | Cancelled:
 				error.orCancellationException();
 			case _:
@@ -109,7 +110,8 @@ abstract class AbstractTask implements ICancellationToken {
 	public function new(parent:Null<AbstractTask>, initialState:TaskState) {
 		id = atomicId.add(1);
 		this.parent = parent;
-		state = Created;
+		state = new AtomicState(Created);
+		error = null;
 		children = null;
 		cancellationCallbacks = null;
 		numCompletedChildren = 0;
@@ -143,24 +145,36 @@ abstract class AbstractTask implements ICancellationToken {
 		task has completed and initiates the appropriate behavior.
 	**/
 	public function cancel(?cause:CancellationException) {
-		switch (state) {
-			case Created | Running | Completing:
-				cause ??= new CancellationException();
-				if (error == null) {
-					error = cause;
-				}
-				state = Cancelling;
+		// Use Zeta-loop to make sure we don't miss a state change
+		var currentState = state.load();
+		while (true) {
+			switch (currentState) {
+				case Created | Running | Completing:
+					final nextState = state.compareExchange(currentState, Cancelling);
+					if (nextState == currentState) {
+						// Update successful, so this is the first and only time we get here
+						cause ??= new CancellationException();
+						// This has to happen before the state update!
+						error ??= cause;
+						state.store(Cancelling);
 
-				if (null != cancellationCallbacks) {
-					for (h in cancellationCallbacks) {
-						h.run();
+						if (null != cancellationCallbacks) {
+							for (h in cancellationCallbacks) {
+								h.run();
+							}
+						}
+
+						cancelChildren(cause);
+						checkCompletion();
+						break;
+					} else {
+						// Loop with current value to try again
+						currentState = nextState;
 					}
-				}
-
-				cancelChildren(cause);
-				checkCompletion();
-			case _:
-				checkCompletion();
+				case Cancelling | Cancelled | Completed:
+					checkCompletion();
+					break;
+			}
 		}
 	}
 
@@ -169,7 +183,7 @@ abstract class AbstractTask implements ICancellationToken {
 		is considered to be active.
 	**/
 	public function isActive() {
-		return switch (state) {
+		return switch (state.load()) {
 			case Completed | Cancelled:
 				false;
 			case _:
@@ -178,7 +192,7 @@ abstract class AbstractTask implements ICancellationToken {
 	}
 
 	public function onCancellationRequested(callback:ICancellationCallback):ICancellationHandle {
-		return switch state {
+		return switch (state.load()) {
 			case Cancelling | Cancelled:
 				callback.onCancellation(error.orCancellationException());
 
@@ -196,13 +210,9 @@ abstract class AbstractTask implements ICancellationToken {
 	/**
 		Starts executing this task. Has no effect if the task is already active or has completed.
 	**/
-	public function start() {
-		switch (state) {
-			case Created:
-				state = Running;
-				doStart();
-			case _:
-				return;
+	public final function start() {
+		if (state.changeIf(Created, Running)) {
+			doStart();
 		}
 	}
 
@@ -220,9 +230,11 @@ abstract class AbstractTask implements ICancellationToken {
 		}
 	}
 
-	final inline function beginCompleting() {
-		state = Completing;
-		startChildren();
+	final inline function beginCompleting(f:() -> Void) {
+		if (state.changeIf(Running, Completing)) {
+			f();
+			startChildren();
+		}
 	}
 
 	function startChildren() {
@@ -234,12 +246,7 @@ abstract class AbstractTask implements ICancellationToken {
 			if (child == null) {
 				continue;
 			}
-			switch (child.state) {
-				case Created:
-					child.start();
-				case Cancelled | Completed:
-				case Running | Completing | Cancelling:
-			}
+			child.start();
 		}
 	}
 
@@ -248,20 +255,21 @@ abstract class AbstractTask implements ICancellationToken {
 		if (!allChildrenCompleted) {
 			return;
 		}
-		switch (state) {
-			case Created | Running | Completed | Cancelled:
-				return;
-			case _:
+		var currentState = state.load();
+		while (true) {
+			final targetState = switch (currentState) {
+				case Completing: Completed;
+				case Cancelling: Cancelled;
+				case _: break;
+			};
+			final nextState = state.compareExchange(currentState, targetState);
+			if (nextState == currentState) {
+				complete();
+				break;
+			} else {
+				currentState = nextState;
+			}
 		}
-		switch (state) {
-			case Completing:
-				state = Completed;
-			case Cancelling:
-				state = Cancelled;
-			case _:
-				throw new TaskException('Invalid state $state in checkCompletion');
-		}
-		complete();
 	}
 
 	function updateChildrenCompletion() {
@@ -294,14 +302,18 @@ abstract class AbstractTask implements ICancellationToken {
 	function childCompletes(child:AbstractTask, processResult:Bool) {
 		numCompletedChildren++;
 		if (processResult) {
-			if (child.error != null) {
-				if (child.error is CancellationException) {
-					childCancels(child, cast child.error);
-				} else {
-					childErrors(child, child.error);
-				}
-			} else {
-				childSucceeds(child);
+			switch (child.state.load()) {
+				case Completed:
+					childSucceeds(child);
+				case Cancelled:
+					final childError = child.getError();
+					if (childError is CancellationException) {
+						childCancels(child, cast childError);
+					} else {
+						childErrors(child, childError);
+					}
+				case state:
+					throw new TaskException('Invalid state $state in childCompletes');
 			}
 		}
 		updateChildrenCompletion();
@@ -315,5 +327,15 @@ abstract class AbstractTask implements ICancellationToken {
 		final container = children ??= [];
 		final index = container.push(child);
 		child.indexInParent = index - 1;
+		switch (state.load()) {
+			case Cancelling:
+				// If we're already cancelling, cancel the child too.
+				if (state.load() == Cancelling) {
+					child.cancel();
+				}
+			case state = Cancelled | Completed:
+				throw new TaskException('Invalid state $state in addChild');
+			case Created | Running | Completing:
+		}
 	}
 }

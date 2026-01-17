@@ -95,14 +95,9 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 	**/
 	public function new(context:Context, nodeStrategy:INodeStrategy, initialState:TaskState) {
 		final parent = context.get(CoroTask);
-		super(parent, initialState);
 		initialContext = context;
 		this.nodeStrategy = nodeStrategy;
-
-		// If our parent is already cancelling, we probably want to cancel too
-		if (parent != null && parent.state == Cancelling) {
-			cancel();
-		}
+		super(parent, initialState);
 	}
 
 	inline function get_context() {
@@ -190,7 +185,7 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 		This function also starts this task if it has not been started yet.
 	**/
 	public function awaitContinuation(cont:IContinuation<T>) {
-		switch state {
+		switch (state.load()) {
 			case Completed:
 				cont.succeedSync(result);
 			case Cancelled:
@@ -210,7 +205,7 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 	}
 
 	public function onCompletion(callback:(result:T, error:Exception)->Void) {
-		switch state {
+		switch (state.load()) {
 			case Completed:
 				callback(result, null);
 			case Cancelled:
@@ -244,14 +239,17 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 		while (awaitingContinuations.length > 0) {
 			final continuations = awaitingContinuations;
 			awaitingContinuations = [];
-			if (error != null) {
-				for (cont in continuations) {
-					cont.failAsync(error);
-				}
-			} else {
-				for (cont in continuations) {
-					cont.succeedAsync(result);
-				}
+			switch (state.load()) {
+				case Completed:
+					for (cont in continuations) {
+						cont.succeedAsync(result);
+					}
+				case Cancelled:
+					for (cont in continuations) {
+						cont.failAsync(error);
+					}
+				case state:
+					throw new TaskException('Invalid state $state in handleAwaitingContinuations');
 			}
 		}
 	}
