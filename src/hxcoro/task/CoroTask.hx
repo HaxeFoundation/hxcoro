@@ -53,8 +53,9 @@ class CoroTask<T> extends CoroBaseTask<T> implements IContinuation<T> {
 		if (error == null) {
 			switch (state.load()) {
 				case Running:
-					this.result = result;
-					beginCompleting();
+					beginCompleting(() -> {
+						this.result = result;
+					});
 				case _:
 			}
 			checkCompletion();
