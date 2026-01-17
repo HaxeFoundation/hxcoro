@@ -33,8 +33,8 @@ class CoroTask<T> extends CoroBaseTask<T> implements IContinuation<T> {
 	}
 
 	public function runNodeLambda(lambda:NodeLambda<T>) {
-		final result = lambda(this, this);
 		start();
+		final result = lambda(this, this);
 		switch result.state {
 			case Pending:
 				return;
@@ -51,7 +51,7 @@ class CoroTask<T> extends CoroBaseTask<T> implements IContinuation<T> {
 	public function resume(result:T, error:Exception) {
 		wasResumed = true;
 		if (error == null) {
-			switch (state) {
+			switch (state.load()) {
 				case Running:
 					this.result = result;
 					beginCompleting();
@@ -59,9 +59,7 @@ class CoroTask<T> extends CoroBaseTask<T> implements IContinuation<T> {
 			}
 			checkCompletion();
 		} else {
-			if (this.error == null) {
-				this.error = error;
-			}
+			this.error.compareExchange(null, error);
 			cancel();
 		}
 	}

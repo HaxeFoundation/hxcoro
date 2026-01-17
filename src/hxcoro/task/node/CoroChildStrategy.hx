@@ -16,12 +16,10 @@ class CoroChildStrategy implements INodeStrategy {
 	public function childSucceeds<T>(task:CoroBaseTask<T>, child:AbstractTask) {}
 
 	public function childErrors<T>(task:CoroBaseTask<T>, child:AbstractTask, cause:Exception) {
-		switch (task.state) {
+		switch (task.state.load()) {
 			case Created | Running | Completing:
 				// inherit child error
-				if (task.error == null) {
-					task.error = cause;
-				}
+				task.error.compareExchange(null, cause);
 				task.cancel();
 			case Cancelling:
 				// not sure about this one, what if we cancel normally and then get a real exception?
