@@ -5,8 +5,6 @@ import haxe.Int64;
 import haxe.ds.Vector;
 import haxe.coro.Mutex;
 import haxe.exceptions.ArgumentException;
-import hxcoro.dispatchers.IDispatcher;
-import hxcoro.dispatchers.SelfDispatcher;
 import haxe.coro.schedulers.Scheduler;
 import haxe.coro.schedulers.ISchedulerHandle;
 import haxe.coro.dispatchers.IScheduleObject;
@@ -203,14 +201,12 @@ private class MinimumHeap {
 class EventLoopScheduler extends Scheduler {
 	final futureMutex : Mutex;
 	final heap : MinimumHeap;
-	final dispatcher : IDispatcher;
 
-	public function new(?dispatcher:IDispatcher) {
+	public function new() {
 		super();
 
 		futureMutex  = new Mutex();
 		heap         = new MinimumHeap();
-		this.dispatcher = dispatcher ?? new SelfDispatcher();
 	}
 
 	public function hasEvents() {
@@ -264,7 +260,7 @@ class EventLoopScheduler extends Scheduler {
 			final toRun = heap.extract();
 			futureMutex.release();
 
-			toRun.iterateEvents(dispatch);
+			toRun.onSchedule();
 		}
 
 		futureMutex.release();
@@ -272,9 +268,5 @@ class EventLoopScheduler extends Scheduler {
 
 	public function toString() {
 		return '[EventLoopScheduler]';
-	}
-
-	function dispatch(obj:IScheduleObject) {
-		dispatcher.dispatch(obj);
 	}
 }

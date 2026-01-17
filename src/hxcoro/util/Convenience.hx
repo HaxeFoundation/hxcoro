@@ -2,9 +2,22 @@ package hxcoro.util;
 
 import haxe.coro.cancellation.ICancellationToken;
 import haxe.exceptions.CancellationException;
-import haxe.coro.schedulers.Scheduler;
+import haxe.coro.dispatchers.Dispatcher;
+import haxe.coro.dispatchers.IScheduleObject;
 import haxe.Exception;
 import haxe.coro.IContinuation;
+
+private class FunctionDispatchObject implements IScheduleObject {
+	final func : ()->Void;
+
+	public function new(func) {
+		this.func = func;
+	}
+
+	public function onSchedule() {
+		func();
+	}
+}
 
 /**
 	A set of convenience functions for working with hxcoro data.
@@ -68,7 +81,7 @@ class Convenience {
 		thread if the current dispatcher allows that.
 	**/
 	static public inline function resumeAsync<T>(cont:IContinuation<T>, result:T, error:Exception) {
-		cont.context.get(Scheduler).schedule(0, () -> cont.resume(result, error));
+		cont.context.get(Dispatcher).dispatchFunction(() -> cont.resume(result, error));
 	}
 
 	static public inline function orCancellationException(exc:Exception):CancellationException {
@@ -77,5 +90,9 @@ class Convenience {
 
 	static public inline function isCancellationRequested(ct:ICancellationToken) {
 		return ct.cancellationException != null;
+	}
+
+	static public inline function dispatchFunction(dispatcher:Dispatcher, f:()->Void) {
+		return dispatcher.dispatch(new FunctionDispatchObject(f));
 	}
 }

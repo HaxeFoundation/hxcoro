@@ -1,5 +1,6 @@
 package ds.channels;
 
+import hxcoro.dispatchers.TrampolineDispatcher;
 import haxe.coro.Mutex;
 import haxe.Exception;
 import haxe.coro.IContinuation;
@@ -23,7 +24,7 @@ private class TestContinuation<T> implements IContinuation<Bool> {
 	public var context (get, never) : Context;
 
 	function get_context():Context {
-		return Context.create(new ImmediateScheduler());
+		return Context.create(new TrampolineDispatcher());
 	}
 
 	public function new(actual : Array<T>, value : T) {

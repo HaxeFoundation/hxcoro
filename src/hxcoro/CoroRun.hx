@@ -8,7 +8,7 @@ import hxcoro.task.ICoroTask;
 import hxcoro.task.NodeLambda;
 import hxcoro.task.StartableCoroTask;
 import hxcoro.schedulers.EventLoopScheduler;
-import hxcoro.dispatchers.EventLoopDispatcher;
+import hxcoro.dispatchers.TrampolineDispatcher;
 
 abstract RunnableContext(ElementTree) {
 	inline function new(tree:ElementTree) {
@@ -84,8 +84,8 @@ class CoroRun {
 	#else
 
 	static public function runWith<T>(context:Context, lambda:NodeLambda<T>):T {
-		final schedulerComponent = new EventLoopScheduler();
-		final dispatcherComponent = new EventLoopDispatcher(schedulerComponent);
+		final schedulerComponent  = new EventLoopScheduler();
+		final dispatcherComponent = new TrampolineDispatcher();
 		final scope = new CoroTask(context.clone().with(schedulerComponent).with(dispatcherComponent), CoroTask.CoroScopeStrategy);
 		scope.runNodeLambda(lambda);
 

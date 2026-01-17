@@ -8,7 +8,7 @@ import hxcoro.concurrent.CoroMutex;
 import hxcoro.concurrent.CoroSemaphore;
 import hxcoro.concurrent.exceptions.SemaphoreFullException;
 import hxcoro.schedulers.VirtualTimeScheduler;
-import hxcoro.dispatchers.EventLoopDispatcher;
+import hxcoro.dispatchers.TrampolineDispatcher;
 
 class TestMutex extends utest.Test {
 	function testSimple() {
@@ -21,7 +21,7 @@ class TestMutex extends utest.Test {
 
 	function testPromptCancellation() {
 		final scheduler = new VirtualTimeScheduler();
-		final dispatcher = new EventLoopDispatcher(scheduler);
+		final dispatcher = new TrampolineDispatcher();
 		final lines = [];
 		function report(s:String) {
 			final now = scheduler.now();
@@ -80,7 +80,7 @@ class TestMutex extends utest.Test {
 
 	function testSemaphoreAcquire() {
 		final scheduler = new VirtualTimeScheduler();
-		final dispatcher = new EventLoopDispatcher(scheduler);
+		final dispatcher = new TrampolineDispatcher();
 		final numTasks = 500;
 		final numTasksHalved = Std.int(numTasks / 2);
 		var numTasksCompleted = 0;
@@ -108,7 +108,7 @@ class TestMutex extends utest.Test {
 
 	function testSemaphoreTryAcquire() {
 		final scheduler = new VirtualTimeScheduler();
-		final dispatcher = new EventLoopDispatcher(scheduler);
+		final dispatcher = new TrampolineDispatcher();
 		final numTasks = 500;
 		final numTasksHalved = Std.int(numTasks / 2);
 		var numTasksCompleted = 0;
@@ -154,7 +154,7 @@ class TestMutex extends utest.Test {
 
 	function testMutexCancelling() {
 		final scheduler = new VirtualTimeScheduler();
-		final dispatcher = new EventLoopDispatcher(scheduler);
+		final dispatcher = new TrampolineDispatcher();
 		final lines = [];
 		function report(s:String) {
 			final now = scheduler.now();
@@ -230,6 +230,7 @@ class TestMutex extends utest.Test {
 		for (semaphoreSize in [1, 2, 4, 8]) {
 			for (numTasks in [1, 2, 10, 100]) {
 				var scheduler = new VirtualTimeScheduler();
+				var dispatcher = new TrampolineDispatcher();
 				var semaphore = new CoroSemaphore(semaphoreSize);
 				var semaphoreHolders = Channel.createBounded({ size : 1 });
 				var hangingMutex = new CoroMutex();
