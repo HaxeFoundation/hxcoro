@@ -1,5 +1,6 @@
 package structured;
 
+import hxcoro.dispatchers.TrampolineDispatcher;
 import haxe.Exception;
 import haxe.exceptions.CancellationException;
 import hxcoro.schedulers.VirtualTimeScheduler;
@@ -44,9 +45,10 @@ class TestCoroutineScope extends utest.Test {
 	}
 
 	function test_scope_with_children() {
-		final actual    = [];
-		final scheduler = new VirtualTimeScheduler();
-		final task      = CoroRun.with(scheduler).create(_ -> {
+		final actual     = [];
+		final scheduler  = new VirtualTimeScheduler();
+		final dispatcher = new TrampolineDispatcher();
+		final task       = CoroRun.with(scheduler, dispatcher).create(_ -> {
 			scope(node -> {
 				node.async(_ -> {
 					delay(500);
@@ -127,9 +129,10 @@ class TestCoroutineScope extends utest.Test {
 	}
 
 	function test_parent_scope_cancelling() {
-		final acc       = [];
-		final scheduler = new VirtualTimeScheduler();
-		final task      = CoroRun.with(scheduler).create(node -> {
+		final acc        = [];
+		final scheduler  = new VirtualTimeScheduler();
+		final dispatcher = new TrampolineDispatcher();
+		final task       = CoroRun.with(scheduler, dispatcher).create(node -> {
 			final child = node.async(_ -> {
 				try {
 					scope(node -> {

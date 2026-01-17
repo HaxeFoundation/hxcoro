@@ -17,10 +17,6 @@ class ImmediateScheduler extends Scheduler {
 		return null;
 	}
 
-	public function scheduleObject(obj:IScheduleObject) {
-		obj.onSchedule();
-	}
-
 	public function now() {
 		return Timer.milliseconds();
 	}

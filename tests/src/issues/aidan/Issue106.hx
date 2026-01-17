@@ -1,5 +1,6 @@
 package issues.aidan;
 
+import hxcoro.dispatchers.TrampolineDispatcher;
 import hxcoro.schedulers.VirtualTimeScheduler;
 import hxcoro.CoroRun;
 import hxcoro.Coro.*;
@@ -7,11 +8,11 @@ import hxcoro.task.AbstractTask;
 
 class Issue106 extends utest.Test {
 	public function test() {
-		var scheduler = new VirtualTimeScheduler();
-
+		final scheduler   = new VirtualTimeScheduler();
+		final dispatcher  = new TrampolineDispatcher();
 		final numChildren = 1000;
 
-		final task = CoroRun.with(scheduler).create(node -> {
+		final task = CoroRun.with(scheduler, dispatcher).create(node -> {
 			var k = 0;
 			for (_ in 0...numChildren) {
 				node.async(_ -> {

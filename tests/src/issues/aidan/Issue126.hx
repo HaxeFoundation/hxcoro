@@ -61,7 +61,7 @@ class Issue126 extends utest.Test {
 	function test() {
 		Assert.pass('TODO!');
 		// final scheduler = new VirtualTimeScheduler();
-		// final task = CoroRun.with(scheduler).create(node -> {
+		// final task = CoroRun.with(scheduler, dispatcher).create(node -> {
 		// 	final channel = Channel.create(Bounded(1));
 		// 	@:coroutine function log(s:String) {
 		// 		channel.write('${scheduler.now()}: $s');

@@ -1,14 +1,15 @@
 package issues.aidan;
 
+import hxcoro.dispatchers.TrampolineDispatcher;
 import structured.TestThrowingScopes;
 import hxcoro.schedulers.VirtualTimeScheduler;
 import haxe.Exception;
 
 class Issue113 extends utest.Test {
 	function testAwaitSingleChild() {
-		var scheduler = new VirtualTimeScheduler();
-
-		final task = CoroRun.with(scheduler).create(node -> {
+		final scheduler = new VirtualTimeScheduler();
+		final dispatcher = new TrampolineDispatcher();
+		final task = CoroRun.with(scheduler, dispatcher).create(node -> {
 			final child1 = node.async(_ -> delay(10));
 			node.awaitChildren();
 		});
@@ -20,9 +21,9 @@ class Issue113 extends utest.Test {
 	}
 
 	function testAwaitSingleThrowingChild() {
-		var scheduler = new VirtualTimeScheduler();
-
-		final task = CoroRun.with(scheduler).create(node -> {
+		final scheduler = new VirtualTimeScheduler();
+		final dispatcher = new TrampolineDispatcher();
+		final task = CoroRun.with(scheduler, dispatcher).create(node -> {
 			final child1 = node.async(_ -> {
 				delay(10);
 				throw new Exception("thrown");
@@ -38,9 +39,9 @@ class Issue113 extends utest.Test {
 	}
 
 	function testAwaitTwoChildren() {
-		var scheduler = new VirtualTimeScheduler();
-
-		final task = CoroRun.with(scheduler).create(node -> {
+		final scheduler = new VirtualTimeScheduler();
+		final dispatcher = new TrampolineDispatcher();
+		final task = CoroRun.with(scheduler, dispatcher).create(node -> {
 			final child1 = node.async(_ -> delay(10));
 			final child2 = node.async(_ -> delay(20));
 			node.awaitChildren();
@@ -55,9 +56,9 @@ class Issue113 extends utest.Test {
 	}
 
 	function testAwaitLazyChild() {
-		var scheduler = new VirtualTimeScheduler();
-
-		final task = CoroRun.with(scheduler).create(node -> {
+		final scheduler = new VirtualTimeScheduler();
+		final dispatcher = new TrampolineDispatcher();
+		final task = CoroRun.with(scheduler, dispatcher).create(node -> {
 			final child1 = node.lazy(_ -> delay(10));
 			node.awaitChildren();
 		});
@@ -69,9 +70,9 @@ class Issue113 extends utest.Test {
 	}
 
 	function testAwaitLazyChain() {
-		var scheduler = new VirtualTimeScheduler();
-
-		final task = CoroRun.with(scheduler).create(node -> {
+		final scheduler = new VirtualTimeScheduler();
+		final dispatcher = new TrampolineDispatcher();
+		final task = CoroRun.with(scheduler, dispatcher).create(node -> {
 			final child1 = node.lazy(_ -> delay(10));
 			final child2 = node.lazy(_ -> {
 				child1.await();
@@ -91,9 +92,9 @@ class Issue113 extends utest.Test {
 	}
 
 	function testAwaitManyRandomChildren() {
-		var scheduler = new VirtualTimeScheduler();
-
-		final task = CoroRun.with(scheduler).create(node -> {
+		final scheduler = new VirtualTimeScheduler();
+		final dispatcher = new TrampolineDispatcher();
+		final task = CoroRun.with(scheduler, dispatcher).create(node -> {
 			var k = 0;
 			for (_ in 0...1000) {
 				node.async(_ -> {
@@ -112,9 +113,9 @@ class Issue113 extends utest.Test {
 	}
 
 	function testAwaitManyRandomLazyChildren() {
-		var scheduler = new VirtualTimeScheduler();
-
-		final task = CoroRun.with(scheduler).create(node -> {
+		final scheduler = new VirtualTimeScheduler();
+		final dispatcher = new TrampolineDispatcher();
+		final task = CoroRun.with(scheduler, dispatcher).create(node -> {
 			var k = 0;
 			for (_ in 0...1000) {
 				node.lazy(_ -> {
@@ -133,9 +134,9 @@ class Issue113 extends utest.Test {
 	}
 
 	function testAwaitManyRandomLazyChildrenAndOneOfThemThrows() {
-		var scheduler = new VirtualTimeScheduler();
-
-		final task = CoroRun.with(scheduler).create(node -> {
+		final scheduler = new VirtualTimeScheduler();
+		final dispatcher = new TrampolineDispatcher();
+		final task = CoroRun.with(scheduler, dispatcher).create(node -> {
 			var k = 0;
 			for (_ in 0...1000) {
 				node.lazy(_ -> {
