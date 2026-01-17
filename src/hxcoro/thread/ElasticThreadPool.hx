@@ -10,7 +10,7 @@ import sys.thread.Thread;
 import sys.thread.Mutex;
 import sys.thread.Deque;
 import sys.thread.Lock;
-import haxe.coro.schedulers.IScheduleObject;
+import haxe.coro.dispatchers.IScheduleObject;
 
 /**
 	Thread pool with a varying amount of threads.

@@ -7,8 +7,8 @@ import hxcoro.dispatchers.SelfDispatcher;
 import hxcoro.dispatchers.IDispatcher;
 import haxe.Int64;
 import haxe.coro.schedulers.Scheduler;
-import haxe.coro.schedulers.IScheduleObject;
 import haxe.coro.schedulers.ISchedulerHandle;
+import haxe.coro.dispatchers.IScheduleObject;
 import eval.luv.Timer;
 import eval.luv.Loop;
 

@@ -1,5 +1,6 @@
 package hxcoro.thread;
 
+import haxe.coro.dispatchers.IScheduleObject;
 #if (!target.threaded)
 #error "This class is not available on this target"
 #end

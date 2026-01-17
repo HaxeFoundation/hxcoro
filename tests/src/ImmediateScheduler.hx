@@ -2,7 +2,7 @@ import haxe.Timer;
 import haxe.Int64;
 import haxe.Exception;
 import haxe.coro.schedulers.Scheduler;
-import haxe.coro.schedulers.IScheduleObject;
+import haxe.coro.dispatchers.IScheduleObject;
 
 class ImmediateScheduler extends Scheduler {
 	public function new() {

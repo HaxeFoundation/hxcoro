@@ -8,7 +8,7 @@ import hxcoro.task.AbstractTask;
 import haxe.coro.IContinuation;
 import haxe.coro.context.Key;
 import haxe.coro.context.Context;
-import haxe.coro.schedulers.IScheduleObject;
+import haxe.coro.dispatchers.IScheduleObject;
 import haxe.Exception;
 
 class CoroTask<T> extends CoroBaseTask<T> implements IContinuation<T> {

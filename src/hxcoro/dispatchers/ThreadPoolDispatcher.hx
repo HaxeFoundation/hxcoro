@@ -5,12 +5,13 @@ package hxcoro.dispatchers;
 #end
 
 import hxcoro.thread.IThreadPool;
-import haxe.coro.schedulers.IScheduleObject;
+import haxe.coro.dispatchers.IScheduleObject;
+import haxe.coro.dispatchers.Dispatcher;
 
 /**
 	A dispatcher that dispatches to a thread pool.
 **/
-class ThreadPoolDispatcher implements IDispatcher {
+class ThreadPoolDispatcher extends Dispatcher implements IDispatcher {
 	final pool : IThreadPool;
 
 	/**

@@ -12,7 +12,7 @@ import haxe.coro.IContinuation;
 import haxe.coro.context.Context;
 import haxe.coro.context.Key;
 import haxe.coro.context.IElement;
-import haxe.coro.schedulers.Scheduler;
+import haxe.coro.dispatchers.Dispatcher;
 import haxe.coro.cancellation.CancellationToken;
 
 private class CoroTaskWith<T> implements ICoroNodeWith {
@@ -31,7 +31,7 @@ private class CoroTaskWith<T> implements ICoroNodeWith {
 
 	public function async<T>(lambda:NodeLambda<T>):ICoroTask<T> {
 		final child = new CoroTaskWithLambda(context, lambda, CoroTask.CoroChildStrategy);
-		context.get(Scheduler).scheduleObject(child);
+		context.get(Dispatcher).dispatch(child);
 		return child;
 	}
 
@@ -158,7 +158,7 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 	**/
 	public function async<T>(lambda:NodeLambda<T>):ICoroTask<T> {
 		final child = new CoroTaskWithLambda<T>(context, lambda, CoroTask.CoroChildStrategy);
-		context.get(Scheduler).scheduleObject(child);
+		context.get(Dispatcher).dispatch(child);
 		return child;
 	}
 

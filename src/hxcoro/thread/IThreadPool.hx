@@ -1,6 +1,6 @@
 package hxcoro.thread;
 
-import haxe.coro.schedulers.IScheduleObject;
+import haxe.coro.dispatchers.IScheduleObject;
 
 /**
 	A thread pool interface.

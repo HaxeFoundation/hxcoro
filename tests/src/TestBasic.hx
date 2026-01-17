@@ -1,5 +1,6 @@
 import haxe.Exception;
 import hxcoro.schedulers.VirtualTimeScheduler;
+import hxcoro.dispatchers.EventLoopDispatcher;
 
 class TestBasic extends utest.Test {
 	function testSimple() {
@@ -51,7 +52,8 @@ class TestBasic extends utest.Test {
 
 	function testDelay() {
 		final scheduler = new VirtualTimeScheduler();
-		final task      = CoroRun.with(scheduler).create(_ -> {
+		final dispatcher = new EventLoopDispatcher(scheduler);
+		final task      = CoroRun.with(scheduler).with(dispatcher).create(_ -> {
 			delay(500);
 		});
 

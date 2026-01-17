@@ -1,6 +1,6 @@
 package hxcoro.dispatchers;
 
-import haxe.coro.schedulers.IScheduleObject;
+import haxe.coro.dispatchers.IScheduleObject;
 
 /**
 	A dispatcher that dispatches to the current thread.

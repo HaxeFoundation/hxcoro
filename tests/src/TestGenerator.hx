@@ -1,4 +1,4 @@
-import haxe.coro.schedulers.IScheduleObject;
+import haxe.coro.dispatchers.IScheduleObject;
 import haxe.Int64;
 import haxe.coro.schedulers.Scheduler;
 import hxcoro.task.CoroTask;

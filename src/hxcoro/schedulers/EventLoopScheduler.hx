@@ -1,15 +1,15 @@
 package hxcoro.schedulers;
 
-import haxe.ds.Vector;
 import haxe.Timer;
 import haxe.Int64;
+import haxe.ds.Vector;
 import haxe.coro.Mutex;
+import haxe.exceptions.ArgumentException;
 import hxcoro.dispatchers.IDispatcher;
 import hxcoro.dispatchers.SelfDispatcher;
 import haxe.coro.schedulers.Scheduler;
-import haxe.coro.schedulers.IScheduleObject;
 import haxe.coro.schedulers.ISchedulerHandle;
-import haxe.exceptions.ArgumentException;
+import haxe.coro.dispatchers.IScheduleObject;
 
 private typedef Lambda = ()->Void;
 

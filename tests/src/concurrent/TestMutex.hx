@@ -8,6 +8,7 @@ import hxcoro.concurrent.CoroMutex;
 import hxcoro.concurrent.CoroSemaphore;
 import hxcoro.concurrent.exceptions.SemaphoreFullException;
 import hxcoro.schedulers.VirtualTimeScheduler;
+import hxcoro.dispatchers.EventLoopDispatcher;
 
 class TestMutex extends utest.Test {
 	function testSimple() {
@@ -19,13 +20,14 @@ class TestMutex extends utest.Test {
 	}
 
 	function testPromptCancellation() {
-		var scheduler = new VirtualTimeScheduler();
+		final scheduler = new VirtualTimeScheduler();
+		final dispatcher = new EventLoopDispatcher(scheduler);
 		final lines = [];
 		function report(s:String) {
 			final now = scheduler.now();
 			lines.push('$now: $s');
 		}
-		final task = CoroRun.with(scheduler).create(node -> {
+		final task = CoroRun.with(scheduler).with(dispatcher).create(node -> {
 			final m = new CoroMutex();
 
 			node.async(_ -> {
@@ -77,11 +79,12 @@ class TestMutex extends utest.Test {
 	}
 
 	function testSemaphoreAcquire() {
-		var scheduler = new VirtualTimeScheduler();
+		final scheduler = new VirtualTimeScheduler();
+		final dispatcher = new EventLoopDispatcher(scheduler);
 		final numTasks = 500;
 		final numTasksHalved = Std.int(numTasks / 2);
 		var numTasksCompleted = 0;
-		final task = CoroRun.with(scheduler).create(node -> {
+		final task = CoroRun.with(scheduler).with(dispatcher).create(node -> {
 			final m = new CoroSemaphore(numTasksHalved);
 			for (_ in 0...numTasks) {
 				node.async(_ -> {
@@ -104,13 +107,14 @@ class TestMutex extends utest.Test {
 	}
 
 	function testSemaphoreTryAcquire() {
-		var scheduler = new VirtualTimeScheduler();
+		final scheduler = new VirtualTimeScheduler();
+		final dispatcher = new EventLoopDispatcher(scheduler);
 		final numTasks = 500;
 		final numTasksHalved = Std.int(numTasks / 2);
 		var numTasksCompleted = 0;
 		var numEarlyAcquires = 0;
 		var numLateAcquires = 0;
-		final task = CoroRun.with(scheduler).create(node -> {
+		final task = CoroRun.with(scheduler).with(dispatcher).create(node -> {
 			final m = new CoroSemaphore(numTasksHalved);
 			for (i in 0...numTasks) {
 				node.async(_ -> {
@@ -149,13 +153,14 @@ class TestMutex extends utest.Test {
 	}
 
 	function testMutexCancelling() {
-		var scheduler = new VirtualTimeScheduler();
+		final scheduler = new VirtualTimeScheduler();
+		final dispatcher = new EventLoopDispatcher(scheduler);
 		final lines = [];
 		function report(s:String) {
 			final now = scheduler.now();
 			lines.push('$now: $s');
 		}
-		final task = CoroRun.with(scheduler).create(node -> {
+		final task = CoroRun.with(scheduler).with(dispatcher).create(node -> {
 			final mutex1 = new CoroMutex();
 			final mutex2 = new CoroMutex();
 			final child1 = node.async(_ -> {
@@ -228,7 +233,7 @@ class TestMutex extends utest.Test {
 				var semaphore = new CoroSemaphore(semaphoreSize);
 				var semaphoreHolders = Channel.createBounded({ size : 1 });
 				var hangingMutex = new CoroMutex();
-				final task = CoroRun.with(scheduler).create(node -> {
+				final task = CoroRun.with(scheduler).with(dispatcher).create(node -> {
 					hangingMutex.acquire();
 					var numCompletedTasks = 0;
 					for (_ in 0...numTasks) {

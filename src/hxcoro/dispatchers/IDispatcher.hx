@@ -1,6 +1,6 @@
 package hxcoro.dispatchers;
 
-import haxe.coro.schedulers.IScheduleObject;
+import haxe.coro.dispatchers.IScheduleObject;
 
 /**
 	The dispatcher interface used by schedulers.

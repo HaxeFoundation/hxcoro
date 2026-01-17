@@ -1,12 +1,12 @@
 package hxcoro.continuations;
 
 import hxcoro.concurrent.AtomicInt;
+import haxe.coro.dispatchers.Dispatcher;
 import haxe.Exception;
 import haxe.coro.IContinuation;
 import haxe.coro.SuspensionResult;
 import haxe.coro.context.Context;
-import haxe.coro.schedulers.Scheduler;
-import haxe.coro.schedulers.IScheduleObject;
+import haxe.coro.dispatchers.IScheduleObject;
 
 private enum abstract State(Int) to Int {
 	var Active;
@@ -21,13 +21,13 @@ class RacingContinuation<T> extends SuspensionResult<T> implements IContinuation
 
 	public var context(get, never):Context;
 
-	final scheduler:Scheduler;
+	final dispatcher:Dispatcher;
 
 	public function new(inputCont:IContinuation<T>) {
 		super(Pending);
 		this.inputCont = inputCont;
 		resumeState = new AtomicInt(Active);
-		scheduler = context.get(Scheduler);
+		dispatcher = context.get(Dispatcher);
 	}
 
 	inline function get_context() {
@@ -38,7 +38,7 @@ class RacingContinuation<T> extends SuspensionResult<T> implements IContinuation
 		this.result = result;
 		this.error = error;
 		if (resumeState.compareExchange(Active, Resumed) != Active) {
-			scheduler.scheduleObject(this);
+			dispatcher.dispatch(this);
 		}
 	}
 
