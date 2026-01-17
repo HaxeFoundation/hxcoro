@@ -302,15 +302,18 @@ abstract class AbstractTask implements ICancellationToken {
 	function childCompletes(child:AbstractTask, processResult:Bool) {
 		numCompletedChildren++;
 		if (processResult) {
-			final childError = child.getError();
-			if (childError != null) {
-				if (childError is CancellationException) {
-					childCancels(child, cast childError);
-				} else {
-					childErrors(child, childError);
-				}
-			} else {
-				childSucceeds(child);
+			switch (child.state.load()) {
+				case Completed:
+					childSucceeds(child);
+				case Cancelled:
+					final childError = child.getError();
+					if (childError is CancellationException) {
+						childCancels(child, cast childError);
+					} else {
+						childErrors(child, childError);
+					}
+				case state:
+					throw new TaskException('Invalid state $state in childCompletes');
 			}
 		}
 		updateChildrenCompletion();
@@ -324,9 +327,15 @@ abstract class AbstractTask implements ICancellationToken {
 		final container = children ??= [];
 		final index = container.push(child);
 		child.indexInParent = index - 1;
-		// If we're already cancelling, cancel the child too.
-		if (state.load() == Cancelling) {
-			child.cancel();
+		switch (state.load()) {
+			case Cancelling:
+				// If we're already cancelling, cancel the child too.
+				if (state.load() == Cancelling) {
+					child.cancel();
+				}
+			case state = Cancelled | Completed:
+				throw new TaskException('Invalid state $state in addChild');
+			case Created | Running | Completing:
 		}
 	}
 }
