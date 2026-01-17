@@ -324,5 +324,9 @@ abstract class AbstractTask implements ICancellationToken {
 		final container = children ??= [];
 		final index = container.push(child);
 		child.indexInParent = index - 1;
+		// If we're already cancelling, cancel the child too.
+		if (state.load() == Cancelling) {
+			child.cancel();
+		}
 	}
 }

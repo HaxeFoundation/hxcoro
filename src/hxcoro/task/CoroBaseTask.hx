@@ -95,14 +95,9 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 	**/
 	public function new(context:Context, nodeStrategy:INodeStrategy, initialState:TaskState) {
 		final parent = context.get(CoroTask);
-		super(parent, initialState);
 		initialContext = context;
 		this.nodeStrategy = nodeStrategy;
-
-		// If our parent is already cancelling, we probably want to cancel too
-		if (parent != null && parent.state.load() == Cancelling) {
-			cancel();
-		}
+		super(parent, initialState);
 	}
 
 	inline function get_context() {
