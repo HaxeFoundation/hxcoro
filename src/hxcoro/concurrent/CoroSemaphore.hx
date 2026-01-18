@@ -43,7 +43,6 @@ class CoroSemaphore {
 				deque = new PagedDeque();
 			}
 			deque.push(cont);
-			task.putOnHold(); // TODO: condition this on some heuristic?
 			dequeMutex.release();
 		});
 	}
