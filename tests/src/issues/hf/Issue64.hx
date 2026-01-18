@@ -1,11 +1,13 @@
 package issues.hf;
 
+import haxe.coro.Mutex;
 import haxe.exceptions.CancellationException;
 
 class Issue64 extends utest.Test {
 	function test() {
 		final cause = new CancellationException();
-		final cancellations = [for (i in 0...25) null];
+		final cancellations = [];
+		final mutex = new Mutex();
 		CoroRun.runScoped(node -> {
 			for (i in 0...5) {
 				for (k in 0...5) {
@@ -13,7 +15,9 @@ class Issue64 extends utest.Test {
 						try {
 							delay(500);
 						} catch(e:CancellationException) {
+							mutex.acquire();
 							cancellations[i * 5 + k] = e;
+							mutex.release();
 							throw e;
 						}
 					});
