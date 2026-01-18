@@ -3,9 +3,9 @@ package hxcoro.task;
 import hxcoro.concurrent.AtomicObject;
 import hxcoro.concurrent.AtomicState;
 import hxcoro.concurrent.AtomicInt;
-import haxe.coro.cancellation.ICancellationToken;
-import haxe.coro.cancellation.ICancellationHandle;
 import haxe.coro.cancellation.ICancellationCallback;
+import haxe.coro.cancellation.ICancellationHandle;
+import haxe.coro.cancellation.ICancellationToken;
 import haxe.exceptions.CancellationException;
 import haxe.Exception;
 
@@ -20,54 +20,6 @@ enum abstract TaskState(Int) to Int {
 
 class TaskException extends Exception {}
 
-private class CancellationHandle implements ICancellationHandle {
-	final callback:ICancellationCallback;
-	final task:AbstractTask;
-
-	var closed:Bool;
-
-	public function new(callback, task) {
-		this.callback = callback;
-		this.task = task;
-
-		closed = false;
-	}
-
-	public function run() {
-		if (closed) {
-			return;
-		}
-
-		final error = task.getError();
-		callback.onCancellation(error.orCancellationException());
-
-		closed = true;
-	}
-
-	public function close() {
-		if (closed) {
-			return;
-		}
-		final all = @:privateAccess task.cancellationCallbacks;
-
-		if (all != null) {
-			if (all.length == 1 && all[0] == this) {
-				all.resize(0);
-			} else {
-				all.remove(this);
-			}
-		}
-
-		closed = true;
-	}
-}
-
-private class NoOpCancellationHandle implements ICancellationHandle {
-	public function new() {}
-
-	public function close() {}
-}
-
 /**
 	AbstractTask is the base class for tasks which manages its `TaskState` and children.
 
@@ -77,11 +29,10 @@ private class NoOpCancellationHandle implements ICancellationHandle {
 **/
 abstract class AbstractTask implements ICancellationToken {
 	static final atomicId = new AtomicInt(1); // start with 1 so we can use 0 for "no task" situations
-	static final noOpCancellationHandle = new NoOpCancellationHandle();
 
 	final parent:AbstractTask;
 
-	var cancellationCallbacks:Null<Array<CancellationHandle>>;
+	var cancellationManager:AtomicObject<Null<TaskCancellationManager>>;
 	var state:AtomicState<TaskState>;
 	var error:Null<Exception>;
 
@@ -115,7 +66,7 @@ abstract class AbstractTask implements ICancellationToken {
 		this.parent = parent;
 		state = new AtomicState(Created);
 		error = null;
-		cancellationCallbacks = null;
+		cancellationManager = new AtomicObject(null);
 		numActiveChildren = new AtomicInt(0);
 		firstChild = new AtomicObject(null);
 		if (parent != null) {
@@ -159,10 +110,13 @@ abstract class AbstractTask implements ICancellationToken {
 						error ??= cause;
 						state.store(Cancelling);
 
-						if (null != cancellationCallbacks) {
-							for (h in cancellationCallbacks) {
-								h.run();
-							}
+						// We can set the manager to null now because `onCancellationRequested` doesn't
+						// look at it in Cancelling | Cancelled, which we're guaranteed to be in.
+						switch (cancellationManager.exchange(null)) {
+							case null:
+								// Nothing to do.
+							case manager:
+								manager.run();
 						}
 
 						cancelChildren(cause);
@@ -197,14 +151,17 @@ abstract class AbstractTask implements ICancellationToken {
 			case Cancelling | Cancelled:
 				callback.onCancellation(error.orCancellationException());
 
-				return noOpCancellationHandle;
+				return TaskCancellationManager.CancellationHandle.noOpCancellationHandle;
 			case _:
-				final container = cancellationCallbacks ??= [];
-				final handle = new CancellationHandle(callback, this);
-
-				container.push(handle);
-
-				handle;
+				final manager = switch (cancellationManager.load()) {
+					case null:
+						final newManager = new TaskCancellationManager(this);
+						final oldManager = cancellationManager.compareExchange(null, newManager);
+						oldManager ?? newManager;
+					case manager:
+						manager;
+				}
+				manager.addCallback(callback);
 		}
 	}
 
