@@ -90,8 +90,7 @@ abstract class AbstractTask implements ICancellationToken {
 
 	// children
 
-	var numChildren:Int;
-	var numCompletedChildren:AtomicInt;
+	var numActiveChildren:AtomicInt;
 	var firstChild:AtomicObject<Null<AbstractTask>>;
 	var nextSibling:Null<AbstractTask>;
 
@@ -117,8 +116,7 @@ abstract class AbstractTask implements ICancellationToken {
 		state = new AtomicState(Created);
 		error = null;
 		cancellationCallbacks = null;
-		numChildren = 0;
-		numCompletedChildren = new AtomicInt(0);
+		numActiveChildren = new AtomicInt(0);
 		firstChild = new AtomicObject(null);
 		if (parent != null) {
 			parent.addChild(this);
@@ -255,7 +253,7 @@ abstract class AbstractTask implements ICancellationToken {
 	}
 
 	final function checkCompletion() {
-		if (numCompletedChildren.load() != numChildren) {
+		if (numActiveChildren.load() != 0) {
 			return;
 		}
 		// We THINK that our current children are complete, but we don't know yet
@@ -328,7 +326,7 @@ abstract class AbstractTask implements ICancellationToken {
 	// called from child
 
 	function childCompletes(child:AbstractTask, processResult:Bool) {
-		numCompletedChildren.add(1);
+		numActiveChildren.sub(1);
 		if (processResult) {
 			switch (child.state.load()) {
 				case Completed:
@@ -371,7 +369,7 @@ abstract class AbstractTask implements ICancellationToken {
 
 	function addChild(child:AbstractTask) {
 		child.nextSibling = firstChild.exchange(child);
-		++numChildren;
+		numActiveChildren.add(1);
 		switch (state.load()) {
 			case Cancelling:
 				child.cancel();
