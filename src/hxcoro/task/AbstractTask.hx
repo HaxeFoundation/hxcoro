@@ -258,25 +258,51 @@ abstract class AbstractTask implements ICancellationToken {
 		if (numCompletedChildren.load() != numChildren) {
 			return;
 		}
+		// We THINK that our current children are complete, but we don't know yet
+		// because another call to `addChild` could come in.
 		final child = firstChild.load();
-		if (child != null && firstChild.compareExchange(child, null) == child) {
-			childrenCompleted();
+		if (child != null) {
+			if (firstChild.compareExchange(child, null) == child) {
+				// If we have a child and successfully CAS it to null, children are
+				// definitely complete.
+				childrenCompleted();
+			} else {
+				// A call to `addChild` came in, so children are not complete yet.
+				return;
+			}
 		}
+
+		// If we get here, our current children are complete, but the task itself might still
+		// be doing something. Note that we cannot rely on state == Running because the task
+		// might do something in state == Cancelling as well.
 		if (isDoingSomething()) {
 			return;
 		}
+
+		// We now try to update to Completed/Cancelled.
 		var currentState = state.load();
 		while (true) {
 			final targetState = switch (currentState) {
-				case Completing: Completed;
-				case Cancelling: Cancelled;
-				case _: break;
+				case Completing:
+					Completed;
+				case Cancelling:
+					Cancelled;
+				case Completed | Cancelled:
+					// This can happen from the loop, ignore.
+					return;
+				case state:
+					// We can't be in Created or Running because then the call to `isDoingSomething()`
+					// above should have returned true.
+					// TODO: check `wasResumed` management in CoroTask.
+					throw new TaskException('Invalid state $state in checkCompletion');
 			};
 			final nextState = state.compareExchange(currentState, targetState);
 			if (nextState == currentState) {
+				// CAS success means we're 100% done.
 				complete();
 				break;
 			} else {
+				// This could happen on a change from Completing to Cancelling, so we loop.
 				currentState = nextState;
 			}
 		}
