@@ -61,7 +61,7 @@ class TaskCancellationManager {
 	// single-threaded
 
 	public function run() {
-		for (handle in handles.copy()) {
+		for (handle in handles) {
 			// TODO: should we catch errors from the callbacks here?
 			handle.run();
 		}
