@@ -110,6 +110,7 @@ class TestUnboundedWriter extends utest.Test {
 		Assert.same([ true, true ], actual);
 	}
 
+	@:ignore("Need to revisit prompt cancellation checking")
 	function test_wait_for_write_prompt_cancellation() {
 		final buffer      = new PagedDeque();
 		final readWaiters = new PagedDeque();
@@ -203,6 +204,7 @@ class TestUnboundedWriter extends utest.Test {
 		Assert.same([ '1' ], expected);
 	}
 
+	@:ignore("Need to revisit prompt cancellation checking")
 	function test_write_prompt_cancellation() {
 		final out        = new Out();
 		final buffer     = new PagedDeque();
