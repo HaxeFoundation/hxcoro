@@ -1,5 +1,6 @@
 package hxcoro.task;
 
+import hxcoro.concurrent.AtomicObject;
 import hxcoro.concurrent.AtomicState;
 import hxcoro.concurrent.AtomicInt;
 import haxe.coro.cancellation.ICancellationToken;
@@ -80,16 +81,19 @@ abstract class AbstractTask implements ICancellationToken {
 
 	final parent:AbstractTask;
 
-	var children:Null<Array<AbstractTask>>;
 	var cancellationCallbacks:Null<Array<CancellationHandle>>;
 	var state:AtomicState<TaskState>;
 	var error:Null<Exception>;
-	var numCompletedChildren:Int;
-	var indexInParent:Int;
-	var allChildrenCompleted:Bool;
 
 	public var id(get, null):Int;
 	public var cancellationException(get, never):Null<CancellationException>;
+
+	// children
+
+	var numChildren:Int;
+	var numCompletedChildren:AtomicInt;
+	var firstChild:AtomicObject<Null<AbstractTask>>;
+	var nextSibling:Null<AbstractTask>;
 
 	inline function get_cancellationException() {
 		return switch state.load() {
@@ -112,11 +116,10 @@ abstract class AbstractTask implements ICancellationToken {
 		this.parent = parent;
 		state = new AtomicState(Created);
 		error = null;
-		children = null;
 		cancellationCallbacks = null;
-		numCompletedChildren = 0;
-		indexInParent = -1;
-		allChildrenCompleted = false;
+		numChildren = 0;
+		numCompletedChildren = new AtomicInt(0);
+		firstChild = new AtomicObject(null);
 		if (parent != null) {
 			parent.addChild(this);
 		}
@@ -223,22 +226,17 @@ abstract class AbstractTask implements ICancellationToken {
 		are also not affected by this.
 	**/
 	public function cancelChildren(?cause:CancellationException) {
-		if (null == children) {
-			return;
-		}
-		final childrenLength = children.length;
-		if (childrenLength == 0) {
+		var child = firstChild.load();
+		if (null == child) {
 			return;
 		}
 
 		cause ??= new CancellationException();
 
-		for (i in 0...childrenLength) {
-			final child = children[i];
-			if (child != null) {
-				child.cancel(cause);
-			}
-		}
+		do {
+			child.cancel(cause);
+			child = child.nextSibling;
+		} while(child != null);
 	}
 
 	final inline function beginCompleting(f:() -> Void) {
@@ -249,21 +247,22 @@ abstract class AbstractTask implements ICancellationToken {
 	}
 
 	function startChildren() {
-		if (null == children) {
-			return;
-		}
-
-		for (child in children) {
-			if (child == null) {
-				continue;
-			}
+		var child = firstChild.load();
+		while (child != null) {
 			child.start();
+			child = child.nextSibling;
 		}
 	}
 
-	function checkCompletion() {
-		updateChildrenCompletion();
-		if (!allChildrenCompleted) {
+	final function checkCompletion() {
+		if (numCompletedChildren.load() != numChildren) {
+			return;
+		}
+		final child = firstChild.load();
+		if (child != null && firstChild.compareExchange(child, null) == child) {
+			childrenCompleted();
+		}
+		if (isDoingSomething()) {
 			return;
 		}
 		var currentState = state.load();
@@ -283,18 +282,10 @@ abstract class AbstractTask implements ICancellationToken {
 		}
 	}
 
-	function updateChildrenCompletion() {
-		if (allChildrenCompleted) {
-			return;
-		}
-		if (children == null) {
-			allChildrenCompleted = true;
-			childrenCompleted();
-		} else if (numCompletedChildren == children.length) {
-			allChildrenCompleted = true;
-			childrenCompleted();
-		}
-	}
+	/**
+		Whether or not the task itself is doing something, unrelated to its children.
+	**/
+	abstract function isDoingSomething():Bool;
 
 	abstract function doStart():Void;
 
@@ -311,7 +302,7 @@ abstract class AbstractTask implements ICancellationToken {
 	// called from child
 
 	function childCompletes(child:AbstractTask, processResult:Bool) {
-		numCompletedChildren++;
+		numCompletedChildren.add(1);
 		if (processResult) {
 			switch (child.state.load()) {
 				case Completed:
@@ -327,20 +318,34 @@ abstract class AbstractTask implements ICancellationToken {
 					throw new TaskException('Invalid state $state in childCompletes');
 			}
 		}
-		updateChildrenCompletion();
 		checkCompletion();
-		if (child.indexInParent >= 0) {
-			children[child.indexInParent] = null;
+	}
+
+	public function iterateChildren(f:AbstractTask -> Void) {
+		final firstChild = firstChild.load();
+		if (firstChild == null) {
+			return;
+		} else if (firstChild.isActive()) {
+			f(firstChild);
+		}
+		var prev = firstChild;
+		var current = firstChild.nextSibling;
+
+		while (current != null) {
+			if (!current.isActive()) {
+				prev.nextSibling = current.nextSibling;
+			} else {
+				f(current);
+			}
+			current = current.nextSibling;
 		}
 	}
 
 	// single-threaded
 
 	function addChild(child:AbstractTask) {
-		allChildrenCompleted = false;
-		final container = children ??= [];
-		final index = container.push(child);
-		child.indexInParent = index - 1;
+		child.nextSibling = firstChild.exchange(child);
+		++numChildren;
 		switch (state.load()) {
 			case Cancelling:
 				child.cancel();

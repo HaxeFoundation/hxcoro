@@ -140,9 +140,6 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 		if (cancellationCallbacks != null && cancellationCallbacks.length == 0) {
 			cancellationCallbacks = null;
 		}
-		if (allChildrenCompleted) {
-			children = null;
-		}
 	}
 
 	/**
@@ -223,7 +220,7 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 		affected by this call.
 	**/
 	@:coroutine public function awaitChildren() {
-		if (allChildrenCompleted) {
+		if (firstChild == null) {
 			localContext.get(CoroKeys.awaitingChildContinuation)?.callSync();
 			return;
 		}
