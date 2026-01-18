@@ -1,5 +1,9 @@
 package hxcoro;
 
+#if target.threaded
+import hxcoro.dispatchers.ThreadPoolDispatcher;
+import hxcoro.thread.FixedThreadPool;
+#end
 import haxe.coro.Coroutine;
 import haxe.coro.context.Context;
 import haxe.coro.context.IElement;
@@ -83,13 +87,22 @@ class CoroRun {
 	#else
 
 	static public function runWith<T>(context:Context, lambda:NodeLambda<T>):T {
+		#if target.threaded
+		final pool = new FixedThreadPool(10);
+		final schedulerComponent = new EventLoopScheduler(new ThreadPoolDispatcher(pool));
+		#else
 		final schedulerComponent = new EventLoopScheduler();
+		#end
 		final scope = new CoroTask(context.clone().with(schedulerComponent), CoroTask.CoroScopeStrategy);
 		scope.runNodeLambda(lambda);
 
 		while (scope.isActive()) {
 			schedulerComponent.run();
 		}
+
+		#if target.threaded
+		pool.shutdown(true);
+		#end
 
 		switch (scope.getError()) {
 			case null:

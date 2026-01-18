@@ -258,6 +258,7 @@ class TestBoundedChannel extends utest.Test {
 			});
 		});
 
+		actual.sort(Reflect.compare);
 		Assert.same(expected, actual);
 	}
 

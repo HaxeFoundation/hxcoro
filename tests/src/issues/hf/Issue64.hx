@@ -5,13 +5,13 @@ import haxe.exceptions.CancellationException;
 class Issue64 extends utest.Test {
 	function test() {
 		final cause = new CancellationException();
-		final cancellations = [];
+		final cancellations = [for (i in 0...25) null];
 		CoroRun.runScoped(node -> {
 			for (i in 0...5) {
 				for (k in 0...5) {
 					node.async(node -> {
 						try {
-							delay(500000);
+							delay(500);
 						} catch(e:CancellationException) {
 							cancellations[i * 5 + k] = e;
 							throw e;

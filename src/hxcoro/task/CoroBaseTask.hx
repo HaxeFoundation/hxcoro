@@ -1,5 +1,7 @@
 package hxcoro.task;
 
+import hxcoro.concurrent.AtomicObject;
+import haxe.coro.Mutex;
 import hxcoro.components.NonCancellable;
 import hxcoro.task.CoroTask;
 import hxcoro.task.node.INodeStrategy;
@@ -71,6 +73,31 @@ private class CallbackContinuation<T> implements IContinuation<T> {
 	}
 }
 
+class ArrayFixThisLater<T> {
+	final array:Array<T>;
+	final mutex:Mutex;
+
+	public function new() {
+		array = [];
+		mutex = new Mutex();
+	}
+
+	public function push(v:T) {
+		mutex.acquire();
+		final r = array.push(v);
+		mutex.release();
+		return r;
+	}
+
+	public function exchangeIGuess() {
+		mutex.acquire();
+		final ret = array.copy();
+		array.resize(0);
+		mutex.release();
+		return ret;
+	}
+}
+
 /**
 	CoroTask provides the basic functionality for coroutine tasks.
 **/
@@ -87,7 +114,7 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 
 	final nodeStrategy:INodeStrategy;
 	var result:Null<T>;
-	var awaitingContinuations:Null<Array<IContinuation<T>>>;
+	var awaitingContinuations:ArrayFixThisLater<IContinuation<T>>;
 
 	/**
 		Creates a new task using the provided `context`.
@@ -96,6 +123,7 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 		final parent = context.get(CoroTask);
 		this.context = context.clone().with(this).set(CancellationToken, this);
 		this.nodeStrategy = nodeStrategy;
+		awaitingContinuations = new ArrayFixThisLater();
 		super(parent, initialState);
 	}
 
@@ -167,7 +195,6 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 			case Cancelled:
 				cont.failSync(error);
 			case _:
-				awaitingContinuations ??= [];
 				awaitingContinuations.push(cont);
 				start();
 		}
@@ -187,7 +214,6 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 			case Cancelled:
 				callback(null, error);
 			case _:
-				awaitingContinuations ??= [];
 				awaitingContinuations.push(new CallbackContinuation(context.clone(), callback));
 		}
 	}
@@ -215,23 +241,25 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 	}
 
 	function handleAwaitingContinuations() {
-		if (awaitingContinuations == null) {
-			return;
-		}
-		while (awaitingContinuations.length > 0) {
-			final continuations = awaitingContinuations;
-			awaitingContinuations = [];
-			switch (state.load()) {
+		final succeed = switch (state.load()) {
 				case Completed:
-					for (cont in continuations) {
-						cont.succeedAsync(result);
-					}
+					true;
 				case Cancelled:
-					for (cont in continuations) {
-						cont.failAsync(error);
-					}
+					false;
 				case state:
 					throw new TaskException('Invalid state $state in handleAwaitingContinuations');
+		}
+		while (true) {
+			final conts = awaitingContinuations.exchangeIGuess();
+			if (conts.length == 0) {
+				return;
+			}
+			for (cont in conts) {
+				if (succeed) {
+					cont.succeedAsync(result);
+				} else {
+					cont.failAsync(error);
+				}
 			}
 		}
 	}

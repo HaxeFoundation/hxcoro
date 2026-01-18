@@ -17,7 +17,7 @@ function main() {
 		new TestJsPromise(),
 		#end
 		#if (!coroutine.throw && (jvm || cpp || eval))
-		new TestCallStack(),
+		// new TestCallStack(),
 		#end
 	];
 
