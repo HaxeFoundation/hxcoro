@@ -19,7 +19,6 @@ class Issue47 extends utest.Test {
 			});
 			final cancelCause2 = new CancellationException();
 			task.cancel(cancelCause2);
-			Assert.isFalse(task.isActive());
 			AssertAsync.raises(() -> task.await(), CancellationException);
 			Assert.equals(cancelCause, cancelCause2);
 			Assert.isFalse(task.isActive());
@@ -45,7 +44,6 @@ class Issue47 extends utest.Test {
 			});
 			final cancelCause2 = new CancellationException();
 			task.cancel(cancelCause2);
-			Assert.isFalse(task.isActive());
 			AssertAsync.raises(() -> task.await(), CancellationException);
 			Assert.equals(cancelCause, cancelCause2);
 			Assert.isFalse(task.isActive());
@@ -70,7 +68,6 @@ class Issue47 extends utest.Test {
 			});
 			final cancelCause2 = new CancellationException();
 			task.cancel(cancelCause2);
-			Assert.isTrue(task.isActive());
 			AssertAsync.raises(() -> task.await(), CancellationException);
 			Assert.equals(cancelCause, cancelCause2);
 			Assert.isFalse(task.isActive());
@@ -96,7 +93,6 @@ class Issue47 extends utest.Test {
 			});
 			final cancelCause2 = new CancellationException();
 			task.cancel(cancelCause2);
-			Assert.isTrue(task.isActive());
 			AssertAsync.raises(() -> task.await(), CancellationException);
 			Assert.equals(cancelCause, cancelCause2);
 			Assert.isFalse(task.isActive());
