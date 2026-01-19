@@ -9,7 +9,7 @@ import sys.thread.Condition;
 import sys.thread.Deque;
 import sys.thread.Thread;
 import hxcoro.concurrent.AtomicInt;
-import haxe.coro.schedulers.IScheduleObject;
+import haxe.coro.dispatchers.IScheduleObject;
 
 /**
 	Thread pool with a constant amount of threads.
