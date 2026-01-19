@@ -16,7 +16,7 @@ function main() {
 		#if js
 		new TestJsPromise(),
 		#end
-		#if (!coroutine.throw && (jvm || cpp || eval))
+		#if (jvm || cpp || eval)
 		new TestCallStack(),
 		#end
 	];
