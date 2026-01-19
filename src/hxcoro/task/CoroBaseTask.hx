@@ -86,7 +86,6 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 	public var localContext(get, null):Null<AdjustableContext>;
 
 	final nodeStrategy:INodeStrategy;
-	var initialContext:Context;
 	var result:Null<T>;
 	var awaitingContinuations:Null<Array<IContinuation<T>>>;
 
@@ -95,15 +94,12 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 	**/
 	public function new(context:Context, nodeStrategy:INodeStrategy, initialState:TaskState) {
 		final parent = context.get(CoroTask);
-		initialContext = context;
+		this.context = context.clone().with(this).set(CancellationToken, this);
 		this.nodeStrategy = nodeStrategy;
 		super(parent, initialState);
 	}
 
 	inline function get_context() {
-		if (context == null) {
-			context = initialContext.clone().with(this).set(CancellationToken, this);
-		}
 		return context;
 	}
 
@@ -123,26 +119,6 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 
 	public function getKey() {
 		return CoroTask.key;
-	}
-
-	/**
-		Indicates that the task has been suspended, which allows it to clean up some of
-		its internal resources. Has no effect on the observable state of the task.
-
-		This function should be called when it is expected that the task might not be resumed
-		for a while, e.g. when waiting on a sparse `Channel` or a contended `Mutex`.
-	**/
-	public function putOnHold() {
-		context = null;
-		if (awaitingContinuations != null && awaitingContinuations.length == 0) {
-			awaitingContinuations = null;
-		}
-		if (cancellationCallbacks != null && cancellationCallbacks.length == 0) {
-			cancellationCallbacks = null;
-		}
-		if (allChildrenCompleted) {
-			children = null;
-		}
 	}
 
 	/**
@@ -223,7 +199,7 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 		affected by this call.
 	**/
 	@:coroutine public function awaitChildren() {
-		if (allChildrenCompleted) {
+		if (firstChild.load() == null) {
 			localContext.get(CoroKeys.awaitingChildContinuation)?.callSync();
 			return;
 		}

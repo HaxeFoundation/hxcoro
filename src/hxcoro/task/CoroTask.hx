@@ -65,11 +65,8 @@ class CoroTask<T> extends CoroBaseTask<T> implements IContinuation<T> {
 		}
 	}
 
-	override function checkCompletion() {
-		if (!wasResumed) {
-			return;
-		}
-		super.checkCompletion();
+	function isDoingSomething() {
+		return !wasResumed;
 	}
 }
 
