@@ -5,6 +5,7 @@ import hxcoro.continuations.CancellingContinuation;
 import haxe.coro.IContinuation;
 import haxe.coro.ICancellableContinuation;
 import haxe.coro.schedulers.Scheduler;
+import haxe.coro.dispatchers.Dispatcher;
 import haxe.exceptions.ArgumentException;
 import hxcoro.task.NodeLambda;
 import hxcoro.task.CoroTask;
@@ -33,7 +34,7 @@ class Coro {
 	}
 
 	static function delayImpl<T>(ms:Int, cont:ICancellableContinuation<T>) {
-		final handle = cont.context.get(Scheduler).schedule(ms, () -> {
+		final handle = cont.context.get(Dispatcher).scheduler.schedule(ms, () -> {
 			cont.callAsync();
 		});
 
@@ -94,7 +95,7 @@ class Coro {
 
 			final context = cont.context;
 			final scope = new CoroTask(context, CoroTask.CoroScopeStrategy);
-			final handle = context.get(Scheduler).schedule(ms, () -> {
+			final handle = context.get(Dispatcher).scheduler.schedule(ms, () -> {
 				scope.cancel(new TimeoutException());
 			});
 

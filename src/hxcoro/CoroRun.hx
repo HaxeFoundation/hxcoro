@@ -85,8 +85,8 @@ class CoroRun {
 
 	static public function runWith<T>(context:Context, lambda:NodeLambda<T>):T {
 		final schedulerComponent  = new EventLoopScheduler();
-		final dispatcherComponent = new TrampolineDispatcher();
-		final scope = new CoroTask(context.clone().with(schedulerComponent).with(dispatcherComponent), CoroTask.CoroScopeStrategy);
+		final dispatcherComponent = new TrampolineDispatcher(schedulerComponent);
+		final scope = new CoroTask(context.clone().with(dispatcherComponent), CoroTask.CoroScopeStrategy);
 		scope.runNodeLambda(lambda);
 
 		while (scope.isActive()) {

@@ -86,9 +86,9 @@ class TestBoundedWriter extends utest.Test {
 		final readWaiters   = new PagedDeque();
 		final writer        = new BoundedWriter(buffer, writeWaiters, readWaiters, new Out(), Wait, new Mutex());
 		final scheduler     = new VirtualTimeScheduler();
-		final dispatcher    = new TrampolineDispatcher();
+		final dispatcher    = new TrampolineDispatcher(scheduler);
 		final actual        = [];
-		final task          = CoroRun.with(scheduler, dispatcher).create(node -> {
+		final task          = CoroRun.with(dispatcher).create(node -> {
 			actual.push(writer.waitForWrite());
 		});
 
@@ -107,9 +107,9 @@ class TestBoundedWriter extends utest.Test {
 		final readWaiters   = new PagedDeque();
 		final writer        = new BoundedWriter(buffer, writeWaiters, readWaiters, new Out(), Wait, new Mutex());
 		final scheduler     = new VirtualTimeScheduler();
-		final dispatcher    = new TrampolineDispatcher();
+		final dispatcher    = new TrampolineDispatcher(scheduler);
 		final actual        = [];
-		final task          = CoroRun.with(scheduler, dispatcher).create(node -> {
+		final task          = CoroRun.with(dispatcher).create(node -> {
 			actual.push(writer.waitForWrite());
 		});
 
@@ -130,9 +130,9 @@ class TestBoundedWriter extends utest.Test {
 		final readWaiters   = new PagedDeque();
 		final writer        = new BoundedWriter(buffer, writeWaiters, readWaiters, new Out(), Wait, new Mutex());
 		final scheduler     = new VirtualTimeScheduler();
-		final dispatcher    = new TrampolineDispatcher();
+		final dispatcher    = new TrampolineDispatcher(scheduler);
 		final actual        = [];
-		final task = CoroRun.with(scheduler, dispatcher).create(node -> {
+		final task = CoroRun.with(dispatcher).create(node -> {
 			actual.push(writer.waitForWrite());
 		});
 
@@ -154,9 +154,9 @@ class TestBoundedWriter extends utest.Test {
 		final readWaiters   = new PagedDeque();
 		final writer        = new BoundedWriter(buffer, writeWaiters, readWaiters, new Out(), Wait, new Mutex());
 		final scheduler     = new VirtualTimeScheduler();
-		final dispatcher    = new TrampolineDispatcher();
+		final dispatcher    = new TrampolineDispatcher(scheduler);
 		final actual        = [];
-		final task          = CoroRun.with(scheduler, dispatcher).create(node -> {
+		final task          = CoroRun.with(dispatcher).create(node -> {
 			actual.push(writer.waitForWrite());
 		});
 
@@ -182,9 +182,9 @@ class TestBoundedWriter extends utest.Test {
 		final readWaiters   = new PagedDeque();
 		final writer        = new BoundedWriter(buffer, writeWaiters, readWaiters, new Out(), Wait, new Mutex());
 		final scheduler     = new VirtualTimeScheduler();
-		final dispatcher    = new TrampolineDispatcher();
+		final dispatcher    = new TrampolineDispatcher(scheduler);
 		final actual        = [];
-		final task          = CoroRun.with(scheduler, dispatcher).create(node -> {
+		final task          = CoroRun.with(dispatcher).create(node -> {
 			actual.push(writer.waitForWrite());
 		});
 
@@ -211,9 +211,9 @@ class TestBoundedWriter extends utest.Test {
 		final readWaiters   = new PagedDeque();
 		final writer        = new BoundedWriter(buffer, writeWaiters, readWaiters, new Out(), Wait, new Mutex());
 		final scheduler     = new VirtualTimeScheduler();
-		final dispatcher    = new TrampolineDispatcher();
+		final dispatcher    = new TrampolineDispatcher(scheduler);
 		final out           = new Out();
-		final task          = CoroRun.with(scheduler, dispatcher).create(node -> {
+		final task          = CoroRun.with(dispatcher).create(node -> {
 			writer.write(10);
 		});
 
@@ -233,9 +233,9 @@ class TestBoundedWriter extends utest.Test {
 		final readWaiters   = new PagedDeque();
 		final writer        = new BoundedWriter(buffer, writeWaiters, readWaiters, new Out(), Wait, new Mutex());
 		final scheduler     = new VirtualTimeScheduler();
-		final dispatcher    = new TrampolineDispatcher();
+		final dispatcher    = new TrampolineDispatcher(scheduler);
 		final out           = new Out();
-		final task          = CoroRun.with(scheduler, dispatcher).create(node -> {
+		final task          = CoroRun.with(dispatcher).create(node -> {
 			writer.write(20);
 		});
 
@@ -259,9 +259,9 @@ class TestBoundedWriter extends utest.Test {
 		final readWaiters   = new PagedDeque();
 		final writer        = new BoundedWriter(buffer, writeWaiters, readWaiters, new Out(), DropWrite(v -> dropped.push(v)), new Mutex());
 		final scheduler     = new VirtualTimeScheduler();
-		final dispatcher    = new TrampolineDispatcher();
+		final dispatcher    = new TrampolineDispatcher(scheduler);
 		final out           = new Out();
-		final task          = CoroRun.with(scheduler, dispatcher).create(node -> {
+		final task          = CoroRun.with(dispatcher).create(node -> {
 			writer.write(20);
 		});
 
@@ -285,9 +285,9 @@ class TestBoundedWriter extends utest.Test {
 		final readWaiters   = new PagedDeque();
 		final writer        = new BoundedWriter(buffer, writeWaiters, readWaiters, new Out(), DropNewest(v -> dropped.push(v)), new Mutex());
 		final scheduler     = new VirtualTimeScheduler();
-		final dispatcher    = new TrampolineDispatcher();
+		final dispatcher    = new TrampolineDispatcher(scheduler);
 		final out           = new Out();
-		final task          = CoroRun.with(scheduler, dispatcher).create(node -> {
+		final task          = CoroRun.with(dispatcher).create(node -> {
 			writer.write(20);
 		});
 
@@ -313,9 +313,9 @@ class TestBoundedWriter extends utest.Test {
 		final readWaiters   = new PagedDeque();
 		final writer        = new BoundedWriter(buffer, writeWaiters, readWaiters, new Out(), DropOldest(v -> dropped.push(v)), new Mutex());
 		final scheduler     = new VirtualTimeScheduler();
-		final dispatcher    = new TrampolineDispatcher();
+		final dispatcher    = new TrampolineDispatcher(scheduler);
 		final out           = new Out();
-		final task          = CoroRun.with(scheduler, dispatcher).create(node -> {
+		final task          = CoroRun.with(dispatcher).create(node -> {
 			writer.write(20);
 		});
 
@@ -340,9 +340,9 @@ class TestBoundedWriter extends utest.Test {
 		final readWaiters   = new PagedDeque();
 		final writer        = new BoundedWriter(buffer, writeWaiters, readWaiters, new Out(), Wait, new Mutex());
 		final scheduler     = new VirtualTimeScheduler();
-		final dispatcher    = new TrampolineDispatcher();
+		final dispatcher    = new TrampolineDispatcher(scheduler);
 		final expected      = [];
-		final task          = CoroRun.with(scheduler, dispatcher).create(node -> {
+		final task          = CoroRun.with(dispatcher).create(node -> {
 			writer.write(10);
 		});
 
@@ -363,8 +363,8 @@ class TestBoundedWriter extends utest.Test {
 		final readWaiters   = new PagedDeque();
 		final writer        = new BoundedWriter(buffer, writeWaiters, readWaiters, new Out(), Wait, new Mutex());
 		final scheduler     = new VirtualTimeScheduler();
-		final dispatcher    = new TrampolineDispatcher();
-		final task          = CoroRun.with(scheduler, dispatcher).create(node -> {
+		final dispatcher    = new TrampolineDispatcher(scheduler);
+		final task          = CoroRun.with(dispatcher).create(node -> {
 			writer.write(10);
 		});
 
@@ -398,9 +398,9 @@ class TestBoundedWriter extends utest.Test {
 		final readWaiters   = new PagedDeque();
 		final writer        = new BoundedWriter(buffer, writeWaiters, readWaiters, new Out(), Wait, new Mutex());
 		final scheduler     = new VirtualTimeScheduler();
-		final dispatcher    = new TrampolineDispatcher();
+		final dispatcher    = new TrampolineDispatcher(scheduler);
 		final out           = new Out();
-		final task          = CoroRun.with(scheduler, dispatcher).create(node -> {
+		final task          = CoroRun.with(dispatcher).create(node -> {
 			writer.write(10);
 		});
 
@@ -450,9 +450,9 @@ class TestBoundedWriter extends utest.Test {
 		final readWaiters   = new PagedDeque();
 		final writer        = new BoundedWriter(buffer, writeWaiters, readWaiters, new Out(), Wait, new Mutex());
 		final scheduler     = new VirtualTimeScheduler();
-		final dispatcher    = new TrampolineDispatcher();
+		final dispatcher    = new TrampolineDispatcher(scheduler);
 		final actual        = [];
-		final task          = CoroRun.with(scheduler, dispatcher).create(node -> {
+		final task          = CoroRun.with(dispatcher).create(node -> {
 			actual.push(writer.waitForWrite());
 		});
 
@@ -470,9 +470,9 @@ class TestBoundedWriter extends utest.Test {
 		final readWaiters   = new PagedDeque();
 		final writer        = new BoundedWriter(buffer, writeWaiters, readWaiters, new Out(), Wait, new Mutex());
 		final scheduler     = new VirtualTimeScheduler();
-		final dispatcher    = new TrampolineDispatcher();
+		final dispatcher    = new TrampolineDispatcher(scheduler);
 		final actual        = [];
-		final task          = CoroRun.with(scheduler, dispatcher).create(node -> {
+		final task          = CoroRun.with(dispatcher).create(node -> {
 			AssertAsync.raises(() -> writer.write('hello'), ChannelClosedException);
 		});
 
@@ -490,9 +490,9 @@ class TestBoundedWriter extends utest.Test {
 		final readWaiters   = new PagedDeque();
 		final writer        = new BoundedWriter(buffer, writeWaiters, readWaiters, new Out(), Wait, new Mutex());
 		final scheduler     = new VirtualTimeScheduler();
-		final dispatcher    = new TrampolineDispatcher();
+		final dispatcher    = new TrampolineDispatcher(scheduler);
 		final actual        = [];
-		final task          = CoroRun.with(scheduler, dispatcher).create(node -> {
+		final task          = CoroRun.with(dispatcher).create(node -> {
 			actual.push(writer.waitForWrite());
 		});
 
@@ -515,9 +515,9 @@ class TestBoundedWriter extends utest.Test {
 		final readWaiters   = new PagedDeque();
 		final writer        = new BoundedWriter(buffer, writeWaiters, readWaiters, new Out(), Wait, new Mutex());
 		final scheduler     = new VirtualTimeScheduler();
-		final dispatcher    = new TrampolineDispatcher();
+		final dispatcher    = new TrampolineDispatcher(scheduler);
 		final actual        = [];
-		final task          = CoroRun.with(scheduler, dispatcher).create(node -> {
+		final task          = CoroRun.with(dispatcher).create(node -> {
 			writer.waitForWrite();
 		});
 

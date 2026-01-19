@@ -23,8 +23,8 @@ class TestTaskCancellation extends utest.Test {
 	public function test_cancellation_callback() {
 		final result     = [];
 		final scheduler  = new VirtualTimeScheduler();
-		final dispatcher = new TrampolineDispatcher();
-		final task       = CoroRun.with(scheduler, dispatcher).create(node -> {
+		final dispatcher = new TrampolineDispatcher(scheduler);
+		final task       = CoroRun.with(dispatcher).create(node -> {
 			node.context.get(CoroTask).onCancellationRequested(new ResultPusherHandle(result));
 
 			delay(1000);
@@ -44,8 +44,8 @@ class TestTaskCancellation extends utest.Test {
 
 		final result     = [];
 		final scheduler  = new VirtualTimeScheduler();
-		final dispatcher = new TrampolineDispatcher();
-		final task       = CoroRun.with(scheduler, dispatcher).create(node -> {
+		final dispatcher = new TrampolineDispatcher(scheduler);
+		final task       = CoroRun.with(dispatcher).create(node -> {
 			handle = node.context.get(CoroTask).onCancellationRequested(new ResultPusherHandle(result));
 
 			delay(1000);

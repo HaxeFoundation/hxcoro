@@ -48,8 +48,8 @@ class TestCoroutineScope extends utest.Test {
 	function test_scope_with_children() {
 		final actual     = [];
 		final scheduler  = new VirtualTimeScheduler();
-		final dispatcher = new TrampolineDispatcher();
-		final task       = CoroRun.with(scheduler, dispatcher).create(_ -> {
+		final dispatcher = new TrampolineDispatcher(scheduler);
+		final task       = CoroRun.with(dispatcher).create(_ -> {
 			scope(node -> {
 				node.async(_ -> {
 					delay(500);
@@ -138,8 +138,8 @@ class TestCoroutineScope extends utest.Test {
 			mutex.release();
 		}
 		final scheduler = new VirtualTimeScheduler();
-		final dispatcher = new TrampolineDispatcher();
-		final task      = CoroRun.with(scheduler, dispatcher).create(node -> {
+		final dispatcher = new TrampolineDispatcher(scheduler);
+		final task      = CoroRun.with(dispatcher).create(node -> {
 			final child = node.async(_ -> {
 				try {
 					scope(node -> {

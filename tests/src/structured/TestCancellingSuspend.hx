@@ -11,8 +11,8 @@ class TestCancellingSuspend extends utest.Test {
 	function test_callback() {
 		final actual     = [];
 		final scheduler  = new VirtualTimeScheduler();
-		final dispatcher = new TrampolineDispatcher();
-		final task       = CoroRun.with(scheduler, dispatcher).create(node -> {
+		final dispatcher = new TrampolineDispatcher(scheduler);
+		final task       = CoroRun.with(dispatcher).create(node -> {
 			timeout(100, _ -> {
 				suspendCancellable(cont -> {
 					cont.onCancellationRequested = _ -> {
@@ -34,8 +34,8 @@ class TestCancellingSuspend extends utest.Test {
 
 	function test_resuming_successfully() {
 		final scheduler  = new VirtualTimeScheduler();
-		final dispatcher = new TrampolineDispatcher();
-		final task       = CoroRun.with(scheduler, dispatcher).create(node -> {
+		final dispatcher = new TrampolineDispatcher(scheduler);
+		final task       = CoroRun.with(dispatcher).create(node -> {
 			AssertAsync.raises(() -> {
 				suspendCancellable(cont -> {
 					scheduler.schedule(0, () -> {
@@ -56,8 +56,8 @@ class TestCancellingSuspend extends utest.Test {
 
 	function test_failing() {
 		final scheduler  = new VirtualTimeScheduler();
-		final dispatcher = new TrampolineDispatcher();
-		final task       = CoroRun.with(scheduler, dispatcher).create(node -> {
+		final dispatcher = new TrampolineDispatcher(scheduler);
+		final task       = CoroRun.with(dispatcher).create(node -> {
 			AssertAsync.raises(() -> {
 				suspendCancellable(cont -> {
 					scheduler.schedule(0, () -> {
@@ -79,8 +79,8 @@ class TestCancellingSuspend extends utest.Test {
 	function test_callback_is_unregistered() {
 		final actual     = [];
 		final scheduler  = new VirtualTimeScheduler();
-		final dispatcher = new TrampolineDispatcher();
-		final task       = CoroRun.with(scheduler, dispatcher).create(node -> {
+		final dispatcher = new TrampolineDispatcher(scheduler);
+		final task       = CoroRun.with(dispatcher).create(node -> {
 			suspendCancellable(cont -> {
 				cont.onCancellationRequested = _ -> {
 					Assert.fail('should not be invoked');
@@ -107,8 +107,8 @@ class TestCancellingSuspend extends utest.Test {
 		var stashed : ICancellableContinuation<Any> = null;
 
 		final scheduler  = new VirtualTimeScheduler();
-		final dispatcher = new TrampolineDispatcher();
-		final task       = CoroRun.with(scheduler, dispatcher).create(node -> {
+		final dispatcher = new TrampolineDispatcher(scheduler);
+		final task       = CoroRun.with(dispatcher).create(node -> {
 			suspendCancellable(cont -> {
 				stashed = cont;
 
@@ -135,8 +135,8 @@ class TestCancellingSuspend extends utest.Test {
 
 	function test_disallow_multiple_callback_assignments() {
 		final scheduler  = new VirtualTimeScheduler();
-		final dispatcher = new TrampolineDispatcher();
-		final task       = CoroRun.with(scheduler, dispatcher).create(node -> {
+		final dispatcher = new TrampolineDispatcher(scheduler);
+		final task       = CoroRun.with(dispatcher).create(node -> {
 			suspendCancellable(cont -> {
 				cont.onCancellationRequested = _ -> {
 					trace('foo');

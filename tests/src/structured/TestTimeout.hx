@@ -9,8 +9,8 @@ import hxcoro.exceptions.TimeoutException;
 class TestTimeout extends utest.Test {
 	function test_timeout() {
 		final scheduler  = new VirtualTimeScheduler();
-		final dispatcher = new TrampolineDispatcher();
-		final task       = CoroRun.with(scheduler, dispatcher).create(node -> {
+		final dispatcher = new TrampolineDispatcher(scheduler);
+		final task       = CoroRun.with(dispatcher).create(node -> {
 			return timeout(500, _ -> {
 				delay(1000);
 
@@ -28,8 +28,8 @@ class TestTimeout extends utest.Test {
 
 	function test_timeout_result() {
 		final scheduler  = new VirtualTimeScheduler();
-		final dispatcher = new TrampolineDispatcher();
-		final task       = CoroRun.with(scheduler, dispatcher).create(node -> {
+		final dispatcher = new TrampolineDispatcher(scheduler);
+		final task       = CoroRun.with(dispatcher).create(node -> {
 			return timeout(1000, _ -> {
 				delay(500);
 
@@ -48,8 +48,8 @@ class TestTimeout extends utest.Test {
 	function test_zero_timeout() {
 		final result     = [];
 		final scheduler  = new VirtualTimeScheduler();
-		final dispatcher = new TrampolineDispatcher();
-		final task       = CoroRun.with(scheduler, dispatcher).create(node -> {
+		final dispatcher = new TrampolineDispatcher(scheduler);
+		final task       = CoroRun.with(dispatcher).create(node -> {
 			return timeout(0, _ -> {
 				result.push(0);
 			});
@@ -65,8 +65,8 @@ class TestTimeout extends utest.Test {
 
 	function test_negative_timeout() {
 		final scheduler  = new VirtualTimeScheduler();
-		final dispatcher = new TrampolineDispatcher();
-		final task       = CoroRun.with(scheduler, dispatcher).create(node -> {
+		final dispatcher = new TrampolineDispatcher(scheduler);
+		final task       = CoroRun.with(dispatcher).create(node -> {
 			return timeout(-1, _ -> {
 				delay(1000);
 			});
@@ -82,8 +82,8 @@ class TestTimeout extends utest.Test {
 
 	function test_timeout_does_not_propagate_cancellation() {
 		final scheduler  = new VirtualTimeScheduler();
-		final dispatcher = new TrampolineDispatcher();
-		final task       = CoroRun.with(scheduler, dispatcher).create(node -> {
+		final dispatcher = new TrampolineDispatcher(scheduler);
+		final task       = CoroRun.with(dispatcher).create(node -> {
 			node.async(_ -> {
 				try {
 					timeout(500, _ -> {

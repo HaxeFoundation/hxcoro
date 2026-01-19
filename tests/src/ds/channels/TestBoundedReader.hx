@@ -121,9 +121,9 @@ class TestBoundedReader extends utest.Test {
 		final readWaiters  = new PagedDeque();
 		final reader       = new BoundedReader(buffer, writeWaiters, readWaiters, new Out(), new Mutex());
 		final scheduler    = new VirtualTimeScheduler();
-		final dispatcher   = new TrampolineDispatcher();
+		final dispatcher   = new TrampolineDispatcher(scheduler);
 		final actual       = [];
-		final task         = CoroRun.with(scheduler, dispatcher).create(node -> {
+		final task         = CoroRun.with(dispatcher).create(node -> {
 			actual.push(reader.waitForRead());
 		});
 
@@ -145,9 +145,9 @@ class TestBoundedReader extends utest.Test {
 		final reader       = new BoundedReader(buffer, writeWaiters, readWaiters, new Out(), new Mutex());
 		final out          = new Out();
 		final scheduler    = new VirtualTimeScheduler();
-		final dispatcher   = new TrampolineDispatcher();
+		final dispatcher   = new TrampolineDispatcher(scheduler);
 		final actual       = [];
-		final task         = CoroRun.with(scheduler, dispatcher).create(node -> {
+		final task         = CoroRun.with(dispatcher).create(node -> {
 			actual.push(reader.waitForRead());
 		});
 
@@ -170,7 +170,7 @@ class TestBoundedReader extends utest.Test {
 		final scheduler    = new VirtualTimeScheduler();
 		final dispatcher   = new TrampolineDispatcher();
 		final actual       = [];
-		final task         = CoroRun.with(scheduler, dispatcher).create(node -> {
+		final task         = CoroRun.with(dispatcher).create(node -> {
 			actual.push(reader.waitForRead());
 		});
 
@@ -196,7 +196,7 @@ class TestBoundedReader extends utest.Test {
 		final scheduler    = new VirtualTimeScheduler();
 		final dispatcher   = new TrampolineDispatcher();
 		final actual       = [];
-		final task         = CoroRun.with(scheduler, dispatcher).create(node -> {
+		final task         = CoroRun.with(dispatcher).create(node -> {
 			actual.push(reader.waitForRead());
 		});
 
@@ -223,7 +223,7 @@ class TestBoundedReader extends utest.Test {
 		final scheduler    = new VirtualTimeScheduler();
 		final dispatcher   = new TrampolineDispatcher();
 		final actual       = [];
-		final task         = CoroRun.with(scheduler, dispatcher).create(node -> {
+		final task         = CoroRun.with(dispatcher).create(node -> {
 			actual.push(reader.read());
 		});
 
@@ -248,7 +248,7 @@ class TestBoundedReader extends utest.Test {
 		final scheduler    = new VirtualTimeScheduler();
 		final dispatcher   = new TrampolineDispatcher();
 		final actual       = [];
-		final task         = CoroRun.with(scheduler, dispatcher).create(node -> {
+		final task         = CoroRun.with(dispatcher).create(node -> {
 			actual.push(reader.read());
 		});
 
@@ -271,7 +271,7 @@ class TestBoundedReader extends utest.Test {
 		final scheduler    = new VirtualTimeScheduler();
 		final dispatcher   = new TrampolineDispatcher();
 		final actual       = [];
-		final task         = CoroRun.with(scheduler, dispatcher).create(node -> {
+		final task         = CoroRun.with(dispatcher).create(node -> {
 			reader.read();
 		});
 
@@ -298,7 +298,7 @@ class TestBoundedReader extends utest.Test {
 		final scheduler    = new VirtualTimeScheduler();
 		final dispatcher   = new TrampolineDispatcher();
 		final actual       = [];
-		final task         = CoroRun.with(scheduler, dispatcher).create(node -> {
+		final task         = CoroRun.with(dispatcher).create(node -> {
 			actual.push(reader.read());
 		});
 
@@ -328,7 +328,7 @@ class TestBoundedReader extends utest.Test {
 		final scheduler    = new VirtualTimeScheduler();
 		final dispatcher   = new TrampolineDispatcher();
 		final actual       = [];
-		final task         = CoroRun.with(scheduler, dispatcher).create(node -> {
+		final task         = CoroRun.with(dispatcher).create(node -> {
 			actual.push(reader.read());
 		});
 
@@ -352,7 +352,7 @@ class TestBoundedReader extends utest.Test {
 		final actual       = [];
 		final scheduler    = new VirtualTimeScheduler();
 		final dispatcher   = new TrampolineDispatcher();
-		final task         = CoroRun.with(scheduler, dispatcher).create(node -> {
+		final task         = CoroRun.with(dispatcher).create(node -> {
 			actual.push(reader.waitForRead());
 		});
 
@@ -374,7 +374,7 @@ class TestBoundedReader extends utest.Test {
 		final scheduler    = new VirtualTimeScheduler();
 		final dispatcher   = new TrampolineDispatcher();
 		final actual       = [];
-		final task         = CoroRun.with(scheduler, dispatcher).create(node -> {
+		final task         = CoroRun.with(dispatcher).create(node -> {
 			actual.push(reader.waitForRead());
 		});
 
@@ -428,7 +428,7 @@ class TestBoundedReader extends utest.Test {
 		final actual       = [];
 		final scheduler    = new VirtualTimeScheduler();
 		final dispatcher   = new TrampolineDispatcher();
-		final task         = CoroRun.with(scheduler, dispatcher).create(node -> {
+		final task         = CoroRun.with(dispatcher).create(node -> {
 			AssertAsync.raises(reader.read(), ChannelClosedException);
 		});
 
@@ -450,7 +450,7 @@ class TestBoundedReader extends utest.Test {
 		final actual       = [];
 		final scheduler    = new VirtualTimeScheduler();
 		final dispatcher   = new TrampolineDispatcher();
-		final task         = CoroRun.with(scheduler, dispatcher).create(node -> {
+		final task         = CoroRun.with(dispatcher).create(node -> {
 			actual.push(reader.read());
 		});
 
