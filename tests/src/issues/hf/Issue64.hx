@@ -13,7 +13,7 @@ class Issue64 extends utest.Test {
 				for (k in 0...5) {
 					node.async(node -> {
 						try {
-							delay(500);
+							delay(5000000);
 						} catch(e:CancellationException) {
 							mutex.acquire();
 							cancellations[i * 5 + k] = e;

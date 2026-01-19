@@ -1,5 +1,6 @@
 package structured;
 
+import haxe.coro.Mutex;
 import haxe.Exception;
 import haxe.exceptions.CancellationException;
 import hxcoro.schedulers.VirtualTimeScheduler;
@@ -128,6 +129,12 @@ class TestCoroutineScope extends utest.Test {
 
 	function test_parent_scope_cancelling() {
 		final acc       = [];
+		final mutex = new Mutex();
+		function push(v:String) {
+			mutex.acquire();
+			acc.push(v);
+			mutex.release();
+		}
 		final scheduler = new VirtualTimeScheduler();
 		final task      = CoroRun.with(scheduler).create(node -> {
 			final child = node.async(_ -> {
@@ -136,16 +143,16 @@ class TestCoroutineScope extends utest.Test {
 						while (true) {
 							delay(1);
 						}
-						acc.push("scope 1");
+						push("scope 1");
 					});
 				} catch (e:CancellationException) {
-					acc.push("scope 2");
+					push("scope 2");
 				}
 			});
 
 			delay(1000);
 			child.cancel();
-			acc.push("scope 3");
+			push("scope 3");
 		});
 
 		task.start();
@@ -156,26 +163,34 @@ class TestCoroutineScope extends utest.Test {
 
 	function test_cancel_due_to_sibling_exception() {
 		final acc = [];
+
+		final mutex = new Mutex();
+		function push(v:String) {
+			mutex.acquire();
+			acc.push(v);
+			mutex.release();
+		}
+
 		Assert.raises(() -> CoroRun.runScoped(node -> {
 			node.async(_ -> {
 				scope(_ -> {
-					acc.push("before yield 2");
+					push("before yield 2");
 					yield();
-					acc.push("after yield 2");
+					push("after yield 2");
 					throw new FooException();
-					acc.push("after throw 2");
+					push("after throw 2");
 				});
 			});
 			node.async(_ -> {
 				scope(_ -> {
-					acc.push("before yield 1");
+					push("before yield 1");
 					while (true) {
 						yield();
 					}
-					acc.push("after yield 1");
+					push("after yield 1");
 				});
 			});
-			acc.push("at exit");
+			push("at exit");
 		}), FooException);
 		has(acc, ["before yield 1", "before yield 2", "after yield 2", "at exit"], ["after yield 1", "after throw 2"]);
 
@@ -183,23 +198,23 @@ class TestCoroutineScope extends utest.Test {
 		Assert.raises(() -> CoroRun.runScoped(node -> {
 			node.async(_ -> {
 				scope(_ -> {
-					acc.push("before yield 1");
+					push("before yield 1");
 					while (true) {
 						delay(1);
 					}
-					acc.push("after yield 1");
+					push("after yield 1");
 				});
 			});
 			node.async(_ -> {
 				scope(_ -> {
-					acc.push("before yield 2");
+					push("before yield 2");
 					yield();
-					acc.push("after yield 2");
+					push("after yield 2");
 					throw new FooException();
-					acc.push("after throw 2");
+					push("after throw 2");
 				});
 			});
-			acc.push("at exit");
+			push("at exit");
 		}), FooException);
 		has(acc, ["before yield 1", "before yield 2", "after yield 2", "at exit"], ["after yield 1", "after throw 2"]);
 	}
