@@ -32,7 +32,7 @@ abstract class AbstractTask implements ICancellationToken {
 
 	final parent:AbstractTask;
 
-	var cancellationManager:AtomicObject<Null<TaskCancellationManager>>;
+	var cancellationManager:TaskCancellationManager;
 	var state:AtomicState<TaskState>;
 	var error:Null<Exception>;
 
@@ -66,7 +66,7 @@ abstract class AbstractTask implements ICancellationToken {
 		this.parent = parent;
 		state = new AtomicState(Created);
 		error = null;
-		cancellationManager = new AtomicObject(null);
+		cancellationManager = new TaskCancellationManager(this);
 		numActiveChildren = new AtomicInt(0);
 		firstChild = new AtomicObject(null);
 		if (parent != null) {
@@ -110,14 +110,7 @@ abstract class AbstractTask implements ICancellationToken {
 						error ??= cause;
 						state.store(Cancelling);
 
-						// We can set the manager to null now because `onCancellationRequested` doesn't
-						// look at it in Cancelling | Cancelled, which we're guaranteed to be in.
-						switch (cancellationManager.exchange(null)) {
-							case null:
-								// Nothing to do.
-							case manager:
-								manager.run();
-						}
+						cancellationManager.run();
 
 						cancelChildren(cause);
 						checkCompletion();
@@ -126,8 +119,12 @@ abstract class AbstractTask implements ICancellationToken {
 						// Loop with current value to try again
 						currentState = nextState;
 					}
-				case Cancelling | Cancelled | Completed:
+				case Cancelling :
+					// Someone else got here first, check completion.
 					checkCompletion();
+					break;
+				case Cancelled | Completed:
+					// Nothing to do
 					break;
 			}
 		}
@@ -153,15 +150,7 @@ abstract class AbstractTask implements ICancellationToken {
 
 				return TaskCancellationManager.CancellationHandle.noOpCancellationHandle;
 			case _:
-				final manager = switch (cancellationManager.load()) {
-					case null:
-						final newManager = new TaskCancellationManager(this);
-						final oldManager = cancellationManager.compareExchange(null, newManager);
-						oldManager ?? newManager;
-					case manager:
-						manager;
-				}
-				manager.addCallback(callback);
+				cancellationManager.addCallback(callback);
 		}
 	}
 

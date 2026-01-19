@@ -46,21 +46,42 @@ class CancellationHandle implements ICancellationHandle {
 	}
 }
 
+private enum abstract ManagerState(Int) to Int {
+	final Ready;
+	final Modifying;
+	final Finished;
+}
+
 class TaskCancellationManager {
 	public final task:AbstractTask;
-	final mutex:Mutex;
-
-	var handles:Array<CancellationHandle>;
+	final state:AtomicState<ManagerState>;
+	var handles:Null<Array<CancellationHandle>>;
 
 	public function new(task:AbstractTask) {
 		this.task = task;
-		this.mutex = new Mutex();
-		handles = [];
+		handles = null;
+		state = new AtomicState(Ready);
 	}
 
 	// single-threaded
 
 	public function run() {
+		while (true) {
+			switch (state.compareExchange(Ready, Finished)) {
+				case Ready:
+					break;
+				case Modifying:
+					// loop
+				case Finished:
+					// already done
+					return;
+			}
+		}
+		final handles = handles;
+		if (handles == null) {
+			return;
+		}
+		this.handles = null;
 		for (handle in handles) {
 			// TODO: should we catch errors from the callbacks here?
 			handle.run();
@@ -70,17 +91,40 @@ class TaskCancellationManager {
 
 	// thread-safe
 
-	public function addCallback(callback:ICancellationCallback) {
+	public function addCallback(callback:ICancellationCallback):ICancellationHandle {
 		final handle = new CancellationHandle(callback, this);
-		mutex.acquire();
+		while (true) {
+			switch (state.compareExchange(Ready, Modifying)) {
+				case Ready:
+					break;
+				case Modifying:
+					// loop
+				case Finished:
+					handle.run();
+					return CancellationHandle.noOpCancellationHandle;
+			}
+		}
+		handles ??= [];
 		handles.push(handle);
-		mutex.release();
+		state.store(Ready);
 		return handle;
 	}
 
 	public function remove(handle:CancellationHandle) {
-		mutex.acquire();
-		handles.remove(handle);
-		mutex.release();
+		while (true) {
+			switch (state.compareExchange(Ready, Modifying)) {
+				case Ready:
+					break;
+				case Modifying:
+					// loop
+				case Finished:
+					// already cleared, nothing to do
+					return;
+			}
+		}
+		if (handles != null) {
+			handles.remove(handle);
+		}
+		state.store(Ready);
 	}
 }

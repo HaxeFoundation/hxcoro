@@ -1,5 +1,6 @@
 package issues.hf;
 
+import hxcoro.concurrent.AtomicInt;
 import hxcoro.ds.channels.Channel;
 import hxcoro.ds.Out;
 import hxcoro.CoroRun;
@@ -12,7 +13,7 @@ class Issue37 extends utest.Test {
 		final expected = [for (i in 0...numIterations) numTasks];
 		final actual = [];
 		for (_ in 0...numIterations) {
-			var aggregateValue = 0;
+			var aggregateValue = new AtomicInt(0);
 			CoroRun.runScoped(node -> {
 				final channel = Channel.createBounded({size: 10});
 
@@ -38,7 +39,7 @@ class Issue37 extends utest.Test {
 						while (channel.reader.waitForRead()) {
 							delay(1);
 							if (channel.reader.tryRead(o)) {
-								aggregateValue += o.get();
+								aggregateValue.add(o.get());
 								break;
 							} else {
 								continue;
@@ -49,7 +50,7 @@ class Issue37 extends utest.Test {
 
 				node.awaitChildren();
 			});
-			actual.push(aggregateValue);
+			actual.push(aggregateValue.load());
 		}
 		utest.Assert.same(expected, actual);
 	}
