@@ -50,10 +50,6 @@ private class CoroTaskWith<T> implements ICoroNodeWith {
 	}
 }
 
-private class CoroKeys {
-	static public final awaitingChildContinuation = new Key<IContinuation<Any>>("AwaitingChildContinuation");
-}
-
 private class CallbackContinuation<T> implements IContinuation<T> {
 	final callback:(result:T, error:Exception)->Void;
 
@@ -115,6 +111,7 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 	final nodeStrategy:INodeStrategy;
 	var result:Null<T>;
 	var awaitingContinuations:ArrayFixThisLater<IContinuation<T>>;
+	var awaitingChildContinuation:AtomicObject<Null<IContinuation<Any>>>;
 
 	/**
 		Creates a new task using the provided `context`.
@@ -124,6 +121,7 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 		this.context = context.clone().with(this).set(CancellationToken, this);
 		this.nodeStrategy = nodeStrategy;
 		awaitingContinuations = new ArrayFixThisLater();
+		awaitingChildContinuation = new AtomicObject(null);
 		super(parent, initialState);
 	}
 
@@ -227,7 +225,7 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 	@:coroutine public function awaitChildren() {
 		startChildren();
 		Coro.suspend(cont -> {
-			localContext.set(CoroKeys.awaitingChildContinuation, cont);
+			awaitingChildContinuation.store(cont);
 			if (firstChild.load() == null) {
 				cont.callSync();
 				return;
@@ -267,7 +265,8 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 	}
 
 	function childrenCompleted() {
-		localContext.get(CoroKeys.awaitingChildContinuation)?.callSync();
+		final cont = awaitingChildContinuation.exchange(null);
+		cont?.callSync();
 	}
 
 	// strategy dispatcher

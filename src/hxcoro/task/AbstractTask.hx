@@ -126,8 +126,12 @@ abstract class AbstractTask implements ICancellationToken {
 						// Loop with current value to try again
 						currentState = nextState;
 					}
-				case Cancelling | Cancelled | Completed:
+				case Cancelling :
+					// Someone else got here first, check completion.
 					checkCompletion();
+					break;
+				case Cancelled | Completed:
+					// Nothing to do
 					break;
 			}
 		}
