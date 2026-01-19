@@ -161,7 +161,7 @@ class TestCoroutineScope extends utest.Test {
 		has(acc, ["scope 2", "scope 3"], ["scope 1"]);
 	}
 
-	function test_cancel_due_to_sibling_exception() {
+	function test_cancel_due_to_sibling_exception1() {
 		final acc = [];
 
 		final mutex = new Mutex();
@@ -193,8 +193,18 @@ class TestCoroutineScope extends utest.Test {
 			push("at exit");
 		}), FooException);
 		has(acc, ["before yield 1", "before yield 2", "after yield 2", "at exit"], ["after yield 1", "after throw 2"]);
+	}
 
-		acc.resize(0);
+	function test_cancel_due_to_sibling_exception2() {
+		final acc = [];
+
+		final mutex = new Mutex();
+		function push(v:String) {
+			mutex.acquire();
+			acc.push(v);
+			mutex.release();
+		}
+
 		Assert.raises(() -> CoroRun.runScoped(node -> {
 			node.async(_ -> {
 				scope(_ -> {
