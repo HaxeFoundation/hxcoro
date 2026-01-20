@@ -1,10 +1,12 @@
 package hxcoro.task;
 
+import haxe.coro.context.Context;
 import haxe.Exception;
 import haxe.exceptions.CancellationException;
 
 interface ICoroTask<T> extends ILocalContext {
 	var id(get, never):Int;
+	var context(get, never):Context;
 	function cancel(?cause:CancellationException):Void;
 	@:coroutine function await():T;
 	function get():T;

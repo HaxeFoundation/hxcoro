@@ -39,6 +39,14 @@ abstract AtomicIntImpl(AtomicIntData) {
 		}
 	}
 
+	public function exchange(replacement:Int) {
+		this.mutex.acquire();
+		final current = this.value;
+		this.value = replacement;
+		this.mutex.release();
+		return current;
+	}
+
 	public function sub(b:Int) {
 		this.mutex.acquire();
 		final value = this.value;

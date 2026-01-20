@@ -24,6 +24,7 @@ class RacingContinuation<T> extends SuspensionResult<T> implements IContinuation
 	final scheduler:Scheduler;
 
 	public function new(inputCont:IContinuation<T>) {
+		super(Pending);
 		this.inputCont = inputCont;
 		resumeState = new AtomicInt(Active);
 		scheduler = context.get(Scheduler);

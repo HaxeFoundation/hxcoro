@@ -1,5 +1,7 @@
 package hxcoro.task;
 
+import hxcoro.concurrent.AtomicObject;
+import haxe.coro.Mutex;
 import hxcoro.components.NonCancellable;
 import hxcoro.task.CoroTask;
 import hxcoro.task.node.INodeStrategy;
@@ -48,10 +50,6 @@ private class CoroTaskWith<T> implements ICoroNodeWith {
 	}
 }
 
-private class CoroKeys {
-	static public final awaitingChildContinuation = new Key<IContinuation<Any>>("AwaitingChildContinuation");
-}
-
 private class CallbackContinuation<T> implements IContinuation<T> {
 	final callback:(result:T, error:Exception)->Void;
 
@@ -71,6 +69,31 @@ private class CallbackContinuation<T> implements IContinuation<T> {
 	}
 }
 
+class ArrayFixThisLater<T> {
+	final array:Array<T>;
+	final mutex:Mutex;
+
+	public function new() {
+		array = [];
+		mutex = new Mutex();
+	}
+
+	public function push(v:T) {
+		mutex.acquire();
+		final r = array.push(v);
+		mutex.release();
+		return r;
+	}
+
+	public function exchangeIGuess() {
+		mutex.acquire();
+		final ret = array.copy();
+		array.resize(0);
+		mutex.release();
+		return ret;
+	}
+}
+
 /**
 	CoroTask provides the basic functionality for coroutine tasks.
 **/
@@ -86,29 +109,23 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 	public var localContext(get, null):Null<AdjustableContext>;
 
 	final nodeStrategy:INodeStrategy;
-	var initialContext:Context;
 	var result:Null<T>;
-	var awaitingContinuations:Null<Array<IContinuation<T>>>;
+	var awaitingContinuations:ArrayFixThisLater<IContinuation<T>>;
+	var awaitingChildContinuation:AtomicObject<Null<IContinuation<Any>>>;
 
 	/**
 		Creates a new task using the provided `context`.
 	**/
 	public function new(context:Context, nodeStrategy:INodeStrategy, initialState:TaskState) {
 		final parent = context.get(CoroTask);
-		super(parent, initialState);
-		initialContext = context;
+		this.context = context.clone().with(this).set(CancellationToken, this);
 		this.nodeStrategy = nodeStrategy;
-
-		// If our parent is already cancelling, we probably want to cancel too
-		if (parent != null && parent.state == Cancelling) {
-			cancel();
-		}
+		awaitingContinuations = new ArrayFixThisLater();
+		awaitingChildContinuation = new AtomicObject(null);
+		super(parent, initialState);
 	}
 
 	inline function get_context() {
-		if (context == null) {
-			context = initialContext.clone().with(this).set(CancellationToken, this);
-		}
 		return context;
 	}
 
@@ -128,26 +145,6 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 
 	public function getKey() {
 		return CoroTask.key;
-	}
-
-	/**
-		Indicates that the task has been suspended, which allows it to clean up some of
-		its internal resources. Has no effect on the observable state of the task.
-
-		This function should be called when it is expected that the task might not be resumed
-		for a while, e.g. when waiting on a sparse `Channel` or a contended `Mutex`.
-	**/
-	public function putOnHold() {
-		context = null;
-		if (awaitingContinuations != null && awaitingContinuations.length == 0) {
-			awaitingContinuations = null;
-		}
-		if (cancellationCallbacks != null && cancellationCallbacks.length == 0) {
-			cancellationCallbacks = null;
-		}
-		if (allChildrenCompleted) {
-			children = null;
-		}
 	}
 
 	/**
@@ -190,13 +187,12 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 		This function also starts this task if it has not been started yet.
 	**/
 	public function awaitContinuation(cont:IContinuation<T>) {
-		switch state {
+		switch (state.load()) {
 			case Completed:
 				cont.succeedSync(result);
 			case Cancelled:
 				cont.failSync(error);
 			case _:
-				awaitingContinuations ??= [];
 				awaitingContinuations.push(cont);
 				start();
 		}
@@ -210,24 +206,31 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 	}
 
 	public function onCompletion(callback:(result:T, error:Exception)->Void) {
-		switch state {
+		switch (state.load()) {
 			case Completed:
 				callback(result, null);
 			case Cancelled:
 				callback(null, error);
 			case _:
-				awaitingContinuations ??= [];
 				awaitingContinuations.push(new CallbackContinuation(context.clone(), callback));
 		}
 	}
 
+	/**
+		Suspends this task until all its current children complete.
+
+		Children can still be created after this function resumes and are not
+		affected by this call.
+	**/
 	@:coroutine public function awaitChildren() {
-		if (allChildrenCompleted) {
-			localContext.get(CoroKeys.awaitingChildContinuation)?.callSync();
-			return;
-		}
 		startChildren();
-		Coro.suspend(cont -> localContext.set(CoroKeys.awaitingChildContinuation, cont));
+		Coro.suspend(cont -> {
+			awaitingChildContinuation.store(cont);
+			if (firstChild.load() == null) {
+				cont.callSync();
+				return;
+			}
+		});
 	}
 
 	/**
@@ -238,26 +241,32 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 	}
 
 	function handleAwaitingContinuations() {
-		if (awaitingContinuations == null) {
-			return;
+		final succeed = switch (state.load()) {
+				case Completed:
+					true;
+				case Cancelled:
+					false;
+				case state:
+					throw new TaskException('Invalid state $state in handleAwaitingContinuations');
 		}
-		while (awaitingContinuations.length > 0) {
-			final continuations = awaitingContinuations;
-			awaitingContinuations = [];
-			if (error != null) {
-				for (cont in continuations) {
-					cont.failAsync(error);
-				}
-			} else {
-				for (cont in continuations) {
+		while (true) {
+			final conts = awaitingContinuations.exchangeIGuess();
+			if (conts.length == 0) {
+				return;
+			}
+			for (cont in conts) {
+				if (succeed) {
 					cont.succeedAsync(result);
+				} else {
+					cont.failAsync(error);
 				}
 			}
 		}
 	}
 
 	function childrenCompleted() {
-		localContext.get(CoroKeys.awaitingChildContinuation)?.callSync();
+		final cont = awaitingChildContinuation.exchange(null);
+		cont?.callSync();
 	}
 
 	// strategy dispatcher

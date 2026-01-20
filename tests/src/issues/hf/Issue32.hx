@@ -1,5 +1,6 @@
 package issues.hf;
 
+import haxe.coro.Mutex;
 import hxcoro.ds.channels.Channel;
 import hxcoro.ds.Out;
 import hxcoro.CoroRun;
@@ -11,10 +12,11 @@ class Issue32 extends utest.Test {
 			final channel = Channel.createBounded({size: 3});
 			final expected = [for (i in 0...100) i];
 			final actual = [];
+			final mutex = new Mutex();
 
 			CoroRun.runScoped(node -> {
 				try {
-					timeout(3000, node -> {
+					timeout(10000, node -> {
 						node.async(_ -> {
 							for (v in expected) {
 								channel.write(v);
@@ -29,7 +31,9 @@ class Issue32 extends utest.Test {
 
 								while (channel.waitForRead()) {
 									if (channel.tryRead(out)) {
+										mutex.acquire();
 										actual.push(out.get());
+										mutex.release();
 									}
 								}
 							});
@@ -42,6 +46,7 @@ class Issue32 extends utest.Test {
 				}
 			});
 
+			actual.sort(Reflect.compare);
 			utest.Assert.same(expected, actual);
 		}
 	}

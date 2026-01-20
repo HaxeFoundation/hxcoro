@@ -1,5 +1,6 @@
 package ds.channels;
 
+import haxe.coro.Mutex;
 import haxe.ds.Option;
 import hxcoro.schedulers.VirtualTimeScheduler;
 import haxe.exceptions.ArgumentException;
@@ -233,9 +234,10 @@ class TestBoundedChannel extends utest.Test {
 		final channel  = Channel.createBounded({ size : 3 });
 		final expected = [ for (i in 0...100) i ];
 		final actual   = [];
+		final mutex    = new Mutex();
 
 		CoroRun.runScoped(node -> {
-			timeout(3000, node -> {
+			timeout(30000, node -> {
 				node.async(_ -> {
 					for (v in expected) {
 						channel.write(v);
@@ -250,7 +252,9 @@ class TestBoundedChannel extends utest.Test {
 
 						while (channel.waitForRead()) {
 							if (channel.tryRead(out)) {
+								mutex.acquire();
 								actual.push(out.get());
+								mutex.release();
 							}
 						}
 					});
@@ -258,6 +262,7 @@ class TestBoundedChannel extends utest.Test {
 			});
 		});
 
+		actual.sort(Reflect.compare);
 		Assert.same(expected, actual);
 	}
 

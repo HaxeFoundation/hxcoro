@@ -25,14 +25,22 @@ class Issue106 extends utest.Test {
 		});
 		task.start();
 		final atask:AbstractTask = cast task;
+
 		scheduler.advanceTo(5);
-		for (child in @:privateAccess atask.children) {
-			Assert.isTrue(child == null || child.isActive());
-		}
+
+		atask.iterateChildren(child -> {
+			Assert.isTrue(child.isActive());
+		});
+
 		scheduler.advanceTo(10);
-		for (child in @:privateAccess atask.children) {
-			Assert.isTrue(child == null);
-		}
+
+		var count = 0;
+		atask.iterateChildren(child -> {
+			count++;
+		});
+
+		Assert.equals(0, count);
+
 		scheduler.advanceTo(11);
 		Assert.equals(numChildren, task.get());
 	}

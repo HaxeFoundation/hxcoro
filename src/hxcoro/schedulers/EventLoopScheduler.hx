@@ -29,8 +29,8 @@ private class ScheduledEvent implements ISchedulerHandle implements IScheduleObj
 	}
 
 	public inline function onSchedule() {
+		final func = func;
 		if (func != null) {
-			final func = func;
 			this.func = null;
 			func();
 		}
