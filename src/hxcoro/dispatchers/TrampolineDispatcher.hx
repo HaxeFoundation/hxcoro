@@ -1,22 +1,40 @@
 package hxcoro.dispatchers;
 
-import hxcoro.schedulers.EventLoopScheduler;
 import haxe.coro.schedulers.IScheduler;
 import haxe.exceptions.ArgumentException;
 import haxe.coro.dispatchers.Dispatcher;
 import haxe.coro.dispatchers.IDispatchObject;
+import hxcoro.schedulers.EventLoopScheduler;
+
+private class Trampoline {
+	public var running : Bool;
+	public var queue : Null<Array<IDispatchObject>>;
+
+	function new() {
+		running = false;
+		queue   = null;
+	}
+
+	public static function get() {
+// #if target.threaded
+// 		static final tls = new sys.thread.Tls<Trampoline>();
+
+// 		return tls.value ??= new Trampoline();
+// #else
+		static final trampoline : Null<Trampoline> = null;
+
+		return trampoline ??= new Trampoline();
+// #end
+	}
+}
 
 final class TrampolineDispatcher extends Dispatcher {
 	final s : IScheduler;
-
-	var running : Bool;
-	var queue : Null<Array<IDispatchObject>>;
+	final trampoline : Trampoline;
 
 	public function new(scheduler : IScheduler = null) {
-		s = scheduler ?? new EventLoopScheduler();
-
-		running = false;
-		queue   = null;
+		s          = scheduler ?? new EventLoopScheduler();
+		trampoline = Trampoline.get();
 	}
 
 	public function get_scheduler() {
@@ -28,28 +46,28 @@ final class TrampolineDispatcher extends Dispatcher {
 			throw new ArgumentException("obj");
 		}
 
-		if (false == running) {
-			running = true;
+		if (false == trampoline.running) {
+			trampoline.running = true;
 
 			obj.onDispatch();
 
-			if (null == queue) {
-				running = false;
+			if (null == trampoline.queue) {
+				trampoline.running = false;
 
 				return;
 			}
 
 			var next = null;
-			while (null != (next = queue.shift())) {
+			while (null != (next = trampoline.queue.shift())) {
 				next.onDispatch();
 			}
 
-			running = false;
-			queue   = null;
+			trampoline.running = false;
+			trampoline.queue   = null;
 
 		} else {
-			queue ??= [];
-			queue.push(obj);
+			trampoline.queue ??= [];
+			trampoline.queue.push(obj);
 		}
 	}
 }
