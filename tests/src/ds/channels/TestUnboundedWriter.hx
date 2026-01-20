@@ -61,8 +61,7 @@ class TestUnboundedWriter extends utest.Test {
 		final buffer      = new PagedDeque();
 		final readWaiters = new PagedDeque();
 		final writer      = new UnboundedWriter(buffer, readWaiters, new Out(), new Mutex());
-		final scheduler   = new ImmediateScheduler();
-		final dispatcher  = new TrampolineDispatcher(scheduler);
+		final dispatcher  = new TrampolineDispatcher();
 		final expected    = [];
 
 		readWaiters.push(new TestContinuation(dispatcher, expected, _ -> '1'));
