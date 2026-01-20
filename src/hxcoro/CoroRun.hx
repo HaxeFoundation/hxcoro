@@ -97,13 +97,13 @@ class CoroRun {
 
 	#end
 
-	#if (eval && !macro)
+	#if (false /* TODO */ && (eval && !macro))
 
 	static public function runWith<T>(context:Context, lambda:NodeLambda<T>):T {
 		final loop = eval.luv.Loop.init().resolve();
 		final pool = new hxcoro.thread.FixedThreadPool(1);
-		final dispatcher = new hxcoro.dispatchers.ThreadPoolDispatcher(pool);
 		final schedulerComponent = new hxcoro.schedulers.LuvScheduler(loop);
+		final dispatcher = new hxcoro.dispatchers.ThreadPoolDispatcher(schedulerComponent, pool);
 
 		final scope = new CoroTask(context.clone().with(schedulerComponent), CoroTask.CoroScopeStrategy);
 		scope.onCompletion((_, _) -> schedulerComponent.shutdown());
