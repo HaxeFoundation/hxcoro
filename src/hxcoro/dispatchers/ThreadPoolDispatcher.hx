@@ -12,7 +12,7 @@ import haxe.coro.schedulers.IScheduler;
 /**
 	A dispatcher that dispatches to a thread pool.
 **/
-class ThreadPoolDispatcher extends Dispatcher implements IDispatcher {
+class ThreadPoolDispatcher extends Dispatcher {
 	final pool : IThreadPool;
 
 	final s : IScheduler;

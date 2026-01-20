@@ -5,7 +5,7 @@ import haxe.coro.dispatchers.IDispatchObject;
 /**
 	A dispatcher that dispatches to the current thread.
 **/
-class SelfDispatcher implements IDispatcher {
+class SelfDispatcher {
 	/**
 		Creates a new `SelfDispatcher`.
 	**/
