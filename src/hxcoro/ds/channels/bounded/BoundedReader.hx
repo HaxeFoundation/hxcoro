@@ -3,7 +3,6 @@ package hxcoro.ds.channels.bounded;
 import haxe.Exception;
 import haxe.coro.IContinuation;
 import haxe.coro.context.Context;
-import haxe.coro.schedulers.Scheduler;
 import hxcoro.ds.Out;
 import hxcoro.ds.CircularBuffer;
 import hxcoro.ds.channels.exceptions.ChannelClosedException;
@@ -32,19 +31,13 @@ private final class WaitContinuation<T> implements IContinuation<Bool> {
 	}
 
 	public function resume(result:Bool, error:Exception) {
-		if (state.lock()) {
-			final result = if (false == result) {	
-				buffer.wasEmpty();
-			} else {
-				true;
-			}
-
-			state.store(Open);
-
-			cont.succeedAsync(result);
+		final result = if (false == result) {	
+			buffer.wasEmpty();
 		} else {
-			cont.context.get(Scheduler).schedule(0, () -> cont.resume(false, new ChannelClosedException()));
+			true;
 		}
+		
+		cont.succeedAsync(result);
 	}
 }
 
@@ -65,26 +58,27 @@ final class BoundedReader<T> implements IChannelReader<T> {
 	}
 
 	public function tryRead(out:Out<T>):Bool {
-		if (state.changeIf(Open, Locked) == false) {
-			return false;
-		}
-
-		return if (buffer.tryPopTail(out)) {
-			final out       = new Out();
-			final hasWaiter = writeWaiters.tryPop(out);
-
-			state.store(Open);
-
-			if (hasWaiter) {
-				out.get().succeedAsync(true);
+		if (state.lock()) {
+			return if (buffer.tryPopTail(out)) {
+				final out       = new Out();
+				final hasWaiter = writeWaiters.tryPop(out);
+	
+				state.store(Open);
+	
+				if (hasWaiter) {
+					out.get().succeedAsync(true);
+				}
+	
+				true;
+			} else {
+				state.store(Open);
+	
+				false;
 			}
-
-			true;
 		} else {
-			state.store(Open);
-
-			false;
+			return buffer.tryPopTail(out);
 		}
+
 	}
 
 	public function tryPeek(out:Out<T>):Bool {
