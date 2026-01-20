@@ -1,41 +1,33 @@
 import js.lib.Error;
 import js.lib.Promise;
+import hxcoro.CoroRun.await;
+import hxcoro.CoroRun.promise;
 
 using TestJsPromise.CoroTools;
 
 class CoroTools {
 	static public function start<T, E>(c:Coroutine<() -> T>, f:(T, E) -> Void) {
-		try {
-			f(CoroRun.run(c), null);
-		} catch(e:Dynamic) {
-			f(null, e);
-		}
+		promise(c).then(
+			result -> f(result, null),
+			error -> f(null, error)
+		);
 	}
 }
 
-@:coroutine
-private function await<T>(p:Promise<T>) {
-	suspend(cont -> p.then(r -> cont.resume(r, null), e -> cont.resume(null, e)));
-}
-
-private function promise<T>(c:Coroutine<()->T>):Promise<T> {
-	return new Promise((resolve,reject) -> c.start((result, error) -> if (error != null) reject(error) else resolve(result)));
-}
-
 class TestJsPromise extends utest.Test {
-	// function testAwait(async:Async) {
-	// 	var p = Promise.resolve(41);
+	function testAwait(async:Async) {
+		var p = Promise.resolve(41);
 
-	// 	@:coroutine function awaiting() {
-	// 		var x = await(p);
-	// 		return x + 1;
-	// 	}
+		@:coroutine function awaiting() {
+			var x = await(p);
+			return x + 1;
+		}
 
-	// 	awaiting.start((result,error) -> {
-	// 		Assert.equals(42, result);
-	// 		async.done();
-	// 	});
-	// }
+		awaiting.start((result,error) -> {
+			Assert.equals(42, result);
+			async.done();
+		});
+	}
 
 	function testPromise(async:Async) {
 		var p = promise(() -> 42);
@@ -45,33 +37,44 @@ class TestJsPromise extends utest.Test {
 		});
 	}
 
-	// function testAsyncAwait(async:Async) {
-	// 	var p1 = Promise.resolve(41);
+	function testYieldingPromise(async:Async) {
+		var p = promise(() -> {
+			yield();
+			42;
+		});
+		p.then(result -> {
+			Assert.equals(42, result);
+			async.done();
+		});
+	}
 
-	// 	var p2 = promise(() -> {
-	// 		var x = await(p1);
-	// 		return x + 1;
-	// 	});
+	function testAsyncAwait(async:Async) {
+		var p1 = Promise.resolve(41);
 
-	// 	p2.then(result -> {
-	// 		Assert.equals(42, result);
-	// 		async.done();
-	// 	});
-	// }
+		var p2 = promise(() -> {
+			var x = await(p1);
+			return x + 1;
+		});
 
-	// function testAwaitRejected(async:Async) {
-	// 	var p = Promise.reject("oh no");
+		p2.then(result -> {
+			Assert.equals(42, result);
+			async.done();
+		});
+	}
 
-	// 	@:coroutine function awaiting() {
-	// 		var x = await(p);
-	// 		return x + 1;
-	// 	}
+	function testAwaitRejected(async:Async) {
+		var p = Promise.reject("oh no");
 
-	// 	awaiting.start((result,error) -> {
-	// 		Assert.equals("oh no", error);
-	// 		async.done();
-	// 	});
-	// }
+		@:coroutine function awaiting() {
+			var x = await(p);
+			return x + 1;
+		}
+
+		awaiting.start((result,error) -> {
+			Assert.equals("oh no", error);
+			async.done();
+		});
+	}
 
 	function testThrowInPromise(async:Async) {
 		var p = promise(() -> throw new Error("oh no"));

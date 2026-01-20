@@ -4,6 +4,7 @@ import haxe.coro.Coroutine;
 import haxe.coro.context.Context;
 import haxe.coro.context.IElement;
 import hxcoro.schedulers.EventLoopScheduler;
+import hxcoro.schedulers.HaxeTimerScheduler;
 import hxcoro.task.ICoroTask;
 import hxcoro.task.CoroTask;
 import hxcoro.task.StartableCoroTask;
@@ -54,6 +55,44 @@ class CoroRun {
 	static public function runScoped<T>(lambda:NodeLambda<T>):T {
 		return runWith(defaultContext, lambda);
 	}
+
+	#if js
+
+	overload extern static public inline function promise<T>(f:Coroutine<() -> T>):js.lib.Promise<T> {
+		return promiseImpl(_ -> f());
+	}
+
+	overload extern static public inline function promise<T>(lambda:NodeLambda<T>):js.lib.Promise<T> {
+		return promiseImpl(lambda);
+	}
+
+	static function promiseImpl<T>(lambda:NodeLambda<T>) {
+		final task = new CoroTask(defaultContext.clone().with(new HaxeTimerScheduler()), CoroTask.CoroScopeStrategy);
+		task.runNodeLambda(lambda);
+
+		return new js.lib.Promise((resolve, reject) -> {
+			task.onCompletion((result, error) -> {
+				switch error {
+					case null:
+						resolve(result);
+					case exn:
+						reject(exn);
+				}
+			});
+		});
+	}
+
+	@:coroutine
+	static public function await<T>(p:js.lib.Promise<T>) {
+		return suspend(cont -> {
+			p.then(
+				r -> cont.resume(r, null),
+				e -> cont.resume(null, e)
+			);
+		});
+	}
+
+	#end
 
 	#if (eval && !macro)
 
