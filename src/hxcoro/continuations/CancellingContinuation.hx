@@ -1,7 +1,7 @@
 package hxcoro.continuations;
 
 import haxe.coro.SuspensionResult;
-import haxe.coro.dispatchers.IScheduleObject;
+import haxe.coro.dispatchers.IDispatchObject;
 import hxcoro.concurrent.AtomicInt;
 import haxe.coro.dispatchers.Dispatcher;
 import haxe.Exception;
@@ -20,7 +20,7 @@ private enum abstract State(Int) to Int {
 	final Completed;
 }
 
-class CancellingContinuation<T> extends SuspensionResult<T> implements ICancellableContinuation<T> implements ICancellationCallback implements IScheduleObject {
+class CancellingContinuation<T> extends SuspensionResult<T> implements ICancellableContinuation<T> implements ICancellationCallback implements IDispatchObject {
 	final resumeState : AtomicInt;
 
 	final cont : IContinuation<T>;
@@ -122,7 +122,7 @@ class CancellingContinuation<T> extends SuspensionResult<T> implements ICancella
 		}
 	}
 
-	public function onSchedule() {
+	public function onDispatch() {
 		cont.resume(result, error);
 	}
 }

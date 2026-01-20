@@ -10,7 +10,7 @@ import sys.thread.Thread;
 import sys.thread.Mutex;
 import sys.thread.Deque;
 import sys.thread.Lock;
-import haxe.coro.dispatchers.IScheduleObject;
+import haxe.coro.dispatchers.IDispatchObject;
 
 /**
 	Thread pool with a varying amount of threads.
@@ -28,7 +28,7 @@ class ElasticThreadPool implements IThreadPool {
 	function get_isShutdown():Bool return _isShutdown;
 
 	final pool:Array<Worker> = [];
-	final queue = new Deque<IScheduleObject>();
+	final queue = new Deque<IDispatchObject>();
 	final mutex = new Mutex();
 	final threadTimeout:Float;
 
@@ -48,7 +48,7 @@ class ElasticThreadPool implements IThreadPool {
 		Submit a task to run in a thread.
 		Throws an exception if the pool is shut down.
 	**/
-	public function run(obj:IScheduleObject):Void {
+	public function run(obj:IDispatchObject):Void {
 		if(_isShutdown)
 			throw new ThreadPoolException('Task is rejected. Thread pool is shut down.');
 		if(obj == null)
@@ -107,23 +107,23 @@ class ElasticThreadPool implements IThreadPool {
 }
 
 private class Worker {
-	public var task(default,null):Null<IScheduleObject>;
+	public var task(default,null):Null<IDispatchObject>;
 	public var dead(default,null) = false;
 
 	final deathMutex = new Mutex();
 	final waiter = new Lock();
-	final queue:Deque<IScheduleObject>;
+	final queue:Deque<IDispatchObject>;
 	final timeout:Float;
 	var thread:Thread;
 	var isShutdown = false;
 
-	public function new(queue:Deque<IScheduleObject>, timeout:Float) {
+	public function new(queue:Deque<IDispatchObject>, timeout:Float) {
 		this.queue = queue;
 		this.timeout = timeout;
 		start();
 	}
 
-	public function wakeup(task:IScheduleObject) {
+	public function wakeup(task:IDispatchObject) {
 		deathMutex.acquire();
 		if(dead)
 			start();
@@ -150,12 +150,12 @@ private class Worker {
 						if(isShutdown)
 							break;
 					case obj:
-						obj.onSchedule();
+						obj.onDispatch();
 						//if more tasks were added while all threads were busy
 						while(true) {
 							switch queue.pop(false) {
 								case null: break;
-								case obj: obj.onSchedule();
+								case obj: obj.onDispatch();
 							}
 						}
 						task = null;

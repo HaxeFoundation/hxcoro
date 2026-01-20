@@ -6,9 +6,9 @@ import sys.thread.Deque;
 import hxcoro.dispatchers.SelfDispatcher;
 import hxcoro.dispatchers.IDispatcher;
 import haxe.Int64;
-import haxe.coro.schedulers.Scheduler;
+import haxe.coro.schedulers.IScheduler;
 import haxe.coro.schedulers.ISchedulerHandle;
-import haxe.coro.dispatchers.IScheduleObject;
+import haxe.coro.dispatchers.IDispatchObject;
 import eval.luv.Timer;
 import eval.luv.Loop;
 
@@ -46,11 +46,11 @@ private class LuvTimerEvent implements ISchedulerHandle {
 	final dispatcher:IDispatcher;
 	final delayMs:Int64;
 	final closeQueue:AsyncDeque<LuvTimerEvent>;
-	final obj:IScheduleObject;
+	final obj:IDispatchObject;
 	var timer:Null<Timer>;
 	var state:AtomicInt;
 
-	public function new(dispatcher:IDispatcher, closeQueue:AsyncDeque<LuvTimerEvent>, ms:Int64, obj:IScheduleObject) {
+	public function new(dispatcher:IDispatcher, closeQueue:AsyncDeque<LuvTimerEvent>, ms:Int64, obj:IDispatchObject) {
 		this.dispatcher = dispatcher;
 		this.delayMs = ms;
 		this.closeQueue = closeQueue;
@@ -113,7 +113,7 @@ private class LuvTimerEvent implements ISchedulerHandle {
 	}
 }
 
-private class LuvTimerEventFunction extends LuvTimerEvent implements IScheduleObject {
+private class LuvTimerEventFunction extends LuvTimerEvent implements IDispatchObject {
 	final func:() -> Void;
 
 	public function new(dispatcher:IDispatcher, closeQueue:AsyncDeque<LuvTimerEvent>, ms:Int64, func:() -> Void) {
@@ -121,7 +121,7 @@ private class LuvTimerEventFunction extends LuvTimerEvent implements IScheduleOb
 		this.func = func;
 	}
 
-	public function onSchedule() {
+	public function onDispatch() {
 		func();
 	}
 }
@@ -129,7 +129,7 @@ private class LuvTimerEventFunction extends LuvTimerEvent implements IScheduleOb
 /**
 	A scheduler for a libuv loop.
 **/
-class LuvScheduler extends Scheduler {
+class LuvScheduler implements IScheduler {
 	final loop:Loop;
 	final dispatcher:IDispatcher;
 	final eventQueue:AsyncDeque<LuvTimerEvent>;
@@ -154,7 +154,7 @@ class LuvScheduler extends Scheduler {
 	}
 
 	@:inheritDoc
-	function scheduleObject(obj:IScheduleObject) {
+	function scheduleObject(obj:IDispatchObject) {
 		final event = new LuvTimerEvent(dispatcher, closeQueue, 0, obj);
 		eventQueue.add(event);
 	}

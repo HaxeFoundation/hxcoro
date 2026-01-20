@@ -1,7 +1,4 @@
 import hxcoro.dispatchers.TrampolineDispatcher;
-import haxe.coro.dispatchers.IScheduleObject;
-import haxe.Int64;
-import haxe.coro.schedulers.Scheduler;
 import hxcoro.task.CoroTask;
 import haxe.coro.context.Context;
 import haxe.Exception;
@@ -14,7 +11,7 @@ private function sequence<T>(f:Coroutine<Yield<T>->Void>):Iterator<T> {
 	var exception:Null<Exception> = null;
 
 	var nextStep = null;
-	final scope = new CoroTask(Context.create(new ImmediateScheduler(), new TrampolineDispatcher()), CoroTask.CoroScopeStrategy);
+	final scope = new CoroTask(Context.create(new TrampolineDispatcher()), CoroTask.CoroScopeStrategy);
 
 	@:coroutine function yield(value:T) {
 		nextValue = value;

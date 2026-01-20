@@ -6,7 +6,7 @@ import haxe.Exception;
 import haxe.coro.IContinuation;
 import haxe.coro.SuspensionResult;
 import haxe.coro.context.Context;
-import haxe.coro.dispatchers.IScheduleObject;
+import haxe.coro.dispatchers.IDispatchObject;
 
 private enum abstract State(Int) to Int {
 	var Active;
@@ -14,7 +14,7 @@ private enum abstract State(Int) to Int {
 	var Resolved;
 }
 
-class RacingContinuation<T> extends SuspensionResult<T> implements IContinuation<T> implements IScheduleObject {
+class RacingContinuation<T> extends SuspensionResult<T> implements IContinuation<T> implements IDispatchObject {
 	final inputCont:IContinuation<T>;
 
 	var resumeState:AtomicInt;
@@ -54,7 +54,7 @@ class RacingContinuation<T> extends SuspensionResult<T> implements IContinuation
 		}
 	}
 
-	public function onSchedule() {
+	public function onDispatch() {
 		inputCont.resume(result, error);
 	}
 }

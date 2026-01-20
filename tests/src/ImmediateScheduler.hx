@@ -1,13 +1,10 @@
 import haxe.Timer;
 import haxe.Int64;
 import haxe.Exception;
-import haxe.coro.schedulers.Scheduler;
-import haxe.coro.dispatchers.IScheduleObject;
+import haxe.coro.schedulers.IScheduler;
 
-class ImmediateScheduler extends Scheduler {
-	public function new() {
-		super();
-	}
+class ImmediateScheduler implements IScheduler {
+	public function new() {}
 
 	public function schedule(ms:Int64, f:() -> Void) {
 		if (ms != 0) {

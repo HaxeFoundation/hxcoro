@@ -4,7 +4,6 @@ import hxcoro.continuations.RacingContinuation;
 import hxcoro.continuations.CancellingContinuation;
 import haxe.coro.IContinuation;
 import haxe.coro.ICancellableContinuation;
-import haxe.coro.schedulers.Scheduler;
 import haxe.coro.dispatchers.Dispatcher;
 import haxe.exceptions.ArgumentException;
 import hxcoro.task.NodeLambda;

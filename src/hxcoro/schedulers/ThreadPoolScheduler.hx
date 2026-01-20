@@ -6,8 +6,8 @@ package hxcoro.schedulers;
 
 import sys.thread.Thread;
 import haxe.Int64;
-import haxe.coro.schedulers.Scheduler;
-import haxe.coro.dispatchers.IScheduleObject;
+import haxe.coro.schedulers.IScheduler;
+import haxe.coro.dispatchers.IDispatchObject;
 import haxe.coro.schedulers.ISchedulerHandle;
 import haxe.exceptions.ArgumentException;
 import hxcoro.thread.IThreadPool;
@@ -17,7 +17,7 @@ private class NoOpHandle implements ISchedulerHandle {
 	public function close() {}
 }
 
-final class ThreadPoolScheduler extends Scheduler {
+final class ThreadPoolScheduler implements IScheduler {
 	final pool : IThreadPool;
 
 	final thread : Thread;
@@ -25,8 +25,6 @@ final class ThreadPoolScheduler extends Scheduler {
 	final eventLoop : EventLoopScheduler;
 
 	public function new(pool) {
-		super();
-
 		this.pool      = pool;
 		this.eventLoop = new EventLoopScheduler();
 		this.thread    = Thread.create(keepAlive);
@@ -46,8 +44,8 @@ final class ThreadPoolScheduler extends Scheduler {
 		return eventLoop.schedule(ms, pool.run.bind(func));
 	}
 
-	public function scheduleObject(obj:IScheduleObject):Void {
-		pool.run(obj.onSchedule);
+	public function scheduleObject(obj:IDispatchObject):Void {
+		pool.run(obj.onDispatch);
 	}
 
 	public function now() {

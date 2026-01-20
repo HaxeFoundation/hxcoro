@@ -3,18 +3,18 @@ package hxcoro.util;
 import haxe.coro.cancellation.ICancellationToken;
 import haxe.exceptions.CancellationException;
 import haxe.coro.dispatchers.Dispatcher;
-import haxe.coro.dispatchers.IScheduleObject;
+import haxe.coro.dispatchers.IDispatchObject;
 import haxe.Exception;
 import haxe.coro.IContinuation;
 
-private class FunctionDispatchObject implements IScheduleObject {
+private class FunctionDispatchObject implements IDispatchObject {
 	final func : ()->Void;
 
 	public function new(func) {
 		this.func = func;
 	}
 
-	public function onSchedule() {
+	public function onDispatch() {
 		func();
 	}
 }

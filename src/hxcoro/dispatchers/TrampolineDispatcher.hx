@@ -1,18 +1,18 @@
 package hxcoro.dispatchers;
 
 import hxcoro.schedulers.EventLoopScheduler;
-import haxe.coro.schedulers.Scheduler;
+import haxe.coro.schedulers.IScheduler;
 import haxe.exceptions.ArgumentException;
 import haxe.coro.dispatchers.Dispatcher;
-import haxe.coro.dispatchers.IScheduleObject;
+import haxe.coro.dispatchers.IDispatchObject;
 
 final class TrampolineDispatcher extends Dispatcher {
-	final s : Scheduler;
+	final s : IScheduler;
 
 	var running : Bool;
-	var queue : Null<Array<IScheduleObject>>;
+	var queue : Null<Array<IDispatchObject>>;
 
-	public function new(scheduler : Scheduler = null) {
+	public function new(scheduler : IScheduler = null) {
 		s = scheduler ?? new EventLoopScheduler();
 
 		running = false;
@@ -23,7 +23,7 @@ final class TrampolineDispatcher extends Dispatcher {
 		return s;
 	}
 
-	public function dispatch(obj:IScheduleObject) {
+	public function dispatch(obj:IDispatchObject) {
 		if (null == obj) {
 			throw new ArgumentException("obj");
 		}
@@ -31,7 +31,7 @@ final class TrampolineDispatcher extends Dispatcher {
 		if (false == running) {
 			running = true;
 
-			obj.onSchedule();
+			obj.onDispatch();
 
 			if (null == queue) {
 				running = false;
@@ -41,7 +41,7 @@ final class TrampolineDispatcher extends Dispatcher {
 
 			var next = null;
 			while (null != (next = queue.shift())) {
-				next.onSchedule();
+				next.onDispatch();
 			}
 
 			running = false;

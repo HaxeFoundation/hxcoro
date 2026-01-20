@@ -1,6 +1,6 @@
 package hxcoro.thread;
 
-import haxe.coro.dispatchers.IScheduleObject;
+import haxe.coro.dispatchers.IDispatchObject;
 
 /**
 	A thread pool interface.
@@ -18,7 +18,7 @@ interface IThreadPool {
 
 		Throws an exception if the pool is shut down.
 	**/
-	function run(obj:IScheduleObject):Void;
+	function run(obj:IDispatchObject):Void;
 
 	/**
 		Initiates a shutdown.
