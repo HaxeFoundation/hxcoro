@@ -10,7 +10,7 @@ private class Trampoline {
 	public var running : Bool;
 	public var queue : Null<Array<IDispatchObject>>;
 
-	function new() {
+	public function new() {
 		running = false;
 		queue   = null;
 	}
@@ -34,7 +34,7 @@ final class TrampolineDispatcher extends Dispatcher {
 
 	public function new(scheduler : IScheduler = null) {
 		s          = scheduler ?? new EventLoopScheduler();
-		trampoline = Trampoline.get();
+		trampoline = new Trampoline();
 	}
 
 	public function get_scheduler() {
