@@ -1,12 +1,13 @@
 package hxcoro.ds.channels.bounded;
 
-import haxe.coro.Mutex;
 import haxe.Exception;
 import haxe.coro.IContinuation;
 import haxe.coro.context.Context;
+import haxe.coro.schedulers.Scheduler;
 import hxcoro.ds.Out;
 import hxcoro.ds.CircularBuffer;
 import hxcoro.ds.channels.exceptions.ChannelClosedException;
+import hxcoro.ds.channels.bounded.AtomicChannelState;
 
 using hxcoro.util.Convenience;
 using hxcoro.util.MutexExtensions;
@@ -16,9 +17,7 @@ private final class WaitContinuation<T> implements IContinuation<Bool> {
 
 	final buffer : CircularBuffer<T>;
 
-	final closed : Out<Bool>;
-
-	final lock : Mutex;
+	final state : AtomicChannelState;
 
 	public var context (get, never) : Context;
 
@@ -26,23 +25,26 @@ private final class WaitContinuation<T> implements IContinuation<Bool> {
 		return cont.context;
 	}
 
-	public function new(cont, buffer, closed, lock) {
+	public function new(cont, buffer, state) {
 		this.cont   = cont;
 		this.buffer = buffer;
-		this.closed = closed;
-		this.lock   = lock;
+		this.state  = state;
 	}
 
 	public function resume(result:Bool, error:Exception) {
-		final result = lock.with(() -> {
-			if (false == result) {	
+		if (state.lock()) {
+			final result = if (false == result) {	
 				buffer.wasEmpty();
 			} else {
 				true;
 			}
-		});
 
-		cont.succeedAsync(result);
+			state.store(Open);
+
+			cont.succeedAsync(result);
+		} else {
+			cont.context.get(Scheduler).schedule(0, () -> cont.resume(false, new ChannelClosedException()));
+		}
 	}
 }
 
@@ -53,26 +55,25 @@ final class BoundedReader<T> implements IChannelReader<T> {
 
 	final readWaiters : PagedDeque<IContinuation<Bool>>;
 
-	final closed : Out<Bool>;
+	final state : AtomicChannelState;
 
-	final lock : Mutex;
-
-	public function new(buffer, writeWaiters, readWaiters, closed, lock) {
+	public function new(buffer, writeWaiters, readWaiters, state) {
 		this.buffer        = buffer;
 		this.writeWaiters  = writeWaiters;
 		this.readWaiters   = readWaiters;
-		this.closed        = closed;
-		this.lock          = lock;
+		this.state         = state;
 	}
 
 	public function tryRead(out:Out<T>):Bool {
-		lock.acquire();
+		if (state.changeIf(Open, Locked) == false) {
+			return false;
+		}
 
 		return if (buffer.tryPopTail(out)) {
 			final out       = new Out();
 			final hasWaiter = writeWaiters.tryPop(out);
 
-			lock.release();
+			state.store(Open);
 
 			if (hasWaiter) {
 				out.get().succeedAsync(true);
@@ -80,14 +81,22 @@ final class BoundedReader<T> implements IChannelReader<T> {
 
 			true;
 		} else {
-			lock.release();
+			state.store(Open);
 
 			false;
 		}
 	}
 
 	public function tryPeek(out:Out<T>):Bool {
-		return lock.with(() -> buffer.tryPeekHead(out));
+		return if (state.lock()) {
+			final result = buffer.tryPeekHead(out);
+
+			state.store(Open);
+
+			result;
+		} else {
+			false;
+		}
 	}
 
 	@:coroutine public function read():T {
@@ -106,28 +115,26 @@ final class BoundedReader<T> implements IChannelReader<T> {
 	}
 
 	@:coroutine public function waitForRead():Bool {
-		lock.acquire();
+		if (state.lock() == false) {
+			return buffer.wasEmpty() == false;
+		}
 
 		if (buffer.wasEmpty() == false) {
-			lock.release();
+			state.store(Open);
 
 			return true;
 		}
 
-		if (closed.get()) {
-			lock.release();
-
-			return false;
-		}
-
 		return suspendCancellable(cont -> {
-			final obj       = new WaitContinuation(cont, buffer, closed, lock);
+			final obj       = new WaitContinuation(cont, buffer, state);
 			final hostPage  = readWaiters.push(obj);
 
-			lock.release();
+			state.store(Open);
 
 			cont.onCancellationRequested = _ -> {
-				lock.with(() -> readWaiters.remove(hostPage, obj));
+				if (state.lock()) {
+					readWaiters.remove(hostPage, obj);
+				}
 			}
 		});
 	}

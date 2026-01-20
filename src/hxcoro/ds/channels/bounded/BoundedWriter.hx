@@ -1,18 +1,18 @@
 package hxcoro.ds.channels.bounded;
 
-import haxe.coro.Mutex;
 import haxe.Exception;
 import haxe.coro.IContinuation;
 import hxcoro.ds.Out;
 import hxcoro.ds.CircularBuffer;
 import hxcoro.ds.channels.Channel;
 import hxcoro.ds.channels.exceptions.ChannelClosedException;
+import hxcoro.ds.channels.bounded.AtomicChannelState;
 
 using hxcoro.util.Convenience;
 using hxcoro.util.MutexExtensions;
 
 final class BoundedWriter<T> implements IChannelWriter<T> {
-	final closed : Out<Bool>;
+	final state : AtomicChannelState;
 
 	final buffer : CircularBuffer<T>;
 
@@ -22,23 +22,16 @@ final class BoundedWriter<T> implements IChannelWriter<T> {
 
 	final behaviour : FullBehaviour<T>;
 
-	final lock : Mutex;
-
-	public function new(buffer, writeWaiters, readWaiters, closed, behaviour, lock) {
+	public function new(buffer, writeWaiters, readWaiters, behaviour, state) {
 		this.buffer        = buffer;
 		this.writeWaiters  = writeWaiters;
 		this.readWaiters   = readWaiters;
-		this.closed        = closed;
 		this.behaviour     = behaviour;
-		this.lock          = lock;
+		this.state         = state;
 	}
 
 	public function tryWrite(v:T):Bool {
-		lock.acquire();
-
-		if (closed.get()) {
-			lock.release();
-
+		if (state.changeIf(Open, Locked) == false) {
 			return false;
 		}
 
@@ -46,7 +39,7 @@ final class BoundedWriter<T> implements IChannelWriter<T> {
 			final out       = new Out();
 			final hasWaiter = readWaiters.tryPop(out);
 
-			lock.release();
+			state.store(Open);
 
 			if (hasWaiter) {
 				out.get().succeedAsync(true);
@@ -54,7 +47,7 @@ final class BoundedWriter<T> implements IChannelWriter<T> {
 
 			true;
 		} else {
-			lock.release();
+			state.store(Open);
 
 			false;
 		}
@@ -76,10 +69,18 @@ final class BoundedWriter<T> implements IChannelWriter<T> {
 				final out = new Out();
 
 				while (tryWrite(v) == false) {
-					if (lock.with(() -> buffer.tryPopHead(out))) {
-						f(out.get());
+					if (state.lock()) {
+						if (buffer.tryPopHead(out)) {
+							state.store(Open);
+
+							f(out.get());
+						} else {
+							state.store(Open);
+
+							throw new Exception('Failed to drop newest item');
+						}
 					} else {
-						throw new Exception('Failed to drop newest item');
+						throw new ChannelClosedException();
 					}
 				}
 
@@ -88,10 +89,18 @@ final class BoundedWriter<T> implements IChannelWriter<T> {
 				final out = new Out();
 
 				while (tryWrite(v) == false) {
-					if (lock.with(() -> buffer.tryPopTail(out))) {
-						f(out.get());
+					if (state.lock()) {
+						if (buffer.tryPopTail(out)) {
+							state.store(Open);
+
+							f(out.get());
+						} else {
+							state.store(Open);
+
+							throw new Exception('Failed to drop oldest item');
+						}
 					} else {
-						throw new Exception('Failed to drop oldest item');
+						throw new ChannelClosedException();
 					}
 				}
 
@@ -106,11 +115,7 @@ final class BoundedWriter<T> implements IChannelWriter<T> {
 	}
 
 	@:coroutine public function waitForWrite():Bool {
-		lock.acquire();
-
-		if (closed.get()) {
-			lock.release();
-
+		if (false == state.lock()) {
 			return false;
 		}
 
@@ -118,53 +123,44 @@ final class BoundedWriter<T> implements IChannelWriter<T> {
 			return suspendCancellable(cont -> {
 				final hostPage  = writeWaiters.push(cont);
 
-				lock.release();
+				state.store(Open);
 
 				cont.onCancellationRequested = _ -> {
-					lock.with(() -> writeWaiters.remove(hostPage, cont));
+					if (state.lock()) {
+						writeWaiters.remove(hostPage, cont);
+					}
 				}
 			});
 		} else {
-			lock.release();
+			state.store(Open);
 
 			true;
 		}
 	}
 
 	public function close() {
-		final justClosed = lock.with(() -> {
-			if (closed.get()) {
-				return false;
-			}
-
-			closed.set(true);
-
-			return true;
-		});
-
-		if (justClosed) {
-
-			lock.acquire();
-
-			while (writeWaiters.isEmpty() == false) {
-				switch writeWaiters.pop() {
-					case null:
-						continue;
-					case cont:
-						cont.succeedAsync(false);
-				}
-			};
-
-			while (readWaiters.isEmpty() == false) {
-				switch (readWaiters.pop()) {
-					case null:
-						continue;
-					case cont:
-						cont.succeedAsync(false);
-				}
-			};
-
-			lock.release();
+		if (false == state.lock()) {
+			return;
 		}
+
+		while (writeWaiters.isEmpty() == false) {
+			switch writeWaiters.pop() {
+				case null:
+					continue;
+				case cont:
+					cont.succeedAsync(false);
+			}
+		};
+
+		while (readWaiters.isEmpty() == false) {
+			switch (readWaiters.pop()) {
+				case null:
+					continue;
+				case cont:
+					cont.succeedAsync(false);
+			}
+		};
+
+		state.store(Closed);
 	}
 }
