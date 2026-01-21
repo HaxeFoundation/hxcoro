@@ -170,6 +170,8 @@ class LuvScheduler implements IScheduler {
 	}
 
 	public function shutdown() {
+		loopEvents(null);
+		loopCloses(null);
 		eventQueue.close();
 		closeQueue.close();
 	}
