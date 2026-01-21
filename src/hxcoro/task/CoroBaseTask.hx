@@ -1,5 +1,6 @@
 package hxcoro.task;
 
+import hxcoro.concurrent.AtomicState;
 import hxcoro.concurrent.AtomicObject;
 import haxe.coro.Mutex;
 import hxcoro.components.NonCancellable;
@@ -69,27 +70,32 @@ private class CallbackContinuation<T> implements IContinuation<T> {
 	}
 }
 
+enum abstract StackState(Int) to Int {
+	final Ready;
+	final Modifying;
+}
+
 class ArrayFixThisLater<T> {
 	final array:Array<T>;
-	final mutex:Mutex;
+	final state:AtomicState<StackState>;
 
 	public function new() {
 		array = [];
-		mutex = new Mutex();
+		state = new AtomicState(Ready);
 	}
 
 	public function push(v:T) {
-		mutex.acquire();
+		while (state.compareExchange(Ready, Modifying) != Ready) {};
 		final r = array.push(v);
-		mutex.release();
+		state.store(Ready);
 		return r;
 	}
 
 	public function exchangeIGuess() {
-		mutex.acquire();
+		while (state.compareExchange(Ready, Modifying) != Ready) {};
 		final ret = array.copy();
 		array.resize(0);
-		mutex.release();
+		state.store(Ready);
 		return ret;
 	}
 }
