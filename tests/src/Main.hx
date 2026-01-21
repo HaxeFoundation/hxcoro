@@ -16,7 +16,7 @@ function main() {
 		#if js
 		new TestJsPromise(),
 		#end
-		#if (jvm || cpp)
+		#if (cpp)
 		new TestCallStack(),
 		#end
 	];

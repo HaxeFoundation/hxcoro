@@ -122,6 +122,29 @@ class CoroRun {
 		}
 	}
 
+	#elseif jvm
+
+	static public function runWith<T>(context:Context, lambda:NodeLambda<T>):T {
+		final scheduler = new EventLoopScheduler();
+		final pool = new hxcoro.thread.FixedThreadPool(10);
+		final dispatcher = new hxcoro.dispatchers.ThreadPoolDispatcher(scheduler, pool);
+		final scope = new CoroTask(context.clone().with(dispatcher), CoroTask.CoroScopeStrategy);
+		scope.runNodeLambda(lambda);
+
+		while (scope.isActive()) {
+			scheduler.run();
+		}
+
+		pool.shutdown();
+
+		switch (scope.getError()) {
+			case null:
+				return scope.get();
+			case error:
+				throw error;
+		}
+	}
+
 	#else
 
 	static public function runWith<T>(context:Context, lambda:NodeLambda<T>):T {
