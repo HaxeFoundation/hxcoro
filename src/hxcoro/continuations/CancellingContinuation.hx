@@ -1,14 +1,14 @@
 package hxcoro.continuations;
 
 import haxe.coro.SuspensionResult;
-import haxe.coro.schedulers.IScheduleObject;
+import haxe.coro.dispatchers.IDispatchObject;
 import hxcoro.concurrent.AtomicInt;
+import haxe.coro.dispatchers.Dispatcher;
 import haxe.Exception;
 import haxe.exceptions.CancellationException;
 import haxe.coro.IContinuation;
 import haxe.coro.ICancellableContinuation;
 import haxe.coro.context.Context;
-import haxe.coro.schedulers.Scheduler;
 import haxe.coro.cancellation.ICancellationHandle;
 import haxe.coro.cancellation.CancellationToken;
 import haxe.coro.cancellation.ICancellationCallback;
@@ -20,7 +20,7 @@ private enum abstract State(Int) to Int {
 	final Completed;
 }
 
-class CancellingContinuation<T> extends SuspensionResult<T> implements ICancellableContinuation<T> implements ICancellationCallback implements IScheduleObject {
+class CancellingContinuation<T> extends SuspensionResult<T> implements ICancellableContinuation<T> implements ICancellationCallback implements IDispatchObject {
 	final resumeState : AtomicInt;
 
 	final cont : IContinuation<T>;
@@ -75,7 +75,7 @@ class CancellingContinuation<T> extends SuspensionResult<T> implements ICancella
 					this.result = result;
 					this.error = error;
 					resumeState.store(Completed);
-					context.get(Scheduler).scheduleObject(this);
+					context.get(Dispatcher).dispatch(this);
 					true;
 				} else {
 					false;
@@ -122,7 +122,7 @@ class CancellingContinuation<T> extends SuspensionResult<T> implements ICancella
 		}
 	}
 
-	public function onSchedule() {
+	public function onDispatch() {
 		cont.resume(result, error);
 	}
 }

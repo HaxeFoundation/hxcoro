@@ -1,5 +1,6 @@
 package hxcoro.thread;
 
+import haxe.coro.dispatchers.IDispatchObject;
 #if (!target.threaded)
 #error "This class is not available on this target"
 #end
@@ -8,13 +9,13 @@ import sys.thread.Condition;
 import sys.thread.Deque;
 import sys.thread.Thread;
 import hxcoro.concurrent.AtomicInt;
-import haxe.coro.schedulers.IScheduleObject;
+import haxe.coro.dispatchers.IDispatchObject;
 
 /**
 	Thread pool with a constant amount of threads.
 	Threads in the pool will exist until the pool is explicitly shut down.
 **/
-class FixedThreadPool implements IThreadPool implements IScheduleObject {
+class FixedThreadPool implements IThreadPool implements IDispatchObject {
 	/**
 		@see `IThreadPool.threadsCount`
 	**/
@@ -29,7 +30,7 @@ class FixedThreadPool implements IThreadPool implements IScheduleObject {
 	function get_isShutdown():Bool return _isShutdown;
 
 	final pool:Array<Worker>;
-	final queue = new Deque<IScheduleObject>();
+	final queue = new Deque<IDispatchObject>();
 	final shutdownCounter = new AtomicInt(0);
 	#if !neko
 	final shutdownCond = new Condition();
@@ -48,7 +49,7 @@ class FixedThreadPool implements IThreadPool implements IScheduleObject {
 	/**
 		@see `IThreadPool.run`
 	**/
-	public function run(obj:IScheduleObject):Void {
+	public function run(obj:IDispatchObject):Void {
 		if(_isShutdown)
 			throw new ThreadPoolException('Task is rejected. Thread pool is shut down.');
 		if(obj == null)
@@ -81,9 +82,9 @@ class FixedThreadPool implements IThreadPool implements IScheduleObject {
 	}
 
 	/**
-		@see `IScheduleObject.onSchedule`
+		@see `IDispatchObject.onDispatch`
 	**/
-	public function onSchedule():Void {
+	public function onDispatch():Void {
 		#if !neko
 		shutdownCounter.sub(1);
 		shutdownCond.acquire();
@@ -98,9 +99,9 @@ private class ShutdownException extends ThreadPoolException {}
 
 private class Worker {
 	var thread:Thread;
-	final queue:Deque<Null<IScheduleObject>>;
+	final queue:Deque<Null<IDispatchObject>>;
 
-	public function new(queue:Deque<Null<IScheduleObject>>) {
+	public function new(queue:Deque<Null<IDispatchObject>>) {
 		this.queue = queue;
 		thread = Thread.create(loop);
 	}
@@ -109,7 +110,7 @@ private class Worker {
 		try {
 			while(true) {
 				var task = queue.pop(true);
-				task.onSchedule();
+				task.onDispatch();
 			}
 		} catch(_:ShutdownException) {
 		} catch(e) {

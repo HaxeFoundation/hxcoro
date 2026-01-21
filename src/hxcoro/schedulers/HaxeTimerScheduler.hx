@@ -2,8 +2,7 @@ package hxcoro.schedulers;
 
 import haxe.Int64;
 import haxe.Timer;
-import haxe.coro.schedulers.Scheduler;
-import haxe.coro.schedulers.IScheduleObject;
+import haxe.coro.schedulers.IScheduler;
 import haxe.coro.schedulers.ISchedulerHandle;
 
 private class TimerEvent implements ISchedulerHandle {
@@ -29,26 +28,19 @@ private class TimerEvent implements ISchedulerHandle {
 /**
 	A scheduler based on `haxe.Timer`.
 **/
-class HaxeTimerScheduler extends Scheduler {
+class HaxeTimerScheduler implements IScheduler {
 	/**
 		Creates a new `HaxeTimerScheduler` instance.
 	**/
-	public function new() {
-		super();
-	}
+	public function new() {}
 
 	@:inheritDoc
-	function schedule(ms:Int64, func:() -> Void) {
+	public function schedule(ms:Int64, func:() -> Void) {
 		return new TimerEvent(Int64.toInt(ms), func);
 	}
 
 	@:inheritDoc
-	function scheduleObject(obj:IScheduleObject) {
-		schedule(0, obj.onSchedule);
-	}
-
-	@:inheritDoc
-	function now() {
+	public function now() {
 		return Timer.milliseconds();
 	}
 }

@@ -1,5 +1,6 @@
 package structured;
 
+import hxcoro.dispatchers.TrampolineDispatcher;
 import haxe.exceptions.CancellationException;
 import hxcoro.schedulers.VirtualTimeScheduler;
 import haxe.coro.cancellation.ICancellationHandle;
@@ -20,9 +21,10 @@ class ResultPusherHandle implements ICancellationCallback {
 
 class TestTaskCancellation extends utest.Test {
 	public function test_cancellation_callback() {
-		final result    = [];
-		final scheduler = new VirtualTimeScheduler();
-		final task      = CoroRun.with(scheduler).create(node -> {
+		final result     = [];
+		final scheduler  = new VirtualTimeScheduler();
+		final dispatcher = new TrampolineDispatcher(scheduler);
+		final task       = CoroRun.with(dispatcher).create(node -> {
 			node.context.get(CoroTask).onCancellationRequested(new ResultPusherHandle(result));
 
 			delay(1000);
@@ -40,9 +42,10 @@ class TestTaskCancellation extends utest.Test {
 	public function test_closing_cancellation_callback() {
 		var handle : ICancellationHandle = null;
 
-		final result    = [];
-		final scheduler = new VirtualTimeScheduler();
-		final task      = CoroRun.with(scheduler).create(node -> {
+		final result     = [];
+		final scheduler  = new VirtualTimeScheduler();
+		final dispatcher = new TrampolineDispatcher(scheduler);
+		final task       = CoroRun.with(dispatcher).create(node -> {
 			handle = node.context.get(CoroTask).onCancellationRequested(new ResultPusherHandle(result));
 
 			delay(1000);

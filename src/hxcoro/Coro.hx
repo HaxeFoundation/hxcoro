@@ -4,7 +4,7 @@ import hxcoro.continuations.RacingContinuation;
 import hxcoro.continuations.CancellingContinuation;
 import haxe.coro.IContinuation;
 import haxe.coro.ICancellableContinuation;
-import haxe.coro.schedulers.Scheduler;
+import haxe.coro.dispatchers.Dispatcher;
 import haxe.exceptions.ArgumentException;
 import hxcoro.task.NodeLambda;
 import hxcoro.task.CoroTask;
@@ -33,8 +33,8 @@ class Coro {
 	}
 
 	static function delayImpl<T>(ms:Int, cont:ICancellableContinuation<T>) {
-		final handle = cont.context.get(Scheduler).schedule(ms, () -> {
-			cont.callSync();
+		final handle = cont.context.get(Dispatcher).scheduler.schedule(ms, () -> {
+			cont.callAsync();
 		});
 
 		cont.onCancellationRequested = _ -> {
@@ -83,21 +83,18 @@ class Coro {
 	 * @throws `haxe.ArgumentException` If the `ms` parameter is less than zero.
 	 */
 	@:coroutine public static function timeout<T>(ms:Int, lambda:NodeLambda<T>):T {
+		if (ms < 0) {
+			throw new ArgumentException('timeout must be positive');
+		}
+		if (ms == 0) {
+			throw new TimeoutException();
+		}
+
 		return suspend(cont -> {
-			if (ms < 0) {
-				cont.failSync(new ArgumentException('timeout must be positive'));
-
-				return;
-			}
-			if (ms == 0) {
-				cont.failSync(new TimeoutException());
-
-				return;
-			}
 
 			final context = cont.context;
 			final scope = new CoroTask(context, CoroTask.CoroScopeStrategy);
-			final handle = context.get(Scheduler).schedule(ms, () -> {
+			final handle = context.get(Dispatcher).scheduler.schedule(ms, () -> {
 				scope.cancel(new TimeoutException());
 			});
 

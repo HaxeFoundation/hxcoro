@@ -1,15 +1,17 @@
 package issues.aidan;
 
+import hxcoro.dispatchers.TrampolineDispatcher;
 import hxcoro.schedulers.VirtualTimeScheduler;
 import hxcoro.CoroRun;
 import hxcoro.Coro.*;
 
 class Issue130 extends utest.Test {
 	public function test() {
-		final count     = 10;
-		final actual    = [];
-		final scheduler = new VirtualTimeScheduler();
-		final task      = CoroRun.with(scheduler).create(node -> {
+		final count      = 10;
+		final actual     = [];
+		final scheduler  = new VirtualTimeScheduler();
+		final dispatcher = new TrampolineDispatcher(scheduler);
+		final task       = CoroRun.with(dispatcher).create(node -> {
 			for (i in 0...count) {
 				node.async(_ -> {
 					final randomDelay = 100 + Std.random(400);

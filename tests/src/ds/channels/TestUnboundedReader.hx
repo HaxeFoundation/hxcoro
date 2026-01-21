@@ -1,5 +1,6 @@
 package ds.channels;
 
+import hxcoro.dispatchers.TrampolineDispatcher;
 import haxe.coro.Mutex;
 import haxe.coro.context.Context;
 import haxe.coro.IContinuation;
@@ -79,9 +80,10 @@ class TestUnboundedReader extends utest.Test {
 
 		buffer.push(10);
 
-		final scheduler = new VirtualTimeScheduler();
-		final actual    = [];
-		final task      = CoroRun.with(scheduler).create(node -> {
+		final scheduler  = new VirtualTimeScheduler();
+		final dispatcher = new TrampolineDispatcher(scheduler);
+		final actual     = [];
+		final task       = CoroRun.with(dispatcher).create(node -> {
 			actual.push(reader.waitForRead());
 		});
 
@@ -95,13 +97,14 @@ class TestUnboundedReader extends utest.Test {
 	}
 
 	function test_wait_for_read_empty_buffer() {
-		final out       = new Out();
-		final buffer    = new PagedDeque();
-		final waiters   = new PagedDeque();
-		final reader    = new UnboundedReader(buffer, waiters, new Out(), new Mutex());
-		final scheduler = new VirtualTimeScheduler();
-		final actual    = [];
-		final task      = CoroRun.with(scheduler).create(node -> {
+		final out        = new Out();
+		final buffer     = new PagedDeque();
+		final waiters    = new PagedDeque();
+		final reader     = new UnboundedReader(buffer, waiters, new Out(), new Mutex());
+		final scheduler  = new VirtualTimeScheduler();
+		final dispatcher = new TrampolineDispatcher(scheduler);
+		final actual     = [];
+		final task       = CoroRun.with(dispatcher).create(node -> {
 			actual.push(reader.waitForRead());
 		});
 
@@ -115,13 +118,14 @@ class TestUnboundedReader extends utest.Test {
 	}
 
 	function test_wait_for_read_empty_buffer_wakeup() {
-		final out       = new Out();
-		final buffer    = new PagedDeque();
-		final waiters   = new PagedDeque();
-		final reader    = new UnboundedReader(buffer, waiters, new Out(), new Mutex());
-		final scheduler = new VirtualTimeScheduler();
-		final actual    = [];
-		final task      = CoroRun.with(scheduler).create(node -> {
+		final out        = new Out();
+		final buffer     = new PagedDeque();
+		final waiters    = new PagedDeque();
+		final reader     = new UnboundedReader(buffer, waiters, new Out(), new Mutex());
+		final scheduler  = new VirtualTimeScheduler();
+		final dispatcher = new TrampolineDispatcher(scheduler);
+		final actual     = [];
+		final task       = CoroRun.with(dispatcher).create(node -> {
 			actual.push(reader.waitForRead());
 		});
 
@@ -139,13 +143,14 @@ class TestUnboundedReader extends utest.Test {
 	}
 
 	function test_wait_for_read_empty_buffer_cancellation() {
-		final out       = new Out();
-		final buffer    = new PagedDeque();
-		final waiters   = new PagedDeque();
-		final reader    = new UnboundedReader(buffer, waiters, new Out(), new Mutex());
-		final scheduler = new VirtualTimeScheduler();
-		final actual    = [];
-		final task      = CoroRun.with(scheduler).create(node -> {
+		final out        = new Out();
+		final buffer     = new PagedDeque();
+		final waiters    = new PagedDeque();
+		final reader     = new UnboundedReader(buffer, waiters, new Out(), new Mutex());
+		final scheduler  = new VirtualTimeScheduler();
+		final dispatcher = new TrampolineDispatcher(scheduler);
+		final actual     = [];
+		final task       = CoroRun.with(dispatcher).create(node -> {
 			actual.push(reader.waitForRead());
 		});
 
@@ -171,9 +176,10 @@ class TestUnboundedReader extends utest.Test {
 
 		buffer.push(10);
 
-		final scheduler = new VirtualTimeScheduler();
-		final actual    = [];
-		final task      = CoroRun.with(scheduler).create(node -> {
+		final scheduler  = new VirtualTimeScheduler();
+		final dispatcher = new TrampolineDispatcher(scheduler);
+		final actual     = [];
+		final task       = CoroRun.with(dispatcher).create(node -> {
 			actual.push(reader.read());
 		});
 
@@ -188,13 +194,14 @@ class TestUnboundedReader extends utest.Test {
 	}
 
 	function test_read_empty_buffer() {
-		final out       = new Out();
-		final buffer    = new PagedDeque();
-		final waiters   = new PagedDeque();
-		final reader    = new UnboundedReader(buffer, waiters, new Out(), new Mutex());
-		final scheduler = new VirtualTimeScheduler();
-		final actual    = [];
-		final task      = CoroRun.with(scheduler).create(node -> {
+		final out        = new Out();
+		final buffer     = new PagedDeque();
+		final waiters    = new PagedDeque();
+		final reader     = new UnboundedReader(buffer, waiters, new Out(), new Mutex());
+		final scheduler  = new VirtualTimeScheduler();
+		final dispatcher = new TrampolineDispatcher(scheduler);
+		final actual     = [];
+		final task       = CoroRun.with(dispatcher).create(node -> {
 			actual.push(reader.read());
 		});
 
@@ -209,13 +216,14 @@ class TestUnboundedReader extends utest.Test {
 	}
 
 	function test_read_empty_buffer_wakeup() {
-		final out       = new Out();
-		final buffer    = new PagedDeque();
-		final waiters   = new PagedDeque();
-		final reader    = new UnboundedReader(buffer, waiters, new Out(), new Mutex());
-		final scheduler = new VirtualTimeScheduler();
-		final actual    = [];
-		final task      = CoroRun.with(scheduler).create(node -> {
+		final out        = new Out();
+		final buffer     = new PagedDeque();
+		final waiters    = new PagedDeque();
+		final reader     = new UnboundedReader(buffer, waiters, new Out(), new Mutex());
+		final scheduler  = new VirtualTimeScheduler();
+		final dispatcher = new TrampolineDispatcher(scheduler);
+		final actual     = [];
+		final task       = CoroRun.with(dispatcher).create(node -> {
 			actual.push(reader.read());
 		});
 
@@ -238,13 +246,14 @@ class TestUnboundedReader extends utest.Test {
 	}
 
 	function test_read_cancellation() {
-		final out       = new Out();
-		final buffer    = new PagedDeque();
-		final waiters   = new PagedDeque();
-		final reader    = new UnboundedReader(buffer, waiters, new Out(), new Mutex());
-		final scheduler = new VirtualTimeScheduler();
-		final actual    = [];
-		final task      = CoroRun.with(scheduler).create(node -> {
+		final out        = new Out();
+		final buffer     = new PagedDeque();
+		final waiters    = new PagedDeque();
+		final reader     = new UnboundedReader(buffer, waiters, new Out(), new Mutex());
+		final scheduler  = new VirtualTimeScheduler();
+		final dispatcher = new TrampolineDispatcher(scheduler);
+		final actual     = [];
+		final task       = CoroRun.with(dispatcher).create(node -> {
 			actual.push(reader.read());
 		});
 
@@ -260,13 +269,14 @@ class TestUnboundedReader extends utest.Test {
 	}
 
 	function test_wait_for_Read_when_closed() {
-		final closed    = new Out();
-		final buffer    = new PagedDeque();
-		final waiters   = new PagedDeque();
-		final reader    = new UnboundedReader(buffer, waiters, closed, new Mutex());
-		final scheduler = new VirtualTimeScheduler();
-		final actual    = [];
-		final task      = CoroRun.with(scheduler).create(node -> {
+		final closed     = new Out();
+		final buffer     = new PagedDeque();
+		final waiters    = new PagedDeque();
+		final reader     = new UnboundedReader(buffer, waiters, closed, new Mutex());
+		final scheduler  = new VirtualTimeScheduler();
+		final dispatcher = new TrampolineDispatcher(scheduler);
+		final actual     = [];
+		final task       = CoroRun.with(dispatcher).create(node -> {
 			actual.push(reader.waitForRead());
 		});
 
@@ -280,13 +290,14 @@ class TestUnboundedReader extends utest.Test {
 	}
 
 	function test_wait_for_read_when_closed_with_remaining_data() {
-		final closed    = new Out();
-		final buffer    = new PagedDeque();
-		final waiters   = new PagedDeque();
-		final reader    = new UnboundedReader(buffer, waiters, closed, new Mutex());
-		final scheduler = new VirtualTimeScheduler();
-		final actual    = [];
-		final task      = CoroRun.with(scheduler).create(node -> {
+		final closed     = new Out();
+		final buffer     = new PagedDeque();
+		final waiters    = new PagedDeque();
+		final reader     = new UnboundedReader(buffer, waiters, closed, new Mutex());
+		final scheduler  = new VirtualTimeScheduler();
+		final dispatcher = new TrampolineDispatcher(scheduler);
+		final actual     = [];
+		final task       = CoroRun.with(dispatcher).create(node -> {
 			actual.push(reader.waitForRead());
 		});
 
@@ -327,13 +338,14 @@ class TestUnboundedReader extends utest.Test {
 	}
 
 	function test_read_when_closed() {
-		final closed    = new Out();
-		final buffer    = new PagedDeque();
-		final waiters   = new PagedDeque();
-		final reader    = new UnboundedReader(buffer, waiters, closed, new Mutex());
-		final scheduler = new VirtualTimeScheduler();
-		final actual    = [];
-		final task      = CoroRun.with(scheduler).create(node -> {
+		final closed     = new Out();
+		final buffer     = new PagedDeque();
+		final waiters    = new PagedDeque();
+		final reader     = new UnboundedReader(buffer, waiters, closed, new Mutex());
+		final scheduler  = new VirtualTimeScheduler();
+		final dispatcher = new TrampolineDispatcher(scheduler);
+		final actual     = [];
+		final task       = CoroRun.with(dispatcher).create(node -> {
 			AssertAsync.raises(reader.read(), ChannelClosedException);
 		});
 
@@ -347,13 +359,14 @@ class TestUnboundedReader extends utest.Test {
 	}
 
 	function test_read_when_closed_with_remaining_data() {
-		final closed    = new Out();
-		final buffer    = new PagedDeque();
-		final waiters   = new PagedDeque();
-		final reader    = new UnboundedReader(buffer, waiters, closed, new Mutex());
-		final scheduler = new VirtualTimeScheduler();
-		final actual    = [];
-		final task      = CoroRun.with(scheduler).create(node -> {
+		final closed     = new Out();
+		final buffer     = new PagedDeque();
+		final waiters    = new PagedDeque();
+		final reader     = new UnboundedReader(buffer, waiters, closed, new Mutex());
+		final scheduler  = new VirtualTimeScheduler();
+		final dispatcher = new TrampolineDispatcher(scheduler);
+		final actual     = [];
+		final task       = CoroRun.with(dispatcher).create(node -> {
 			actual.push(reader.read());
 		});
 

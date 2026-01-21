@@ -1,7 +1,7 @@
 package issues.aidan;
 
 import hxcoro.schedulers.VirtualTimeScheduler;
-import haxe.coro.schedulers.Scheduler;
+import haxe.coro.schedulers.IScheduler;
 import hxcoro.ds.channels.Channel;
 import hxcoro.ds.PagedDeque;
 
@@ -17,7 +17,7 @@ import hxcoro.ds.PagedDeque;
 // 	function flushWaiters() {
 // 		while (!waiters.isEmpty()) {
 // 			final cont = waiters.pop();
-// 			cont.context.get(Scheduler).schedule(0, () -> cont.resume(null, null));
+// 			cont.context.get(IScheduler).schedule(0, () -> cont.resume(null, null));
 // 		}
 // 	}
 
@@ -61,7 +61,7 @@ class Issue126 extends utest.Test {
 	function test() {
 		Assert.pass('TODO!');
 		// final scheduler = new VirtualTimeScheduler();
-		// final task = CoroRun.with(scheduler).create(node -> {
+		// final task = CoroRun.with(scheduler, dispatcher).create(node -> {
 		// 	final channel = Channel.create(Bounded(1));
 		// 	@:coroutine function log(s:String) {
 		// 		channel.write('${scheduler.now()}: $s');
