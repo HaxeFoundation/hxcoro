@@ -1,5 +1,6 @@
 package hxcoro.schedulers;
 
+import hxcoro.concurrent.AtomicState;
 import eval.luv.Async;
 import haxe.atomic.AtomicInt;
 import sys.thread.Deque;
@@ -10,18 +11,41 @@ import haxe.coro.dispatchers.IDispatchObject;
 import eval.luv.Timer;
 import eval.luv.Loop;
 
+enum abstract AsyncDequeState(Int) to Int {
+	final Open;
+	final Sending;
+	final Closed;
+}
+
 class AsyncDeque<T> {
 	final deque:Deque<T>;
 	var async:Null<Async>;
+	var state:AtomicState<AsyncDequeState>;
 
 	public function new(loop:Loop, f:Async -> Void) {
 		this.deque = new Deque<T>();
 		this.async = Async.init(loop, f).resolve();
+		state = new AtomicState(Open);
 	}
 
 	public function add(x:T) {
-		deque.add(x);
-		async.send();
+		while (true) {
+			switch (state.compareExchange(Open, Sending)) {
+				case Open:
+					deque.add(x);
+					async.send();
+					state.store(Open);
+					break;
+				case Sending:
+					// loop
+				case Closed:
+					// If we're already closed we must be in LuvScheduler.shutdown. We
+					// can't use async anymore, but we can still add to the deque so the
+					// shutdown can drain it.
+					deque.add(x);
+					return;
+			}
+		}
 	}
 
 	public function pop(block:Bool) {
@@ -170,9 +194,8 @@ class LuvScheduler implements IScheduler {
 	}
 
 	public function shutdown() {
-		loopEvents(null);
-		loopCloses(null);
 		eventQueue.close();
 		closeQueue.close();
+		loopCloses(null);
 	}
 }
