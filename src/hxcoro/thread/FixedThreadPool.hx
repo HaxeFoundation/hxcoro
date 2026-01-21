@@ -86,22 +86,9 @@ class WsQueue<T> {
 }
 
 class TlsQueue<T> {
-	final data:WsQueue<T>;
-	public function new() {
-		data = new WsQueue();
-	}
-
-	public function push(v:T) {
-		data.add(v);
-	}
-
-	public function pop() {
-		return data.steal();
-	}
-
 	static public function get<T>() {
-		static var tls = new Tls<TlsQueue<T>>();
-		return tls.value ??= new TlsQueue();
+		static var tls = new Tls<WsQueue<T>>();
+		return tls.value ??= new WsQueue();
 	}
 }
 
@@ -164,7 +151,7 @@ class FixedThreadPool implements IThreadPool implements IDispatchObject {
 		if (Thread.current() == thread) {
 			queue.add(obj);
 		} else {
-			TlsQueue.get().push(obj);
+			TlsQueue.get().add(obj);
 		}
 		// If no one holds onto the condition, notify everyone.
 		if (cond.tryAcquire()) {
@@ -244,7 +231,7 @@ private class Worker {
 
 	function drainTlsQueue() {
 		while (true) {
-			final obj = TlsQueue.get().pop();
+			final obj = TlsQueue.get().steal();
 			if (obj == null) {
 				break;
 			}
