@@ -25,6 +25,16 @@ class TlsQueue {
 	}
 }
 
+private class WorkerActivity {
+	public var activeWorkers:Int;
+	public var eventAdded:Bool;
+
+	public function new(activeWorkers:Int) {
+		this.activeWorkers = activeWorkers;
+		eventAdded = false;
+	}
+}
+
 /**
 	Thread pool with a constant amount of threads.
 	Threads in the pool will exist until the pool is explicitly shut down.
@@ -45,6 +55,7 @@ class FixedThreadPool implements IThreadPool implements IDispatchObject {
 
 	final cond:Condition;
 	final pool:Array<Worker>;
+	final activity:WorkerActivity;
 	final queue:DispatchQueue;
 	final thread:Thread;
 
@@ -63,7 +74,8 @@ class FixedThreadPool implements IThreadPool implements IDispatchObject {
 		cond = new Condition();
 		thread = Thread.current();
 		queue = new WorkStealingQueue();
-		pool = [for(i in 0...threadsCount) new Worker(cond, i + 1)];
+		activity = new WorkerActivity(threadsCount);
+		pool = [for(i in 0...threadsCount) new Worker(cond, i + 1, activity)];
 		final queues = [queue].concat([for (worker in pool) worker.queue]);
 		final queues = Vector.fromArrayCopy(queues);
 		for (worker in pool) {
@@ -87,14 +99,12 @@ class FixedThreadPool implements IThreadPool implements IDispatchObject {
 		} else {
 			TlsQueue.get().add(obj);
 		}
+		// See bottom of `Worker.loop` for details why this is important.
+		activity.eventAdded = true;
 		// If no one holds onto the condition, notify everyone.
 		if (cond.tryAcquire()) {
 			cond.broadcast();
 			cond.release();
-		} else {
-			// TODO: I think we have to do something here because the last active
-			// worker thread could just have acquired the condition variable in order
-			// to wait for it, which would deadlock us.
 		}
 	}
 
@@ -149,11 +159,13 @@ private class Worker {
 	var shutdownRequested:Bool;
 	final cond:Condition;
 	final ownQueueIndex:Int;
+	final activity:WorkerActivity;
 
-	public function new(cond:Condition, ownQueueIndex:Int) {
+	public function new(cond:Condition, ownQueueIndex:Int, activity:WorkerActivity) {
 		queue = new WorkStealingQueue();
 		this.cond = cond;
 		this.ownQueueIndex = ownQueueIndex;
+		this.activity = activity;
 		shutdownRequested = false;
 	}
 
@@ -200,8 +212,19 @@ private class Worker {
 			}
 			// If we did nothing, wait for the condition variable.
 			if (cond.tryAcquire()) {
-				cond.signal(); // TODO: shouldn't be here, but maybe deals with the situation mentioned in run
+				if (activity.activeWorkers == 1 && activity.eventAdded) {
+					// If we're the last worker and this flag is true, there's a chance that the `run` function just
+					// los the acquire race against us. In this case we unset the flag and loop once more. Note that
+					// it doesn't matter if we win or lose the race on eventAdded because there will be an event in
+					// a queue anyway if `run` did indeed run.
+					activity.eventAdded = false;
+					cond.release();
+					continue;
+				}
+				// These modifications are fine because we hold onto the cond mutex.
+				--activity.activeWorkers;
 				cond.wait();
+				++activity.activeWorkers;
 				cond.release();
 			} else {
 				// TODO: needs a real backoff instead of this nonsense
