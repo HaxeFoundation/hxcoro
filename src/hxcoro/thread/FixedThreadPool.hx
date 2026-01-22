@@ -11,81 +11,7 @@ import sys.thread.Thread;
 import hxcoro.concurrent.AtomicInt;
 import haxe.coro.dispatchers.IDispatchObject;
 
-private abstract Storage<T>(Vector<T>) {
-	public var length(get, never):Int;
-
-	public inline function new(vector:Vector<T>) {
-		this = vector;
-	}
-
-	public inline function get_length() {
-		return this.length;
-	}
-
-	@:arrayAccess public inline function get(i:Int) {
-		// `& (x - 1)` is the same as `% x` when x is a power of two
-		return this[i & (this.length - 1)];
-	}
-
-	@:arrayAccess public inline function set(i:Int, v:T) {
-		return this[i & (this.length - 1)] = v;
-	}
-}
-
-class WsQueue<T> {
-	final read:AtomicInt;
-	final write:AtomicInt;
-	var storage:Storage<T>;
-
-	public function new() {
-		read = new AtomicInt(0);
-		write = new AtomicInt(0);
-		storage = new Storage(new Vector(16));
-	}
-
-	public inline function sizeApprox() {
-		return write.load() - read.load();
-	}
-
-	function resize(from:Int, to:Int) {
-		final newStorage = new Storage(new Vector(storage.length << 1));
-		for (i in from...to) {
-			newStorage[i] = storage[i];
-		}
-		storage = newStorage;
-	}
-
-	public function add(x:T) {
-		final w = write.load();
-		final r = read.load();
-		final sizeNeeded = w - r;
-		if (sizeNeeded >= storage.length - 1) {
-			resize(r, w);
-		}
-		storage[w] = x;
-		write.add(1);
-	}
-
-	public function steal() {
-		while (true) {
-			final r = read.load();
-			final w = write.load();
-			final size = w - r;
-			if (size <= 0) {
-				return null;
-			}
-			final storage = storage;
-			final v = storage[r];
-			if (read.compareExchange(r, r + 1) == r) {
-				return v;
-			} else {
-				// loop to try again
-			}
-		}
-	}
-}
-
-typedef DispatchQueue = WsQueue<IDispatchObject>;
+typedef DispatchQueue = WorkStealingQueue<IDispatchObject>;
 
 class TlsQueue {
 	static var tls = new Tls<DispatchQueue>();
@@ -136,7 +62,7 @@ class FixedThreadPool implements IThreadPool implements IDispatchObject {
 		this.threadsCount = threadsCount;
 		cond = new Condition();
 		thread = Thread.current();
-		queue = new WsQueue();
+		queue = new WorkStealingQueue();
 		pool = [for(i in 0...threadsCount) new Worker(cond, i + 1)];
 		final queues = [queue].concat([for (worker in pool) worker.queue]);
 		final queues = Vector.fromArrayCopy(queues);
@@ -225,7 +151,7 @@ private class Worker {
 	final ownQueueIndex:Int;
 
 	public function new(cond:Condition, ownQueueIndex:Int) {
-		queue = new WsQueue();
+		queue = new WorkStealingQueue();
 		this.cond = cond;
 		this.ownQueueIndex = ownQueueIndex;
 		shutdownRequested = false;
