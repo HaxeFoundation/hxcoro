@@ -135,7 +135,7 @@ class CoroRun {
 			scheduler.run();
 		}
 
-		pool.shutdown();
+		pool.shutdown(true);
 
 		switch (scope.getError()) {
 			case null:

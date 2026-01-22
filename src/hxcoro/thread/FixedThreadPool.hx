@@ -6,6 +6,7 @@ package hxcoro.thread;
 
 import haxe.ds.Vector;
 import sys.thread.Condition;
+import sys.thread.Semaphore;
 import sys.thread.Tls;
 import sys.thread.Thread;
 import hxcoro.concurrent.AtomicInt;
@@ -40,7 +41,7 @@ private class WorkerActivity {
 	Thread pool with a constant amount of threads.
 	Threads in the pool will exist until the pool is explicitly shut down.
 **/
-class FixedThreadPool implements IThreadPool implements IDispatchObject {
+class FixedThreadPool implements IThreadPool {
 	/**
 		@see `IThreadPool.threadsCount`
 	**/
@@ -61,9 +62,6 @@ class FixedThreadPool implements IThreadPool implements IDispatchObject {
 	final thread:Thread;
 
 	final shutdownCounter = new AtomicInt(0);
-	#if !neko
-	final shutdownCond = new Condition();
-	#end
 
 	/**
 		Create a new thread pool with `threadsCount` threads.
@@ -118,35 +116,23 @@ class FixedThreadPool implements IThreadPool implements IDispatchObject {
 		if (block) {
 			shutdownCounter.store(pool.length);
 		}
+
+		final semaphore = new Semaphore(0);
+
+		function unlock() {
+			semaphore.release();
+		}
 		for (worker in pool) {
-			worker.shutDown();
+			worker.shutDown(unlock);
 		}
 		cond.acquire();
 		cond.broadcast();
 		cond.release();
 		if (block) {
-			// TODO: need Condition implementation
-			#if !neko
-			shutdownCond.acquire();
-			while (shutdownCounter.load() > 0) {
-				shutdownCond.wait();
+			for (_ in pool) {
+				semaphore.acquire();
 			}
-			shutdownCond.release();
-			#end
 		}
-	}
-
-	/**
-		@see `IDispatchObject.onDispatch`
-	**/
-	public function onDispatch():Void {
-		#if !neko
-		shutdownCounter.sub(1);
-		shutdownCond.acquire();
-		shutdownCond.signal();
-		shutdownCond.release();
-		#end
-		throw new ShutdownException('');
 	}
 }
 
@@ -157,7 +143,7 @@ private class Worker {
 	public final queue:DispatchQueue;
 
 	var queues:Null<Vector<DispatchQueue>>;
-	var shutdownRequested:Bool;
+	var shutdownCallback:Null<() -> Void>;
 	final cond:Condition;
 	final ownQueueIndex:Int;
 	final activity:WorkerActivity;
@@ -167,7 +153,6 @@ private class Worker {
 		this.cond = cond;
 		this.ownQueueIndex = ownQueueIndex;
 		this.activity = activity;
-		shutdownRequested = false;
 	}
 
 	public function setQueues(queues:Vector<DispatchQueue>) {
@@ -178,8 +163,8 @@ private class Worker {
 		thread = Thread.create(threadEntry);
 	}
 
-	public function shutDown() {
-		shutdownRequested = true;
+	public function shutDown(callback:() -> Void) {
+		shutdownCallback = callback;
 	}
 
 	function loop() {
@@ -208,7 +193,7 @@ private class Worker {
 			if (didSomething) {
 				continue;
 			}
-			if (shutdownRequested) {
+			if (shutdownCallback != null) {
 				break;
 			}
 			// If we did nothing, wait for the condition variable.
@@ -241,8 +226,6 @@ private class Worker {
 			start();
 			throw e;
 		}
-		cond.acquire();
-		cond.broadcast();
-		cond.release();
+		shutdownCallback();
 	}
 }
