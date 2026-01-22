@@ -98,13 +98,11 @@ class FixedThreadPool implements IThreadPool {
 		} else {
 			TlsQueue.get().add(obj);
 		}
-		// See bottom of `Worker.loop` for details why this is important.
-		activity.eventAdded = true;
-		// // If no one holds onto the condition, notify everyone.
-		// if (cond.tryAcquire()) {
-		// 	cond.broadcast();
-		// 	cond.release();
-		// }
+		// If no one holds onto the condition, notify everyone.
+		if (cond.tryAcquire()) {
+			cond.broadcast();
+			cond.release();
+		}
 	}
 
 	/**
@@ -196,26 +194,22 @@ private class Worker {
 			if (shutdownCallback != null) {
 				break;
 			}
-			BackOff.backOff();
 			// If we did nothing, wait for the condition variable.
-			// if (cond.tryAcquire()) {
-			// 	if (activity.activeWorkers == 1 && activity.eventAdded) {
-			// 		// If we're the last worker and this flag is true, there's a chance that the `run` function just
-			// 		// los the acquire race against us. In this case we unset the flag and loop once more. Note that
-			// 		// it doesn't matter if we win or lose the race on eventAdded because there will be an event in
-			// 		// a queue anyway if `run` did indeed run.
-			// 		activity.eventAdded = false;
-			// 		cond.release();
-			// 		continue;
-			// 	}
-			// 	// These modifications are fine because we hold onto the cond mutex.
-			// 	--activity.activeWorkers;
-			// 	cond.wait();
-			// 	++activity.activeWorkers;
-			// 	cond.release();
-			// } else {
-			// 	BackOff.backOff();
-			// }
+			if (cond.tryAcquire()) {
+				if (activity.activeWorkers == 1) {
+					// TODO: just keep one worker thread alive for now to deal with synchronization failures
+					cond.release();
+					BackOff.backOff();
+					continue;
+				}
+				// These modifications are fine because we hold onto the cond mutex.
+				--activity.activeWorkers;
+				cond.wait();
+				++activity.activeWorkers;
+				cond.release();
+			} else {
+				BackOff.backOff();
+			}
 		}
 	}
 
