@@ -2,7 +2,7 @@ package hxcoro.task;
 
 import hxcoro.concurrent.AtomicState;
 import hxcoro.concurrent.AtomicObject;
-import haxe.coro.Mutex;
+import hxcoro.concurrent.BackOff;
 import hxcoro.components.NonCancellable;
 import hxcoro.task.CoroTask;
 import hxcoro.task.node.INodeStrategy;
@@ -85,14 +85,18 @@ class ArrayFixThisLater<T> {
 	}
 
 	public function push(v:T) {
-		while (state.compareExchange(Ready, Modifying) != Ready) {};
+		while (state.compareExchange(Ready, Modifying) != Ready) {
+			BackOff.backOff();
+		};
 		final r = array.push(v);
 		state.store(Ready);
 		return r;
 	}
 
 	public function exchangeIGuess() {
-		while (state.compareExchange(Ready, Modifying) != Ready) {};
+		while (state.compareExchange(Ready, Modifying) != Ready) {
+			BackOff.backOff();
+		};
 		final ret = array;
 		array = [];
 		state.store(Ready);
