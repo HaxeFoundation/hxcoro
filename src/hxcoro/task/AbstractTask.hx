@@ -144,14 +144,7 @@ abstract class AbstractTask implements ICancellationToken {
 	}
 
 	public function onCancellationRequested(callback:ICancellationCallback):ICancellationHandle {
-		return switch (state.load()) {
-			case Cancelling | Cancelled:
-				callback.onCancellation(error.orCancellationException());
-
-				return TaskCancellationManager.CancellationHandle.noOpCancellationHandle;
-			case _:
-				cancellationManager.addCallback(callback);
-		}
+		return cancellationManager.addCallback(callback);
 	}
 
 	/**
