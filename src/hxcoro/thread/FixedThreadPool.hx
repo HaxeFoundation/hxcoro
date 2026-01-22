@@ -104,6 +104,11 @@ class FixedThreadPool implements IThreadPool {
 		if (cond.tryAcquire()) {
 			cond.broadcast();
 			cond.release();
+		} else {
+			// TODO: remove this and find a better solution
+			cond.acquire();
+			cond.broadcast();
+			cond.release();
 		}
 	}
 
