@@ -3,6 +3,7 @@ package hxcoro.continuations;
 import haxe.coro.SuspensionResult;
 import haxe.coro.dispatchers.IDispatchObject;
 import hxcoro.concurrent.AtomicInt;
+import hxcoro.concurrent.BackOff;
 import haxe.coro.dispatchers.Dispatcher;
 import haxe.Exception;
 import haxe.exceptions.CancellationException;
@@ -109,10 +110,7 @@ class CancellingContinuation<T> extends SuspensionResult<T> implements ICancella
 			state = Pending;
 		} else {
 			while (resumeState.load() == Completing) {
-				// Wait until the values are set
-				#if eval
-				eval.vm.NativeThread.yield();
-				#end
+				BackOff.backOff();
 			}
 			if (error != null) {
 				state = Thrown;
