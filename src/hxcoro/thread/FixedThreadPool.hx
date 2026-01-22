@@ -274,6 +274,7 @@ private class Worker {
 			}
 			// If we did nothing, wait for the condition variable.
 			if (cond.tryAcquire()) {
+				cond.signal(); // TODO: shouldn't be here, but maybe deals with the situation mentioned in run
 				cond.wait();
 				cond.release();
 			}
