@@ -203,6 +203,9 @@ private class Worker {
 				cond.signal(); // TODO: shouldn't be here, but maybe deals with the situation mentioned in run
 				cond.wait();
 				cond.release();
+			} else {
+				// TODO: needs a real backoff instead of this nonsense
+				Sys.sleep(1 / 0xFFFFFFFFu32);
 			}
 		}
 	}
