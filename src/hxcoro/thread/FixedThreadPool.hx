@@ -85,10 +85,17 @@ class WsQueue<T> {
 	}
 }
 
-class TlsQueue<T> {
-	static public function get<T>() {
-		static var tls = new Tls<WsQueue<T>>();
-		return tls.value ??= new WsQueue();
+typedef DispatchQueue = WsQueue<IDispatchObject>;
+
+class TlsQueue {
+	static var tls = new Tls<DispatchQueue>();
+
+	static public inline function get() {
+		return tls.value;
+	}
+
+	static public function install(queue:DispatchQueue) {
+		tls.value = queue;
 	}
 }
 
@@ -112,7 +119,7 @@ class FixedThreadPool implements IThreadPool implements IDispatchObject {
 
 	final cond:Condition;
 	final pool:Array<Worker>;
-	final queue:WsQueue<IDispatchObject>;
+	final queue:DispatchQueue;
 	final thread:Thread;
 
 	final shutdownCounter = new AtomicInt(0);
@@ -128,12 +135,13 @@ class FixedThreadPool implements IThreadPool implements IDispatchObject {
 			throw new ThreadPoolException('FixedThreadPool needs threadsCount to be at least 1.');
 		this.threadsCount = threadsCount;
 		cond = new Condition();
-		pool = [for(i in 0...threadsCount) new Worker(cond)];
-		queue = new WsQueue();
 		thread = Thread.current();
+		queue = new WsQueue();
+		pool = [for(i in 0...threadsCount) new Worker(cond, i + 1)];
 		final queues = [queue].concat([for (worker in pool) worker.queue]);
+		final queues = Vector.fromArrayCopy(queues);
 		for (worker in pool) {
-			worker.setQueues(Vector.fromArrayCopy(queues));
+			worker.setQueues(queues);
 			worker.start();
 		}
 	}
@@ -157,6 +165,10 @@ class FixedThreadPool implements IThreadPool implements IDispatchObject {
 		if (cond.tryAcquire()) {
 			cond.broadcast();
 			cond.release();
+		} else {
+			// TODO: I think we have to do something here because the last active
+			// worker thread could just have acquired the condition variable in order
+			// to wait for it, which would deadlock us.
 		}
 	}
 
@@ -205,78 +217,76 @@ private class ShutdownException extends ThreadPoolException {}
 
 private class Worker {
 	var thread:Thread;
-	public final queue:WsQueue<IDispatchObject>;
+	public final queue:DispatchQueue;
 
-	var queues:Null<Vector<WsQueue<IDispatchObject>>>;
+	var queues:Null<Vector<DispatchQueue>>;
 	var shutdownRequested:Bool;
 	final cond:Condition;
+	final ownQueueIndex:Int;
 
-	public function new(cond:Condition) {
+	public function new(cond:Condition, ownQueueIndex:Int) {
 		queue = new WsQueue();
 		this.cond = cond;
+		this.ownQueueIndex = ownQueueIndex;
 		shutdownRequested = false;
 	}
 
-	public function setQueues(queues:Vector<WsQueue<IDispatchObject>>) {
+	public function setQueues(queues:Vector<DispatchQueue>) {
 		this.queues = queues;
 	}
 
 	public function start() {
-		thread = Thread.create(loop);
+		thread = Thread.create(threadEntry);
 	}
 
 	public function shutDown() {
 		shutdownRequested = true;
 	}
 
-	function drainTlsQueue() {
-		while (true) {
-			final obj = TlsQueue.get().steal();
-			if (obj == null) {
-				break;
-			}
-			queue.add(obj);
-		}
-	}
-
 	function loop() {
-		var emptyIterations = 0;
+		var index = ownQueueIndex;
 		while(true) {
-			drainTlsQueue();
 			var didSomething = false;
-			// TODO: this is silly
-			for (queue in queues) {
+			while (true) {
+				final queue = queues[index];
 				final obj = queue.steal();
 				if (obj != null) {
 					didSomething = true;
-					try {
-						obj.onDispatch();
-					} catch(e:Dynamic) {
-						// Need to drain the queue in case there's something there because
-						// we're about to terminate the thread.
-						drainTlsQueue();
-						start();
-						throw e;
-					}
+					obj.onDispatch();
+					index = ownQueueIndex;
+					break;
+				}
+				if (index == queues.length - 1) {
+					index = 0;
+				} else {
+					++index;
+				}
+				if (index == ownQueueIndex) {
 					break;
 				}
 			}
+			// index == ownQueueIndex here
 			if (didSomething) {
-				emptyIterations = 0;
 				continue;
 			}
 			if (shutdownRequested) {
 				break;
 			}
-			// Allow a few idle iterations in order to avoid some traffic on the condition variable.
-			if (emptyIterations++ < 3) {
-				continue;
-			}
-			// If we did nothing for a while, wait for the condition variable.
+			// If we did nothing, wait for the condition variable.
 			if (cond.tryAcquire()) {
 				cond.wait();
 				cond.release();
 			}
+		}
+	}
+
+	function threadEntry() {
+		TlsQueue.install(queue);
+		try {
+			loop();
+		} catch (e:Dynamic) {
+			start();
+			throw e;
 		}
 		cond.acquire();
 		cond.broadcast();
