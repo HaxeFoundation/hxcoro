@@ -76,7 +76,7 @@ enum abstract StackState(Int) to Int {
 }
 
 class ArrayFixThisLater<T> {
-	final array:Array<T>;
+	var array:Array<T>;
 	final state:AtomicState<StackState>;
 
 	public function new() {
@@ -93,8 +93,8 @@ class ArrayFixThisLater<T> {
 
 	public function exchangeIGuess() {
 		while (state.compareExchange(Ready, Modifying) != Ready) {};
-		final ret = array.copy();
-		array.resize(0);
+		final ret = array;
+		array = [];
 		state.store(Ready);
 		return ret;
 	}
