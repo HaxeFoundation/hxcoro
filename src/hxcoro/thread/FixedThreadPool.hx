@@ -9,6 +9,7 @@ import sys.thread.Condition;
 import sys.thread.Tls;
 import sys.thread.Thread;
 import hxcoro.concurrent.AtomicInt;
+import hxcoro.concurrent.BackOff;
 import haxe.coro.dispatchers.IDispatchObject;
 
 typedef DispatchQueue = WorkStealingQueue<IDispatchObject>;
@@ -227,8 +228,7 @@ private class Worker {
 				++activity.activeWorkers;
 				cond.release();
 			} else {
-				// TODO: needs a real backoff instead of this nonsense
-				Sys.sleep(1 / 0xFFFFFFFFu32);
+				BackOff.backOff();
 			}
 		}
 	}
