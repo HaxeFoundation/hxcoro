@@ -209,29 +209,29 @@ abstract class AbstractTask implements ICancellationToken {
 			}
 		}
 
-		// If we get here, our current children are complete, but the task itself might still
-		// be doing something. Note that we cannot rely on state == Running because the task
-		// might do something in state == Cancelling as well.
-		if (isDoingSomething()) {
-			return;
-		}
-
 		// We now try to update to Completed/Cancelled.
 		var currentState = state.load();
 		while (true) {
 			final targetState = switch (currentState) {
+				case Created:
+					// Nothing to do
+					Completed;
+				case Running:
+					// Definitely not yet completed.
+					return;
 				case Completing:
 					Completed;
 				case Cancelling:
+					// We may or may not still be doing something in this state, so we have
+					// to check for that. This means that any code which modifies the condition
+					// to become `false` has to ensure that we re-enter this function.
+					if (isDoingSomething()) {
+						return;
+					}
 					Cancelled;
 				case Completed | Cancelled:
 					// This can happen from the loop, ignore.
 					return;
-				case state:
-					// We can't be in Created or Running because then the call to `isDoingSomething()`
-					// above should have returned true.
-					// TODO: check `wasResumed` management in CoroTask.
-					throw new TaskException('Invalid state $state in checkCompletion');
 			};
 			final nextState = state.compareExchange(currentState, targetState);
 			if (nextState == currentState) {
