@@ -134,12 +134,13 @@ class FixedThreadPool implements IThreadPool {
 	}
 
 	public function dump() {
-		Sys.println('isShutdown: $isShutdown');
-		Sys.println('active workers: ${activity.activeWorkers}/${pool.length}');
-		Sys.print('queue 0: ');
+		Sys.println("FixedThreadPool");
+		Sys.println('\tisShutdown: $isShutdown');
+		Sys.println('\tactive workers: ${activity.activeWorkers}/${pool.length}');
+		Sys.print('\tqueue 0: ');
 		queue.dump();
 		for (worker in pool) {
-			Sys.print('queue ${@:privateAccess worker.ownQueueIndex}: ');
+			Sys.print('\tqueue ${@:privateAccess worker.ownQueueIndex}: ');
 			worker.queue.dump();
 		}
 	}

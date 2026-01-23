@@ -251,12 +251,8 @@ class EventLoopScheduler implements IScheduler {
 		while (true) {
 			futureMutex.acquire();
 			var minimum = heap.minimum();
-			if (minimum == null) {
-				futureMutex.release();
-				return false;
-			} else if (minimum.runTime > currentTime) {
-				futureMutex.release();
-				return true;
+			if (minimum == null || minimum.runTime > currentTime) {
+				break;
 			}
 
 			final toRun = heap.extract();
@@ -264,6 +260,8 @@ class EventLoopScheduler implements IScheduler {
 
 			toRun.onDispatch();
 		}
+
+		futureMutex.release();
 	}
 
 	public function toString() {

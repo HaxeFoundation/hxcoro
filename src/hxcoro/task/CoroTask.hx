@@ -68,6 +68,17 @@ class CoroTask<T> extends CoroBaseTask<T> implements IContinuation<T> {
 	function isDoingSomething() {
 		return !wasResumed;
 	}
+
+	#if sys
+	public function dump() {
+		Sys.println('CoroTask $id');
+		Sys.println('\tstate: ${state.load()}');
+		Sys.println('\tfirstChild: $firstChild');
+		Sys.println('\twasResumed: $wasResumed');
+		Sys.println('\tresult: $result');
+		Sys.println('\terror: $error');
+	}
+	#end
 }
 
 class CoroTaskWithLambda<T> extends CoroTask<T> implements IDispatchObject {
