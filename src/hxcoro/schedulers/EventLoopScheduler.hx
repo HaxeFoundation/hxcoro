@@ -259,6 +259,11 @@ class EventLoopScheduler implements IScheduler {
 			futureMutex.release();
 
 			toRun.onDispatch();
+
+			if (now() - currentTime > 10000) {
+				// TODO: shouldn't be here
+				break;
+			}
 		}
 
 		futureMutex.release();
