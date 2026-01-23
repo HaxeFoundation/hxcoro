@@ -1,4 +1,5 @@
 package hxcoro.thread;
+import haxe.coro.Mutex;
 import haxe.ds.Vector;
 import hxcoro.concurrent.AtomicInt;
 
@@ -30,6 +31,7 @@ class WorkStealingQueue<T> {
 	final read:AtomicInt;
 	final write:AtomicInt;
 	var storage:Storage<T>;
+	final mutex = new Mutex();
 
 	/**
 		Creates a new work-stealing queue.
@@ -38,6 +40,7 @@ class WorkStealingQueue<T> {
 		read = new AtomicInt(0);
 		write = new AtomicInt(0);
 		storage = new Storage(new Vector(16));
+		mutex = new Mutex();
 	}
 
 	function resize(from:Int, to:Int) {
@@ -55,6 +58,7 @@ class WorkStealingQueue<T> {
 		case the underlying storage has to be expanded.
 	**/
 	public function add(value:T) {
+		mutex.acquire();
 		final w = write.load();
 		final r = read.load();
 		final sizeNeeded = w - r;
@@ -63,6 +67,7 @@ class WorkStealingQueue<T> {
 		}
 		storage[w] = value;
 		write.add(1);
+		mutex.release();
 	}
 
 	/**
@@ -74,16 +79,21 @@ class WorkStealingQueue<T> {
 		fail for other reasons.
 	**/
 	public function steal() {
+		if (!mutex.tryAcquire()) {
+			return null;
+		}
 		while (true) {
 			final r = read.load();
 			final w = write.load();
 			final size = w - r;
 			if (size <= 0) {
+				mutex.release();
 				return null;
 			}
 			final storage = storage;
 			final v = storage[r];
 			if (read.compareExchange(r, r + 1) == r) {
+				mutex.release();
 				return v;
 			} else {
 				// loop to try again
