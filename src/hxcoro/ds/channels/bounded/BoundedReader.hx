@@ -58,27 +58,42 @@ final class BoundedReader<T> implements IChannelReader<T> {
 	}
 
 	public function tryRead(out:Out<T>):Bool {
-		if (state.lock()) {
-			return if (buffer.tryPopTail(out)) {
-				final out       = new Out();
-				final hasWaiter = writeWaiters.tryPop(out);
+		while (true) {
+			switch state.compareExchange(Open, Locked) {
+				case Open:
+					return if (buffer.tryPopTail(out)) {
+						final out       = new Out();
+						final hasWaiter = writeWaiters.tryPop(out);
 
-				state.store(Open);
+						state.store(Open);
 
-				if (hasWaiter) {
-					out.get().succeedAsync(true);
-				}
+						if (hasWaiter) {
+							out.get().succeedAsync(true);
+						}
 
-				true;
-			} else {
-				state.store(Open);
+						true;
+					} else {
+						state.store(Open);
 
-				false;
+						false;
+					}
+				case Locked:
+					// loop
+				case Closed:
+					while (true) {
+						switch state.compareExchange(Closed, Locked) {
+							case Closed:
+								final result = buffer.tryPopTail(out);
+
+								state.store(Closed);
+
+								return result;
+							case _:
+								//
+						}
+					}
 			}
-		} else {
-			return buffer.tryPopTail(out);
 		}
-
 	}
 
 	public function tryPeek(out:Out<T>):Bool {
