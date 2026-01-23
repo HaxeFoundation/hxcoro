@@ -72,13 +72,11 @@ class FixedThreadPool implements IThreadPool {
 		this.threadsCount = threadsCount;
 		cond = new Condition();
 		thread = Thread.current();
-		queue = new WorkStealingQueue();
+		final queues = Vector.fromArrayCopy([for (_ in 0...threadsCount + 1) new WorkStealingQueue()]);
+		queue = queues[0];
 		activity = new WorkerActivity(threadsCount);
-		pool = [for(i in 0...threadsCount) new Worker(cond, i + 1, activity)];
-		final queues = [queue].concat([for (worker in pool) worker.queue]);
-		final queues = Vector.fromArrayCopy(queues);
+		pool = [for(i in 0...threadsCount) new Worker(cond, queues, i + 1, activity)];
 		for (worker in pool) {
-			worker.setQueues(queues);
 			worker.start();
 		}
 	}
@@ -148,25 +146,37 @@ class FixedThreadPool implements IThreadPool {
 
 private class ShutdownException extends ThreadPoolException {}
 
-private class Worker {
-	var thread:Thread;
-	public final queue:DispatchQueue;
+/**
+	This class represents a worker for a thread pool. Some implementation details are:
 
-	var queues:Null<Vector<DispatchQueue>>;
+	- A worker isn't a thread; instead, it has a thread.
+	- If the worker's thread terminates prematurely, a new thread is created.
+	- When a thread is created, it installs the worker's queue as a static TLS value. This
+	  is what the pool's `run` function adds events to.
+	- The worker loops over all queues, starting with its own, to look for events to steal
+	  and execute.
+	- Once all queues are empty, it waits on the condition variable.
+	- If `shutDown` is called, the worker keeps executing events until the queues are empty.
+**/
+private class Worker {
+	public var queue(get, never):DispatchQueue;
+	var thread:Thread;
+
 	var shutdownCallback:Null<() -> Void>;
 	final cond:Condition;
+	final queues:Vector<DispatchQueue>;
 	final ownQueueIndex:Int;
 	final activity:WorkerActivity;
 
-	public function new(cond:Condition, ownQueueIndex:Int, activity:WorkerActivity) {
-		queue = new WorkStealingQueue();
+	public function new(cond:Condition, queues:Vector<DispatchQueue>, ownQueueIndex:Int, activity:WorkerActivity) {
 		this.cond = cond;
+		this.queues = queues;
 		this.ownQueueIndex = ownQueueIndex;
 		this.activity = activity;
 	}
 
-	public function setQueues(queues:Vector<DispatchQueue>) {
-		this.queues = queues;
+	function get_queue() {
+		return queues[ownQueueIndex];
 	}
 
 	public function start() {
