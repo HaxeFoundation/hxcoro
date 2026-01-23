@@ -105,7 +105,7 @@ class TestBoundedChannel extends utest.Test {
 		Assert.same([ 'dummy', 'Hello', 'World' ], actual);
 	}
 
-		function test_write_cancellation() {
+	function test_write_cancellation() {
 		final actual     = [];
 		final exceptions = [];
 		final channel    = Channel.createBounded({ size : 1 });
@@ -193,7 +193,7 @@ class TestBoundedChannel extends utest.Test {
 		Assert.same([ 'Hello' ], actual);
 	}
 
-		function test_try_read() {
+	function test_try_read() {
 		final channel = Channel.createBounded({ size : 1 });
 		final scheduler = new VirtualTimeScheduler();
 		final dispatcher = new TrampolineDispatcher(scheduler);

@@ -1,16 +1,15 @@
 package ds.channels;
 
 import hxcoro.dispatchers.TrampolineDispatcher;
-import haxe.coro.Mutex;
 import haxe.coro.context.Context;
 import haxe.coro.IContinuation;
 import haxe.Exception;
 import haxe.exceptions.CancellationException;
-import haxe.exceptions.NotImplementedException;
-import hxcoro.ds.channels.bounded.BoundedWriter;
 import hxcoro.ds.Out;
-import hxcoro.ds.CircularBuffer;
 import hxcoro.ds.PagedDeque;
+import hxcoro.ds.CircularBuffer;
+import hxcoro.ds.channels.bounded.BoundedWriter;
+import hxcoro.ds.channels.bounded.AtomicChannelState;
 import hxcoro.ds.channels.exceptions.ChannelClosedException;
 import hxcoro.schedulers.VirtualTimeScheduler;
 
@@ -41,7 +40,7 @@ class TestBoundedWriter extends utest.Test {
 		final buffer        = new CircularBuffer(1);
 		final writeWaiters  = new PagedDeque();
 		final readWaiters   = new PagedDeque();
-		final writer        = new BoundedWriter(buffer, writeWaiters, readWaiters, new Out(), Wait, new Mutex());
+		final writer        = new BoundedWriter(buffer, writeWaiters, readWaiters, Wait, new AtomicChannelState());
 
 		Assert.isTrue(writer.tryWrite(10));
 
@@ -55,7 +54,7 @@ class TestBoundedWriter extends utest.Test {
 		final buffer        = new CircularBuffer(1);
 		final writeWaiters  = new PagedDeque();
 		final readWaiters   = new PagedDeque();
-		final writer        = new BoundedWriter(buffer, writeWaiters, readWaiters, new Out(), Wait, new Mutex());
+		final writer        = new BoundedWriter(buffer, writeWaiters, readWaiters, Wait, new AtomicChannelState());
 		final out           = new Out();
 
 		Assert.isTrue(buffer.tryPush(5));
@@ -69,7 +68,7 @@ class TestBoundedWriter extends utest.Test {
 		final buffer        = new CircularBuffer(1);
 		final writeWaiters  = new PagedDeque();
 		final readWaiters   = new PagedDeque();
-		final writer        = new BoundedWriter(buffer, writeWaiters, readWaiters, new Out(), Wait, new Mutex());
+		final writer        = new BoundedWriter(buffer, writeWaiters, readWaiters, Wait, new AtomicChannelState());
 		final expected      = [];
 
 		readWaiters.push(new TestContinuation(expected, _ -> '1'));
@@ -84,7 +83,7 @@ class TestBoundedWriter extends utest.Test {
 		final buffer        = new CircularBuffer(2);
 		final writeWaiters  = new PagedDeque();
 		final readWaiters   = new PagedDeque();
-		final writer        = new BoundedWriter(buffer, writeWaiters, readWaiters, new Out(), Wait, new Mutex());
+		final writer        = new BoundedWriter(buffer, writeWaiters, readWaiters, Wait, new AtomicChannelState());
 		final scheduler     = new VirtualTimeScheduler();
 		final dispatcher    = new TrampolineDispatcher(scheduler);
 		final actual        = [];
@@ -105,7 +104,7 @@ class TestBoundedWriter extends utest.Test {
 		final buffer        = new CircularBuffer(2);
 		final writeWaiters  = new PagedDeque();
 		final readWaiters   = new PagedDeque();
-		final writer        = new BoundedWriter(buffer, writeWaiters, readWaiters, new Out(), Wait, new Mutex());
+		final writer        = new BoundedWriter(buffer, writeWaiters, readWaiters, Wait, new AtomicChannelState());
 		final scheduler     = new VirtualTimeScheduler();
 		final dispatcher    = new TrampolineDispatcher(scheduler);
 		final actual        = [];
@@ -128,7 +127,7 @@ class TestBoundedWriter extends utest.Test {
 		final buffer        = new CircularBuffer(2);
 		final writeWaiters  = new PagedDeque();
 		final readWaiters   = new PagedDeque();
-		final writer        = new BoundedWriter(buffer, writeWaiters, readWaiters, new Out(), Wait, new Mutex());
+		final writer        = new BoundedWriter(buffer, writeWaiters, readWaiters, Wait, new AtomicChannelState());
 		final scheduler     = new VirtualTimeScheduler();
 		final dispatcher    = new TrampolineDispatcher(scheduler);
 		final actual        = [];
@@ -152,7 +151,7 @@ class TestBoundedWriter extends utest.Test {
 		final buffer        = new CircularBuffer(2);
 		final writeWaiters  = new PagedDeque();
 		final readWaiters   = new PagedDeque();
-		final writer        = new BoundedWriter(buffer, writeWaiters, readWaiters, new Out(), Wait, new Mutex());
+		final writer        = new BoundedWriter(buffer, writeWaiters, readWaiters, Wait, new AtomicChannelState());
 		final scheduler     = new VirtualTimeScheduler();
 		final dispatcher    = new TrampolineDispatcher(scheduler);
 		final actual        = [];
@@ -180,7 +179,7 @@ class TestBoundedWriter extends utest.Test {
 		final buffer        = new CircularBuffer(2);
 		final writeWaiters  = new PagedDeque();
 		final readWaiters   = new PagedDeque();
-		final writer        = new BoundedWriter(buffer, writeWaiters, readWaiters, new Out(), Wait, new Mutex());
+		final writer        = new BoundedWriter(buffer, writeWaiters, readWaiters, Wait, new AtomicChannelState());
 		final scheduler     = new VirtualTimeScheduler();
 		final dispatcher    = new TrampolineDispatcher(scheduler);
 		final actual        = [];
@@ -209,7 +208,7 @@ class TestBoundedWriter extends utest.Test {
 		final buffer        = new CircularBuffer(1);
 		final writeWaiters  = new PagedDeque();
 		final readWaiters   = new PagedDeque();
-		final writer        = new BoundedWriter(buffer, writeWaiters, readWaiters, new Out(), Wait, new Mutex());
+		final writer        = new BoundedWriter(buffer, writeWaiters, readWaiters, Wait, new AtomicChannelState());
 		final scheduler     = new VirtualTimeScheduler();
 		final dispatcher    = new TrampolineDispatcher(scheduler);
 		final out           = new Out();
@@ -231,7 +230,7 @@ class TestBoundedWriter extends utest.Test {
 		final buffer        = new CircularBuffer(1);
 		final writeWaiters  = new PagedDeque();
 		final readWaiters   = new PagedDeque();
-		final writer        = new BoundedWriter(buffer, writeWaiters, readWaiters, new Out(), Wait, new Mutex());
+		final writer        = new BoundedWriter(buffer, writeWaiters, readWaiters, Wait, new AtomicChannelState());
 		final scheduler     = new VirtualTimeScheduler();
 		final dispatcher    = new TrampolineDispatcher(scheduler);
 		final out           = new Out();
@@ -257,7 +256,7 @@ class TestBoundedWriter extends utest.Test {
 		final maxBufferSize = 1;
 		final writeWaiters  = new PagedDeque();
 		final readWaiters   = new PagedDeque();
-		final writer        = new BoundedWriter(buffer, writeWaiters, readWaiters, new Out(), DropWrite(v -> dropped.push(v)), new Mutex());
+		final writer        = new BoundedWriter(buffer, writeWaiters, readWaiters, DropWrite(v -> dropped.push(v)), new AtomicChannelState());
 		final scheduler     = new VirtualTimeScheduler();
 		final dispatcher    = new TrampolineDispatcher(scheduler);
 		final out           = new Out();
@@ -283,7 +282,7 @@ class TestBoundedWriter extends utest.Test {
 		final dropped       = [];
 		final writeWaiters  = new PagedDeque();
 		final readWaiters   = new PagedDeque();
-		final writer        = new BoundedWriter(buffer, writeWaiters, readWaiters, new Out(), DropNewest(v -> dropped.push(v)), new Mutex());
+		final writer        = new BoundedWriter(buffer, writeWaiters, readWaiters, DropNewest(v -> dropped.push(v)), new AtomicChannelState());
 		final scheduler     = new VirtualTimeScheduler();
 		final dispatcher    = new TrampolineDispatcher(scheduler);
 		final out           = new Out();
@@ -311,7 +310,7 @@ class TestBoundedWriter extends utest.Test {
 		final dropped       = [];
 		final writeWaiters  = new PagedDeque();
 		final readWaiters   = new PagedDeque();
-		final writer        = new BoundedWriter(buffer, writeWaiters, readWaiters, new Out(), DropOldest(v -> dropped.push(v)), new Mutex());
+		final writer        = new BoundedWriter(buffer, writeWaiters, readWaiters, DropOldest(v -> dropped.push(v)), new AtomicChannelState());
 		final scheduler     = new VirtualTimeScheduler();
 		final dispatcher    = new TrampolineDispatcher(scheduler);
 		final out           = new Out();
@@ -338,7 +337,7 @@ class TestBoundedWriter extends utest.Test {
 		final buffer        = new CircularBuffer(1);
 		final writeWaiters  = new PagedDeque();
 		final readWaiters   = new PagedDeque();
-		final writer        = new BoundedWriter(buffer, writeWaiters, readWaiters, new Out(), Wait, new Mutex());
+		final writer        = new BoundedWriter(buffer, writeWaiters, readWaiters, Wait, new AtomicChannelState());
 		final scheduler     = new VirtualTimeScheduler();
 		final dispatcher    = new TrampolineDispatcher(scheduler);
 		final expected      = [];
@@ -361,7 +360,7 @@ class TestBoundedWriter extends utest.Test {
 		final buffer        = new CircularBuffer(1);
 		final writeWaiters  = new PagedDeque();
 		final readWaiters   = new PagedDeque();
-		final writer        = new BoundedWriter(buffer, writeWaiters, readWaiters, new Out(), Wait, new Mutex());
+		final writer        = new BoundedWriter(buffer, writeWaiters, readWaiters, Wait, new AtomicChannelState());
 		final scheduler     = new VirtualTimeScheduler();
 		final dispatcher    = new TrampolineDispatcher(scheduler);
 		final task          = CoroRun.with(dispatcher).create(node -> {
@@ -396,7 +395,7 @@ class TestBoundedWriter extends utest.Test {
 		final buffer        = new CircularBuffer(1);
 		final writeWaiters  = new PagedDeque();
 		final readWaiters   = new PagedDeque();
-		final writer        = new BoundedWriter(buffer, writeWaiters, readWaiters, new Out(), Wait, new Mutex());
+		final writer        = new BoundedWriter(buffer, writeWaiters, readWaiters, Wait, new AtomicChannelState());
 		final scheduler     = new VirtualTimeScheduler();
 		final dispatcher    = new TrampolineDispatcher(scheduler);
 		final out           = new Out();
@@ -423,20 +422,19 @@ class TestBoundedWriter extends utest.Test {
 		final buffer        = new CircularBuffer(1);
 		final writeWaiters  = new PagedDeque();
 		final readWaiters   = new PagedDeque();
-		final closed        = new Out();
-		final writer        = new BoundedWriter(buffer, writeWaiters, readWaiters, closed, Wait, new Mutex());
+		final state         = new AtomicChannelState();
+		final writer        = new BoundedWriter(buffer, writeWaiters, readWaiters, Wait, state);
 
-		closed.set(false);
 		writer.close();
 
-		Assert.isTrue(closed.get());
+		Assert.same(Closed, state.load());
 	}
 
 	function test_try_write_when_closed() {
 		final buffer        = new CircularBuffer(1);
 		final writeWaiters  = new PagedDeque();
 		final readWaiters   = new PagedDeque();
-		final writer        = new BoundedWriter(buffer, writeWaiters, readWaiters, new Out(), Wait, new Mutex());
+		final writer        = new BoundedWriter(buffer, writeWaiters, readWaiters, Wait, new AtomicChannelState());
 
 		writer.close();
 
@@ -448,7 +446,7 @@ class TestBoundedWriter extends utest.Test {
 		final buffer        = new CircularBuffer(1);
 		final writeWaiters  = new PagedDeque();
 		final readWaiters   = new PagedDeque();
-		final writer        = new BoundedWriter(buffer, writeWaiters, readWaiters, new Out(), Wait, new Mutex());
+		final writer        = new BoundedWriter(buffer, writeWaiters, readWaiters, Wait, new AtomicChannelState());
 		final scheduler     = new VirtualTimeScheduler();
 		final dispatcher    = new TrampolineDispatcher(scheduler);
 		final actual        = [];
@@ -468,7 +466,7 @@ class TestBoundedWriter extends utest.Test {
 		final buffer        = new CircularBuffer(1);
 		final writeWaiters  = new PagedDeque();
 		final readWaiters   = new PagedDeque();
-		final writer        = new BoundedWriter(buffer, writeWaiters, readWaiters, new Out(), Wait, new Mutex());
+		final writer        = new BoundedWriter(buffer, writeWaiters, readWaiters, Wait, new AtomicChannelState());
 		final scheduler     = new VirtualTimeScheduler();
 		final dispatcher    = new TrampolineDispatcher(scheduler);
 		final actual        = [];
@@ -488,7 +486,7 @@ class TestBoundedWriter extends utest.Test {
 		final buffer        = new CircularBuffer(1);
 		final writeWaiters  = new PagedDeque();
 		final readWaiters   = new PagedDeque();
-		final writer        = new BoundedWriter(buffer, writeWaiters, readWaiters, new Out(), Wait, new Mutex());
+		final writer        = new BoundedWriter(buffer, writeWaiters, readWaiters, Wait, new AtomicChannelState());
 		final scheduler     = new VirtualTimeScheduler();
 		final dispatcher    = new TrampolineDispatcher(scheduler);
 		final actual        = [];
@@ -513,7 +511,7 @@ class TestBoundedWriter extends utest.Test {
 		final buffer        = new CircularBuffer(1);
 		final writeWaiters  = new PagedDeque();
 		final readWaiters   = new PagedDeque();
-		final writer        = new BoundedWriter(buffer, writeWaiters, readWaiters, new Out(), Wait, new Mutex());
+		final writer        = new BoundedWriter(buffer, writeWaiters, readWaiters, Wait, new AtomicChannelState());
 		final scheduler     = new VirtualTimeScheduler();
 		final dispatcher    = new TrampolineDispatcher(scheduler);
 		final actual        = [];
