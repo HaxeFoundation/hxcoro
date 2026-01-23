@@ -216,22 +216,23 @@ private class Worker {
 			if (shutdownCallback != null) {
 				break;
 			}
+			BackOff.backOff();
 			// If we did nothing, wait for the condition variable.
-			if (cond.tryAcquire()) {
-				if (activity.activeWorkers == 1) {
-					// TODO: just keep one worker thread alive for now to deal with synchronization failures
-					cond.release();
-					BackOff.backOff();
-					continue;
-				}
-				// These modifications are fine because we hold onto the cond mutex.
-				--activity.activeWorkers;
-				cond.wait();
-				++activity.activeWorkers;
-				cond.release();
-			} else {
-				BackOff.backOff();
-			}
+			// if (cond.tryAcquire()) {
+			// 	if (activity.activeWorkers == 1) {
+			// 		// TODO: just keep one worker thread alive for now to deal with synchronization failures
+			// 		cond.release();
+			// 		BackOff.backOff();
+			// 		continue;
+			// 	}
+			// 	// These modifications are fine because we hold onto the cond mutex.
+			// 	--activity.activeWorkers;
+			// 	cond.wait();
+			// 	++activity.activeWorkers;
+			// 	cond.release();
+			// } else {
+			// 	BackOff.backOff();
+			// }
 		}
 	}
 
