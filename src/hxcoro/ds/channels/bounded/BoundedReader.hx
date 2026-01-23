@@ -31,12 +31,12 @@ private final class WaitContinuation<T> implements IContinuation<Bool> {
 	}
 
 	public function resume(result:Bool, error:Exception) {
-		final result = if (false == result) {	
+		final result = if (false == result) {
 			buffer.wasEmpty();
 		} else {
 			true;
 		}
-		
+
 		cont.succeedAsync(result);
 	}
 }
@@ -62,17 +62,17 @@ final class BoundedReader<T> implements IChannelReader<T> {
 			return if (buffer.tryPopTail(out)) {
 				final out       = new Out();
 				final hasWaiter = writeWaiters.tryPop(out);
-	
+
 				state.store(Open);
-	
+
 				if (hasWaiter) {
 					out.get().succeedAsync(true);
 				}
-	
+
 				true;
 			} else {
 				state.store(Open);
-	
+
 				false;
 			}
 		} else {
@@ -128,6 +128,7 @@ final class BoundedReader<T> implements IChannelReader<T> {
 			cont.onCancellationRequested = _ -> {
 				if (state.lock()) {
 					readWaiters.remove(hostPage, obj);
+					state.store(Open);
 				}
 			}
 		});

@@ -128,6 +128,7 @@ final class BoundedWriter<T> implements IChannelWriter<T> {
 				cont.onCancellationRequested = _ -> {
 					if (state.lock()) {
 						writeWaiters.remove(hostPage, cont);
+						state.store(Open);
 					}
 				}
 			});
