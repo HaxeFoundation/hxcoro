@@ -1,6 +1,7 @@
 package hxcoro.ds.channels.bounded;
 
 import haxe.Exception;
+import hxcoro.concurrent.BackOff;
 import haxe.coro.IContinuation;
 import haxe.coro.context.Context;
 import hxcoro.ds.Out;
@@ -78,7 +79,7 @@ final class BoundedReader<T> implements IChannelReader<T> {
 						false;
 					}
 				case Locked:
-					// loop
+					BackOff.backOff();
 				case Closed:
 					while (true) {
 						switch state.compareExchange(Closed, Locked) {
@@ -89,7 +90,7 @@ final class BoundedReader<T> implements IChannelReader<T> {
 
 								return result;
 							case _:
-								//
+								BackOff.backOff();
 						}
 					}
 			}

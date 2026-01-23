@@ -1,6 +1,7 @@
 package hxcoro.ds.channels.bounded;
 
 import hxcoro.concurrent.AtomicState;
+import hxcoro.concurrent.BackOff;
 
 enum abstract ChannelState(Int) to Int {
 	final Open;
@@ -20,7 +21,7 @@ abstract AtomicChannelState(AtomicState<ChannelState>) {
 				case Open:
 					return true;
 				case Locked:
-					// loop
+					BackOff.backOff();
 				case Closed:
 					return false;
 			}
