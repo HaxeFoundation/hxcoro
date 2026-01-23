@@ -217,6 +217,22 @@ private class Worker {
 				inShutdown = false;
 				continue;
 			}
+			// TODO: Hack to keep one worker alive at all times until I've figured
+			// out what's going wrong.
+			if (ownQueueIndex == 1) {
+				if (shutdownCallback != null) {
+					if (inShutdown) {
+						--activity.activeWorkers;
+						--activity.availableWorkers;
+						break;
+					} else {
+						inShutdown = true;
+						continue;
+					}
+				} else {
+					continue;
+				}
+			}
 			// If we did nothing, wait for the condition variable.
 			if (cond.tryAcquire()) {
 				if (shutdownCallback != null) {
