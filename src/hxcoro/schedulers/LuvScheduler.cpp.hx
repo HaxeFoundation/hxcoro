@@ -1,5 +1,7 @@
 package hxcoro.schedulers;
 
+import cpp.luv.Work;
+import haxe.coro.dispatchers.Dispatcher;
 import haxe.atomic.AtomicInt;
 import sys.thread.Deque;
 import haxe.Int64;
@@ -131,10 +133,10 @@ class LuvScheduler implements IScheduler {
 	/**
 		Creates a new `LuvScheduler` instance.
 	**/
-	public function new(loop:LuvLoop) {
-		this.loop = loop;
-		eventQueue = new AsyncDeque(loop, loopEvents);
-		closeQueue = new AsyncDeque(loop, loopCloses);
+	public function new(loop:LuvLoop, eventQueue:AsyncDeque<LuvTimerEvent>, closeQueue:AsyncDeque<LuvTimerEvent>) {
+		this.loop       = loop;
+		this.eventQueue = eventQueue;
+		this.closeQueue = closeQueue;
 	}
 
 	@:inheritDoc
@@ -147,6 +149,32 @@ class LuvScheduler implements IScheduler {
 	@:inheritDoc
 	public function now() {
 		return haxe.Timer.milliseconds(); // TODO: where?
+	}
+}
+
+class LuvDispatcher extends Dispatcher
+{
+	final loop:LuvLoop;
+	final s : LuvScheduler;
+	final workQueue:AsyncDeque<()->Void>;
+	final eventQueue:AsyncDeque<LuvTimerEvent>;
+	final closeQueue:AsyncDeque<LuvTimerEvent>;
+
+	function get_scheduler():IScheduler {
+		return s;
+	}
+
+	public function new(loop) {
+		this.loop = loop;
+
+		workQueue  = new AsyncDeque(loop, loopWork);
+		eventQueue = new AsyncDeque(loop, loopEvents);
+		closeQueue = new AsyncDeque(loop, loopCloses);
+		s          = new LuvScheduler(loop, eventQueue, closeQueue);
+	}
+
+	public function dispatch(obj:IDispatchObject) {
+		workQueue.add(obj.onDispatch);
 	}
 
 	inline function consumeDeque<T>(deque:AsyncDeque<T>, f:T->Void) {
@@ -167,7 +195,14 @@ class LuvScheduler implements IScheduler {
 		consumeDeque(closeQueue, event -> event.stop());
 	}
 
+	function loopWork() {
+		consumeDeque(workQueue, event -> {
+			Work.queue(loop, event);
+		});
+	}
+
 	public function shutdown() {
+		workQueue.close();
 		eventQueue.close();
 		closeQueue.close();
 		loopCloses();

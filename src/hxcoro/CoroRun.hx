@@ -126,19 +126,17 @@ class CoroRun {
 
 	static public function runWith<T>(context:Context, lambda:NodeLambda<T>):T {
 		final loop = cpp.luv.Luv.allocLoop();
-		final scheduler = new hxcoro.schedulers.LuvScheduler(loop);
-		final pool = new hxcoro.thread.FixedThreadPool(2);
-		final dispatcher = new hxcoro.dispatchers.ThreadPoolDispatcher(scheduler, pool);
+		final dispatcher = new hxcoro.schedulers.LuvScheduler.LuvDispatcher(loop);
 
 		final scope = new CoroTask(context.clone().with(dispatcher), CoroTask.CoroScopeStrategy);
 		scope.onCompletion((_, _) -> {
-			scheduler.shutdown();
+			dispatcher.shutdown();
 		});
 		scope.runNodeLambda(lambda);
 
 		cpp.luv.Luv.runLoop(loop, Default);
 		cpp.luv.Luv.freeLoop(loop);
-		pool.shutdown();
+		// dispatcher.shutdown();
 
 		switch (scope.getError()) {
 			case null:
