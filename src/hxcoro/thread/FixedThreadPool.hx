@@ -29,11 +29,11 @@ class TlsQueue {
 
 private class WorkerActivity {
 	public var activeWorkers:Int;
-	public var eventAdded:Bool;
+	public var availableWorkers:Int;
 
 	public function new(activeWorkers:Int) {
 		this.activeWorkers = activeWorkers;
-		eventAdded = false;
+		this.availableWorkers = activeWorkers;
 	}
 }
 
@@ -134,7 +134,7 @@ class FixedThreadPool implements IThreadPool {
 	public function dump() {
 		Sys.println("FixedThreadPool");
 		Sys.println('\tisShutdown: $isShutdown');
-		Sys.println('\tactive workers: ${activity.activeWorkers}/${pool.length}');
+		Sys.println('\tworkers (active/available/total): ${activity.activeWorkers}/${activity.availableWorkers}/${pool.length}');
 		Sys.print('\tqueue 0: ');
 		queue.dump();
 		for (worker in pool) {
@@ -184,11 +184,14 @@ private class Worker {
 	}
 
 	public function shutDown(callback:() -> Void) {
+		cond.acquire();
 		shutdownCallback = callback;
+		cond.release();
 	}
 
 	function loop() {
 		var index = ownQueueIndex;
+		var inShutdown = false;
 		while(true) {
 			var didSomething = false;
 			while (true) {
@@ -211,17 +214,25 @@ private class Worker {
 			}
 			// index == ownQueueIndex here
 			if (didSomething) {
+				inShutdown = false;
 				continue;
-			}
-			if (shutdownCallback != null) {
-				break;
 			}
 			// If we did nothing, wait for the condition variable.
 			if (cond.tryAcquire()) {
+				if (shutdownCallback != null) {
+					if (inShutdown) {
+						--activity.activeWorkers;
+						--activity.availableWorkers;
+						cond.release();
+						break;
+					} else {
+						inShutdown = true;
+						cond.release();
+						continue;
+					}
+				}
 				if (activity.activeWorkers == 1) {
-					// TODO: just keep one worker thread alive for now to deal with synchronization failures
 					cond.release();
-					BackOff.backOff();
 					continue;
 				}
 				// These modifications are fine because we hold onto the cond mutex.
@@ -243,9 +254,6 @@ private class Worker {
 			start();
 			throw e;
 		}
-		cond.acquire();
-		--activity.activeWorkers;
-		cond.release();
 		shutdownCallback();
 	}
 }
