@@ -235,9 +235,15 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 	@:coroutine public function awaitChildren() {
 		startChildren();
 		Coro.suspend(cont -> {
+			// Preemptively set the value in case `childrenCompleted` happens.
 			awaitingChildContinuation.store(cont);
 			if (firstChild.load() == null) {
-				cont.callSync();
+				// There's no child now and we know that none can appear because this
+				// function is part of the single-threaded API. However, we don't know
+				// if `childrenCompleted` might have occured, so we need to synchronize.
+				if (awaitingChildContinuation.store(null) == cont) {
+					cont.callAsync();
+				}
 				return;
 			}
 		});
