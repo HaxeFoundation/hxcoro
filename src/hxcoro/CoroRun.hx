@@ -133,6 +133,7 @@ class CoroRun {
 
 		var start = scheduler.now();
 		while (scope.isActive()) {
+			scheduler.run();
 			if (scheduler.now() - start > 10000) {
 				scope.dump();
 				pool.dump();
