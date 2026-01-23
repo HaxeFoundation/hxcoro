@@ -8,7 +8,7 @@ import hxcoro.task.AbstractTask;
 import haxe.coro.IContinuation;
 import haxe.coro.context.Key;
 import haxe.coro.context.Context;
-import haxe.coro.schedulers.IScheduleObject;
+import haxe.coro.dispatchers.IDispatchObject;
 import haxe.Exception;
 
 class CoroTask<T> extends CoroBaseTask<T> implements IContinuation<T> {
@@ -70,7 +70,7 @@ class CoroTask<T> extends CoroBaseTask<T> implements IContinuation<T> {
 	}
 }
 
-class CoroTaskWithLambda<T> extends CoroTask<T> implements IScheduleObject {
+class CoroTaskWithLambda<T> extends CoroTask<T> implements IDispatchObject {
 	final lambda:NodeLambda<T>;
 
 	/**
@@ -81,7 +81,7 @@ class CoroTaskWithLambda<T> extends CoroTask<T> implements IScheduleObject {
 		this.lambda = lambda;
 	}
 
-	public function onSchedule() {
+	public function onDispatch() {
 		runNodeLambda(lambda);
 	}
 }

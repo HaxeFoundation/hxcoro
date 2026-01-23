@@ -1,34 +1,32 @@
 package hxcoro.schedulers;
 
-import haxe.ds.Vector;
 import haxe.Timer;
 import haxe.Int64;
+import haxe.ds.Vector;
 import haxe.coro.Mutex;
-import hxcoro.dispatchers.IDispatcher;
-import hxcoro.dispatchers.SelfDispatcher;
-import haxe.coro.schedulers.Scheduler;
-import haxe.coro.schedulers.IScheduleObject;
-import haxe.coro.schedulers.ISchedulerHandle;
 import haxe.exceptions.ArgumentException;
+import haxe.coro.schedulers.IScheduler;
+import haxe.coro.schedulers.ISchedulerHandle;
+import haxe.coro.dispatchers.IDispatchObject;
 
 private typedef Lambda = ()->Void;
 
-private class ScheduledEvent implements ISchedulerHandle implements IScheduleObject {
+private class ScheduledEvent implements ISchedulerHandle implements IDispatchObject {
 	var func : Null<Lambda>;
 	public final runTime : Int64;
-	var childEvents:Array<IScheduleObject>;
+	var childEvents:Array<IDispatchObject>;
 
 	public function new(func, runTime) {
 		this.func    = func;
 		this.runTime = runTime;
 	}
 
-	public function addChildEvent(event:IScheduleObject) {
+	public function addChildEvent(event:IDispatchObject) {
 		childEvents ??= [];
 		childEvents.push(event);
 	}
 
-	public inline function onSchedule() {
+	public inline function onDispatch() {
 		final func = func;
 		if (func != null) {
 			this.func = null;
@@ -39,12 +37,12 @@ private class ScheduledEvent implements ISchedulerHandle implements IScheduleObj
 			final childEvents = childEvents;
 			this.childEvents = null;
 			for (childEvent in childEvents) {
-				childEvent.onSchedule();
+				childEvent.onDispatch();
 			}
 		}
 	}
 
-	public function iterateEvents(f:IScheduleObject->Void) {
+	public function iterateEvents(f:IDispatchObject->Void) {
 		final childEvents = childEvents;
 		this.childEvents = null;
 		f(this);
@@ -200,17 +198,13 @@ private class MinimumHeap {
 	}
 }
 
-class EventLoopScheduler extends Scheduler {
+class EventLoopScheduler implements IScheduler {
 	final futureMutex : Mutex;
 	final heap : MinimumHeap;
-	final dispatcher : IDispatcher;
 
-	public function new(?dispatcher:IDispatcher) {
-		super();
-
+	public function new() {
 		futureMutex  = new Mutex();
 		heap         = new MinimumHeap();
-		this.dispatcher = dispatcher ?? new SelfDispatcher();
 	}
 
 	public function hasEvents() {
@@ -233,13 +227,13 @@ class EventLoopScheduler extends Scheduler {
 		return event;
     }
 
-	public function scheduleObject(obj:IScheduleObject) {
+	public function scheduleObject(obj:IDispatchObject) {
 		futureMutex.acquire();
 		final currentTime = now();
 		final first = heap.minimum();
 		if (first == null || first.runTime > currentTime) {
 			// add normal event at front
-			final event = new ScheduledEvent(() -> obj.onSchedule(), currentTime);
+			final event = new ScheduledEvent(() -> obj.onDispatch(), currentTime);
 			heap.insert(event);
 		} else {
 			// attach to first event
@@ -264,7 +258,7 @@ class EventLoopScheduler extends Scheduler {
 			final toRun = heap.extract();
 			futureMutex.release();
 
-			toRun.iterateEvents(dispatch);
+			toRun.onDispatch();
 		}
 
 		futureMutex.release();
@@ -272,9 +266,5 @@ class EventLoopScheduler extends Scheduler {
 
 	public function toString() {
 		return '[EventLoopScheduler]';
-	}
-
-	function dispatch(obj:IScheduleObject) {
-		dispatcher.dispatch(obj);
 	}
 }

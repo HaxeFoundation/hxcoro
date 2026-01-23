@@ -1,5 +1,6 @@
 package ds.channels;
 
+import hxcoro.dispatchers.TrampolineDispatcher;
 import haxe.coro.Mutex;
 import haxe.ds.Option;
 import hxcoro.schedulers.VirtualTimeScheduler;
@@ -21,7 +22,8 @@ class TestBoundedChannel extends utest.Test {
 		final size = 100;
 		final channel = Channel.createBounded({ size : 3 });
 		final scheduler = new VirtualTimeScheduler();
-		final task = CoroRun.with(scheduler).create(node -> {
+		final dispatcher = new TrampolineDispatcher(scheduler);
+		final task = CoroRun.with(dispatcher).create(node -> {
 			final output = [];
 			final writer = node.async(_ -> {
 				var i = size;
@@ -55,7 +57,8 @@ class TestBoundedChannel extends utest.Test {
 		final actual    = [];
 		final channel   = Channel.createBounded({ size : 2 });
 		final scheduler = new VirtualTimeScheduler();
-		final task      = CoroRun.with(scheduler).create(node -> {
+		final dispatcher = new TrampolineDispatcher(scheduler);
+		final task      = CoroRun.with(dispatcher).create(node -> {
 			channel.write('Hello');
 			channel.write('World');
 
@@ -75,7 +78,8 @@ class TestBoundedChannel extends utest.Test {
 		final actual    = [];
 		final channel   = Channel.createBounded({ size : 1 });
 		final scheduler = new VirtualTimeScheduler();
-		final task      = CoroRun.with(scheduler).create(node -> {
+		final dispatcher = new TrampolineDispatcher(scheduler);
+		final task      = CoroRun.with(dispatcher).create(node -> {
 			channel.write('dummy');
 
 			node.async(_ -> {
@@ -101,96 +105,99 @@ class TestBoundedChannel extends utest.Test {
 		Assert.same([ 'dummy', 'Hello', 'World' ], actual);
 	}
 
-	// function test_write_cancellation() {
-	// 	final actual     = [];
-	// 	final exceptions = [];
-	// 	final channel    = Channel.createBounded({ size : 1 });
-	// 	final scheduler  = new VirtualTimeScheduler();
-	// 	final task       = CoroRun.with(scheduler).create(node -> {
-	// 		channel.write('dummy');
+		function test_write_cancellation() {
+		final actual     = [];
+		final exceptions = [];
+		final channel    = Channel.createBounded({ size : 1 });
+		final scheduler  = new VirtualTimeScheduler();
+		final dispatcher = new TrampolineDispatcher(scheduler);
+		final task       = CoroRun.with(dispatcher).create(node -> {
+			channel.write('dummy');
 
-	// 		node.async(_ -> {
-	// 			try {
-	// 				timeout(100, _ -> {
-	// 					channel.write('Hello');
-	// 				});
-	// 			} catch (_:TimeoutException) {
-	// 				exceptions.push(scheduler.now());
-	// 			}
-	// 		});
+			node.async(_ -> {
+				try {
+					timeout(100, _ -> {
+						channel.write('Hello');
+					});
+				} catch (_:TimeoutException) {
+					exceptions.push(scheduler.now());
+				}
+			});
 
-	// 		node.async(_ -> {
-	// 			channel.write('World');
-	// 		});
+			node.async(_ -> {
+				channel.write('World');
+			});
 
-	// 		delay(200);
+			delay(200);
 
-	// 		Assert.equals('dummy', channel.read());
+			Assert.equals('dummy', channel.read());
 
-	// 		actual.push(channel.read());
-	// 	});
+			actual.push(channel.read());
+		});
 
-	// 	task.start();
+		task.start();
 
-	// 	scheduler.advanceBy(99);
-	// 	Assert.same([], actual);
+		scheduler.advanceBy(99);
+		Assert.same([], actual);
 
-	// 	scheduler.advanceBy(1);
-	// 	Assert.same([], actual);
-	// 	Assert.equals(1, exceptions.length);
-	// 	Assert.isTrue(100i64 == exceptions[0]);
+		scheduler.advanceBy(1);
+		Assert.same([], actual);
+		Assert.equals(1, exceptions.length);
+		Assert.isTrue(100i64 == exceptions[0]);
 
-	// 	scheduler.advanceBy(100);
-	// 	Assert.same([ 'World' ], actual);
+		scheduler.advanceBy(100);
+		Assert.same([ 'World' ], actual);
 
-	// 	Assert.isFalse(task.isActive());
-	// }
+		Assert.isFalse(task.isActive());
+	}
 
-	// function test_read_cancellation() {
-	// 	final actual     = [];
-	// 	final exceptions = [];
-	// 	final channel    = Channel.createBounded({ size : 1 });
-	// 	final scheduler  = new VirtualTimeScheduler();
-	// 	final task       = CoroRun.with(scheduler).create(node -> {
-	// 		node.async(_ -> {
-	// 			try {
-	// 				timeout(100, _ -> {
-	// 					return channel.read();
-	// 				});
-	// 			} catch(_:TimeoutException) {
-	// 				exceptions.push(scheduler.now());
-	// 				"";
-	// 			}
-	// 		});
+	function test_read_cancellation() {
+		final actual     = [];
+		final exceptions = [];
+		final channel    = Channel.createBounded({ size : 1 });
+		final scheduler  = new VirtualTimeScheduler();
+		final dispatcher = new TrampolineDispatcher(scheduler);
+		final task       = CoroRun.with(dispatcher).create(node -> {
+			node.async(_ -> {
+				try {
+					timeout(100, _ -> {
+						return channel.read();
+					});
+				} catch(_:TimeoutException) {
+					exceptions.push(scheduler.now());
+					"";
+				}
+			});
 
-	// 		node.async(_ -> {
-	// 			actual.push(channel.read());
-	// 		});
+			node.async(_ -> {
+				actual.push(channel.read());
+			});
 
-	// 		delay(200);
+			delay(200);
 
-	// 		channel.write('Hello');
-	// 	});
+			channel.write('Hello');
+		});
 
-	// 	task.start();
+		task.start();
 
-	// 	scheduler.advanceBy(100);
+		scheduler.advanceBy(100);
 
-	// 	Assert.isTrue(task.isActive());
-	// 	Assert.same([], actual);
-	// 	Assert.equals(1, exceptions.length);
-	// 	Assert.isTrue(100i64 == exceptions[0]);
+		Assert.isTrue(task.isActive());
+		Assert.same([], actual);
+		Assert.equals(1, exceptions.length);
+		Assert.isTrue(100i64 == exceptions[0]);
 
-	// 	scheduler.advanceBy(100);
+		scheduler.advanceBy(100);
 
-	// 	Assert.isFalse(task.isActive());
-	// 	Assert.same([ 'Hello' ], actual);
-	// }
+		Assert.isFalse(task.isActive());
+		Assert.same([ 'Hello' ], actual);
+	}
 
 	function test_try_read() {
 		final channel = Channel.createBounded({ size : 1 });
 		final scheduler = new VirtualTimeScheduler();
-		final task = CoroRun.with(scheduler).create(node -> {
+		final dispatcher = new TrampolineDispatcher(scheduler);
+		final task = CoroRun.with(dispatcher).create(node -> {
 			final output = [];
 			node.async(node -> {
 				var out = new Out();
@@ -274,7 +281,7 @@ class TestBoundedChannel extends utest.Test {
 	// 		todoHoisting = 0;
 	// 		final channel = Channel.createBounded(bufferSize);
 	// 		final scheduler = new VirtualTimeScheduler();
-	// 		final task = CoroRun.with(scheduler).create(node -> {
+	// 		final task = CoroRun.with(scheduler, dispatcher).create(node -> {
 	// 			for (i in 0...size) {
 	// 				node.async(_ -> channel.write(todoHoisting++));
 	// 			}

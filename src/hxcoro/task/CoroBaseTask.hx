@@ -1,7 +1,8 @@
 package hxcoro.task;
 
+import hxcoro.concurrent.AtomicState;
 import hxcoro.concurrent.AtomicObject;
-import haxe.coro.Mutex;
+import hxcoro.concurrent.BackOff;
 import hxcoro.components.NonCancellable;
 import hxcoro.task.CoroTask;
 import hxcoro.task.node.INodeStrategy;
@@ -14,7 +15,7 @@ import haxe.coro.IContinuation;
 import haxe.coro.context.Context;
 import haxe.coro.context.Key;
 import haxe.coro.context.IElement;
-import haxe.coro.schedulers.Scheduler;
+import haxe.coro.dispatchers.Dispatcher;
 import haxe.coro.cancellation.CancellationToken;
 
 private class CoroTaskWith<T> implements ICoroNodeWith {
@@ -33,7 +34,7 @@ private class CoroTaskWith<T> implements ICoroNodeWith {
 
 	public function async<T>(lambda:NodeLambda<T>):ICoroTask<T> {
 		final child = new CoroTaskWithLambda(context, lambda, CoroTask.CoroChildStrategy);
-		context.get(Scheduler).scheduleObject(child);
+		context.get(Dispatcher).dispatch(child);
 		return child;
 	}
 
@@ -69,27 +70,36 @@ private class CallbackContinuation<T> implements IContinuation<T> {
 	}
 }
 
+enum abstract StackState(Int) to Int {
+	final Ready;
+	final Modifying;
+}
+
 class ArrayFixThisLater<T> {
-	final array:Array<T>;
-	final mutex:Mutex;
+	var array:Array<T>;
+	final state:AtomicState<StackState>;
 
 	public function new() {
 		array = [];
-		mutex = new Mutex();
+		state = new AtomicState(Ready);
 	}
 
 	public function push(v:T) {
-		mutex.acquire();
+		while (state.compareExchange(Ready, Modifying) != Ready) {
+			BackOff.backOff();
+		};
 		final r = array.push(v);
-		mutex.release();
+		state.store(Ready);
 		return r;
 	}
 
 	public function exchangeIGuess() {
-		mutex.acquire();
-		final ret = array.copy();
-		array.resize(0);
-		mutex.release();
+		while (state.compareExchange(Ready, Modifying) != Ready) {
+			BackOff.backOff();
+		};
+		final ret = array;
+		array = [];
+		state.store(Ready);
 		return ret;
 	}
 }
@@ -160,7 +170,7 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 	**/
 	public function async<T>(lambda:NodeLambda<T>):ICoroTask<T> {
 		final child = new CoroTaskWithLambda<T>(context, lambda, CoroTask.CoroChildStrategy);
-		context.get(Scheduler).scheduleObject(child);
+		context.get(Dispatcher).dispatch(child);
 		return child;
 	}
 
@@ -225,9 +235,15 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 	@:coroutine public function awaitChildren() {
 		startChildren();
 		Coro.suspend(cont -> {
+			// Preemptively set the value in case `childrenCompleted` happens.
 			awaitingChildContinuation.store(cont);
 			if (firstChild.load() == null) {
-				cont.callSync();
+				// There's no child now and we know that none can appear because this
+				// function is part of the single-threaded API. However, we don't know
+				// if `childrenCompleted` might have occured, so we need to synchronize.
+				if (awaitingChildContinuation.exchange(null) == cont) {
+					cont.callAsync();
+				}
 				return;
 			}
 		});

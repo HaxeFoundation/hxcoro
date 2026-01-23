@@ -1,7 +1,7 @@
 package issues.aidan;
 
 import haxe.ValueException;
-import haxe.coro.schedulers.Scheduler;
+import haxe.coro.schedulers.IScheduler;
 import hxcoro.schedulers.VirtualTimeScheduler;
 import haxe.coro.context.Key;
 import haxe.coro.context.IElement;

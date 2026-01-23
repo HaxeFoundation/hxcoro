@@ -3,12 +3,13 @@ package hxcoro;
 import haxe.coro.Coroutine;
 import haxe.coro.context.Context;
 import haxe.coro.context.IElement;
-import hxcoro.schedulers.EventLoopScheduler;
 import hxcoro.schedulers.HaxeTimerScheduler;
-import hxcoro.task.ICoroTask;
 import hxcoro.task.CoroTask;
-import hxcoro.task.StartableCoroTask;
+import hxcoro.task.ICoroTask;
 import hxcoro.task.NodeLambda;
+import hxcoro.task.StartableCoroTask;
+import hxcoro.schedulers.EventLoopScheduler;
+import hxcoro.dispatchers.TrampolineDispatcher;
 
 abstract RunnableContext(ElementTree) {
 	inline function new(tree:ElementTree) {
@@ -67,7 +68,9 @@ class CoroRun {
 	}
 
 	static function promiseImpl<T>(lambda:NodeLambda<T>) {
-		final task = new CoroTask(defaultContext.clone().with(new HaxeTimerScheduler()), CoroTask.CoroScopeStrategy);
+		final scheduler = new HaxeTimerScheduler();
+		final dispatcherComponent = new TrampolineDispatcher(scheduler);
+		final task = new CoroTask(defaultContext.clone().with(dispatcherComponent), CoroTask.CoroScopeStrategy);
 		task.runNodeLambda(lambda);
 
 		return new js.lib.Promise((resolve, reject) -> {
@@ -94,19 +97,19 @@ class CoroRun {
 
 	#end
 
-	#if (eval && !macro)
+	#if (false && (eval && !macro))
 
 	static public function runWith<T>(context:Context, lambda:NodeLambda<T>):T {
 		final loop = eval.luv.Loop.init().resolve();
 		final pool = new hxcoro.thread.FixedThreadPool(1);
-		final dispatcher = new hxcoro.dispatchers.ThreadPoolDispatcher(pool);
-		final schedulerComponent = new hxcoro.schedulers.LuvScheduler(loop);
+		final scheduler = new hxcoro.schedulers.LuvScheduler(loop);
+		final dispatcher = new hxcoro.dispatchers.ThreadPoolDispatcher(scheduler, pool);
 
-		final scope = new CoroTask(context.clone().with(schedulerComponent), CoroTask.CoroScopeStrategy);
-		scope.onCompletion((_, _) -> schedulerComponent.shutdown());
+		final scope = new CoroTask(context.clone().with(dispatcher), CoroTask.CoroScopeStrategy);
+		scope.onCompletion((_, _) -> scheduler.shutdown());
 		scope.runNodeLambda(lambda);
 
-		while (loop.run(DEFAULT)) {}
+		while (loop.run(NOWAIT)) { }
 
 		pool.shutdown();
 		loop.close();
@@ -122,8 +125,9 @@ class CoroRun {
 	#else
 
 	static public function runWith<T>(context:Context, lambda:NodeLambda<T>):T {
-		final schedulerComponent = new EventLoopScheduler();
-		final scope = new CoroTask(context.clone().with(schedulerComponent), CoroTask.CoroScopeStrategy);
+		final schedulerComponent  = new EventLoopScheduler();
+		final dispatcherComponent = new TrampolineDispatcher(schedulerComponent);
+		final scope = new CoroTask(context.clone().with(dispatcherComponent), CoroTask.CoroScopeStrategy);
 		scope.runNodeLambda(lambda);
 
 		while (scope.isActive()) {

@@ -1,5 +1,6 @@
 package structured;
 
+import hxcoro.dispatchers.TrampolineDispatcher;
 import haxe.Exception;
 import hxcoro.schedulers.VirtualTimeScheduler;
 
@@ -77,8 +78,9 @@ class TestThrowingScopes extends utest.Test {
 	}
 
 	public function test_child_throwing_cancelling_parent() {
-		final scheduler = new VirtualTimeScheduler();
-		final task      = CoroRun.with(scheduler).create(node -> {
+		final scheduler  = new VirtualTimeScheduler();
+		final dispatcher = new TrampolineDispatcher(scheduler);
+		final task       = CoroRun.with(dispatcher).create(node -> {
 			final child = node.async(node -> {
 				delay(1000);
 
@@ -99,8 +101,9 @@ class TestThrowingScopes extends utest.Test {
 	}
 
 	public function test_manually_cancelling_child() {
-		final scheduler = new VirtualTimeScheduler();
-		final task      = CoroRun.with(scheduler).create(node -> {
+		final scheduler  = new VirtualTimeScheduler();
+		final dispatcher = new TrampolineDispatcher(scheduler);
+		final task       = CoroRun.with(dispatcher).create(node -> {
 			final child = node.async(node -> {
 				delay(1000);
 			});
@@ -118,8 +121,9 @@ class TestThrowingScopes extends utest.Test {
 	}
 
 	public function test_manually_cancelling_polling_child() {
-		final scheduler = new VirtualTimeScheduler();
-		final task      = CoroRun.with(scheduler).create(node -> {
+		final scheduler  = new VirtualTimeScheduler();
+		final dispatcher = new TrampolineDispatcher(scheduler);
+		final task       = CoroRun.with(dispatcher).create(node -> {
 			final child = node.async(node -> {
 				while (true) {
 					delay(1);

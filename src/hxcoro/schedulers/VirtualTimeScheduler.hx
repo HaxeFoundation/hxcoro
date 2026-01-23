@@ -8,7 +8,7 @@ class VirtualTimeScheduler extends EventLoopScheduler {
 	var currentTime : Int64;
 
 	public function new() {
-		super(new SelfDispatcher());
+		super();
 
 		currentTime = 0i64;
 	}
@@ -45,7 +45,7 @@ class VirtualTimeScheduler extends EventLoopScheduler {
 
 			final toRun = heap.extract();
 			currentTime = toRun.runTime;
-			toRun.onSchedule();
+			toRun.onDispatch();
 		}
 
 		currentTime = endTime;
