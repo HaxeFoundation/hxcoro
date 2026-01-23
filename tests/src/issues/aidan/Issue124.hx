@@ -90,32 +90,32 @@ class NumberProducer {
 }
 
 class Issue124 extends utest.Test {
-	// function test() {
-	// 	final result = CoroRun.runScoped(node -> {
-	// 		final numbers = node.produceNumbers();
-	// 		final squares = node.square(numbers);
-	// 		final result = [for (i in 1...10) {
-	// 			squares.receive();
-	// 		}];
-	// 		node.cancelChildren();
-	// 		result;
-	// 	});
-	// 	Assert.same([1, 4, 9, 16, 25, 36, 49, 64, 81], result);
-	// }
+	function test() {
+		final result = CoroRun.runScoped(node -> {
+			final numbers = node.produceNumbers();
+			final squares = node.square(numbers);
+			final result = [for (i in 1...10) {
+				squares.receive();
+			}];
+			node.cancelChildren();
+			result;
+		});
+		Assert.same([1, 4, 9, 16, 25, 36, 49, 64, 81], result);
+	}
 
-	// function testPrime() {
-	// 	final result = CoroRun.runScoped(node -> {
-	// 		var cur = node.numbersFrom(2);
-	// 		final result = [
-	// 			for (_ in 0...10) {
-	// 				final prime = cur.receive();
-	// 				cur = node.filter(cur, prime);
-	// 				prime;
-	// 			}
-	// 		];
-	// 		node.cancelChildren();
-	// 		result;
-	// 	});
-	// 	Assert.same([2, 3, 5, 7, 11, 13, 17, 19, 23, 29], result);
-	// }
+	function testPrime() {
+		final result = CoroRun.runScoped(node -> {
+			var cur = node.numbersFrom(2);
+			final result = [
+				for (_ in 0...10) {
+					final prime = cur.receive();
+					cur = node.filter(cur, prime);
+					prime;
+				}
+			];
+			node.cancelChildren();
+			result;
+		});
+		Assert.same([2, 3, 5, 7, 11, 13, 17, 19, 23, 29], result);
+	}
 }
