@@ -240,6 +240,7 @@ private class Worker {
 					if (inShutdown) {
 						--activity.activeWorkers;
 						--activity.availableWorkers;
+						cond.broadcast();
 						cond.release();
 						break;
 					} else {
