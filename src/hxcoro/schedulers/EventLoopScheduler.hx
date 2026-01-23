@@ -14,16 +14,10 @@ private typedef Lambda = ()->Void;
 private class ScheduledEvent implements ISchedulerHandle implements IDispatchObject {
 	var func : Null<Lambda>;
 	public final runTime : Int64;
-	var childEvents:Array<IDispatchObject>;
 
 	public function new(func, runTime) {
 		this.func    = func;
 		this.runTime = runTime;
-	}
-
-	public function addChildEvent(event:IDispatchObject) {
-		childEvents ??= [];
-		childEvents.push(event);
 	}
 
 	public inline function onDispatch() {
@@ -31,25 +25,6 @@ private class ScheduledEvent implements ISchedulerHandle implements IDispatchObj
 		if (func != null) {
 			this.func = null;
 			func();
-		}
-
-		if (childEvents != null) {
-			final childEvents = childEvents;
-			this.childEvents = null;
-			for (childEvent in childEvents) {
-				childEvent.onDispatch();
-			}
-		}
-	}
-
-	public function iterateEvents(f:IDispatchObject->Void) {
-		final childEvents = childEvents;
-		this.childEvents = null;
-		f(this);
-		if (childEvents != null) {
-			for (childEvent in childEvents) {
-				f(childEvent);
-			}
 		}
 	}
 
@@ -95,39 +70,7 @@ private class MinimumHeap {
 		}
 	}
 
-	function findFrom(i:Int, event:ScheduledEvent) {
-		if (i >= length) {
-			return false;
-		}
-		final currentEvent = storage[i];
-		if (currentEvent == null || currentEvent.runTime > event.runTime) {
-			return false;
-		}
-		if (currentEvent.runTime == event.runTime) {
-			currentEvent.addChildEvent(event);
-			return true;
-		}
-		return findFrom(left(i), event) || findFrom(right(i), event);
-	}
-
-	function revert(to:Int) {
-		function loop(iCurrent:Int) {
-			if (iCurrent != to) {
-				final iParent = parent(iCurrent);
-				loop(iParent);
-				swap(iCurrent, iParent);
-			}
-		}
-		loop(--length);
-		storage[length] = null;
-	}
-
 	public function insert(event:ScheduledEvent) {
-		final minEvent = minimum();
-		if (minEvent != null && minEvent.runTime == event.runTime) {
-			minEvent.addChildEvent(event);
-			return;
-		}
 		ensureCapacity();
 		storage[length++] = event;
 		final runTime = event.runTime;
@@ -135,16 +78,7 @@ private class MinimumHeap {
 		while (i > 0) {
 			final iParent = parent(i);
 			final parentEvent = storage[iParent];
-			if (parentEvent.runTime < runTime) {
-				final iLeft = left(iParent);
-				// go upward from our sibling
-				if (findFrom(iLeft == i ? iLeft + 1 : iLeft, event)) {
-					revert(i);
-				}
-				break;
-			} else if (parentEvent.runTime == runTime) {
-				parentEvent.addChildEvent(event);
-				revert(i);
+			if (parentEvent.runTime <= runTime) {
 				break;
 			}
 			swap(i, iParent);
@@ -207,10 +141,6 @@ class EventLoopScheduler implements IScheduler {
 		heap         = new MinimumHeap();
 	}
 
-	public function hasEvents() {
-		return !heap.isEmpty();
-	}
-
     public function schedule(ms:Int64, func:()->Void):ISchedulerHandle {
 		if (ms < 0) {
 			throw new ArgumentException("Time must be greater or equal to zero");
@@ -226,21 +156,6 @@ class EventLoopScheduler implements IScheduler {
 
 		return event;
     }
-
-	public function scheduleObject(obj:IDispatchObject) {
-		futureMutex.acquire();
-		final currentTime = now();
-		final first = heap.minimum();
-		if (first == null || first.runTime > currentTime) {
-			// add normal event at front
-			final event = new ScheduledEvent(() -> obj.onDispatch(), currentTime);
-			heap.insert(event);
-		} else {
-			// attach to first event
-			first.addChildEvent(obj);
-		}
-		futureMutex.release();
-	}
 
 	public function now() {
 		return Timer.milliseconds();
