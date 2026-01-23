@@ -131,8 +131,17 @@ class CoroRun {
 		final scope = new CoroTask(context.clone().with(dispatcher), CoroTask.CoroScopeStrategy);
 		scope.runNodeLambda(lambda);
 
+		var inactivityStart = 0i64;
 		while (scope.isActive()) {
-			scheduler.run();
+			if (!scheduler.run()) {
+				if (inactivityStart == 0) {
+					inactivityStart = scheduler.now();
+				} else if (scheduler.now() - inactivityStart > 2000) {
+					pool.dump();
+					pool.shutdown(true);
+					throw "Inactivity shutdown";
+				}
+			}
 		}
 
 		pool.shutdown(true);

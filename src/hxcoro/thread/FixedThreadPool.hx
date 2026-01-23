@@ -132,6 +132,17 @@ class FixedThreadPool implements IThreadPool {
 			}
 		}
 	}
+
+	public function dump() {
+		Sys.println('isShutdown: $isShutdown');
+		Sys.println('active workers: ${activity.activeWorkers}/${pool.length}');
+		Sys.print('queue 0: ');
+		queue.dump();
+		for (worker in pool) {
+			Sys.print('queue ${@:privateAccess worker.ownQueueIndex}: ');
+			worker.queue.dump();
+		}
+	}
 }
 
 private class ShutdownException extends ThreadPoolException {}
@@ -221,6 +232,9 @@ private class Worker {
 			start();
 			throw e;
 		}
+		cond.acquire();
+		--activity.activeWorkers;
+		cond.release();
 		shutdownCallback();
 	}
 }
