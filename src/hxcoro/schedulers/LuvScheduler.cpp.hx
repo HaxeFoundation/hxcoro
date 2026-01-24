@@ -46,14 +46,14 @@ private enum abstract LuvTimerEventState(Int) to Int {
 private class LuvTimerEvent implements ISchedulerHandle {
 	final delayMs:Int64;
 	final closeQueue:AsyncDeque<LuvTimerEvent>;
-	final obj:IDispatchObject;
+	final func:() -> Void;
 	var timer:Null<LuvTimer>;
 	var state:AtomicInt;
 
-	public function new(closeQueue:AsyncDeque<LuvTimerEvent>, ms:Int64, obj:IDispatchObject) {
+	public function new(closeQueue:AsyncDeque<LuvTimerEvent>, ms:Int64, func:() -> Void) {
 		this.delayMs = ms;
 		this.closeQueue = closeQueue;
-		this.obj = obj;
+		this.func = func;
 		state = new AtomicInt(Created);
 	}
 
@@ -90,7 +90,7 @@ private class LuvTimerEvent implements ISchedulerHandle {
 
 	function run() {
 		if (stop()) {
-			obj.onDispatch();
+			func();
 		}
 	}
 
@@ -106,19 +106,6 @@ private class LuvTimerEvent implements ISchedulerHandle {
 			closeQueue.add(this);
 		}
 		// Already cancelled or stopped, ignore
-	}
-}
-
-private class LuvTimerEventFunction extends LuvTimerEvent implements IDispatchObject {
-	final func:() -> Void;
-
-	public function new(closeQueue:AsyncDeque<LuvTimerEvent>, ms:Int64, func:() -> Void) {
-		super(closeQueue, ms, this);
-		this.func = func;
-	}
-
-	public function onDispatch() {
-		func();
 	}
 }
 
@@ -141,7 +128,7 @@ class LuvScheduler implements IScheduler {
 
 	@:inheritDoc
 	public function schedule(ms:Int64, func:() -> Void) {
-		final event = new LuvTimerEventFunction(closeQueue, ms, func);
+		final event = new LuvTimerEvent(closeQueue, ms, func);
 		eventQueue.add(event);
 		return event;
 	}
