@@ -1,6 +1,5 @@
 package hxcoro.thread;
 
-import haxe.Int64;
 #if (!target.threaded)
 #error "This class is not available on this target"
 #end
@@ -9,7 +8,6 @@ import haxe.ds.Vector;
 import sys.thread.Condition;
 import sys.thread.Tls;
 import sys.thread.Thread;
-import hxcoro.concurrent.AtomicInt;
 import hxcoro.concurrent.BackOff;
 import haxe.coro.dispatchers.IDispatchObject;
 
