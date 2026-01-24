@@ -95,7 +95,7 @@ class FixedThreadPool implements IThreadPool {
 		}
 		// If no one holds onto the condition, notify everyone.
 		if (cond.tryAcquire()) {
-			cond.broadcast();
+			cond.signal();
 			cond.release();
 		}
 	}
