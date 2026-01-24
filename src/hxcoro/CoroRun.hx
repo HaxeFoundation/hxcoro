@@ -122,7 +122,7 @@ class CoroRun {
 		}
 	}
 
-	#elseif (jvm || hl)
+	#elseif (jvm || hl || cpp)
 
 	static public function runWith<T>(context:Context, lambda:NodeLambda<T>):T {
 		final scheduler = new EventLoopScheduler();
