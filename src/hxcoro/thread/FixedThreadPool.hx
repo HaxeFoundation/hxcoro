@@ -201,9 +201,7 @@ private class Worker {
 	}
 
 	public function shutDown(callback:() -> Void) {
-		cond.acquire();
 		shutdownCallback = callback;
-		cond.release();
 	}
 
 	function loop() {
