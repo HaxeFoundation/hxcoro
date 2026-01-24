@@ -88,6 +88,11 @@ class FixedThreadPool implements IThreadPool {
 		if(obj == null) {
 			throw new ThreadPoolException('Task to run must not be null.');
 		}
+		// Check later: this branching could be avoided if we installed `queue` as a TLS
+		// value for the thread that creates the pool. The problem with that is that we're
+		// not the owner of that thread, and it could potentially create multiple thread pools
+		// which would then overwrite the TLS value. It would still be nice to avoid this thread
+		// comparison somehow because I'm unsure how expensive that is on all targets.
 		if (Thread.current() == thread) {
 			queue.add(obj);
 		} else {
