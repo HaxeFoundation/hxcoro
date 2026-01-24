@@ -1,7 +1,7 @@
 package hxcoro.task;
 
-import haxe.coro.Mutex;
 import hxcoro.concurrent.AtomicState;
+import hxcoro.concurrent.BackOff;
 import haxe.coro.cancellation.ICancellationCallback;
 import haxe.coro.cancellation.ICancellationHandle;
 
@@ -71,7 +71,7 @@ class TaskCancellationManager {
 				case Ready:
 					break;
 				case Modifying:
-					// loop
+					BackOff.backOff();
 				case Finished:
 					// already done
 					return;
@@ -98,7 +98,7 @@ class TaskCancellationManager {
 				case Ready:
 					break;
 				case Modifying:
-					// loop
+					BackOff.backOff();
 				case Finished:
 					handle.run();
 					return CancellationHandle.noOpCancellationHandle;
@@ -116,7 +116,7 @@ class TaskCancellationManager {
 				case Ready:
 					break;
 				case Modifying:
-					// loop
+					BackOff.backOff();
 				case Finished:
 					// already cleared, nothing to do
 					return;
