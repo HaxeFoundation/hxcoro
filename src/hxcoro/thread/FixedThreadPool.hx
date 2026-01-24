@@ -6,7 +6,6 @@ package hxcoro.thread;
 
 import haxe.ds.Vector;
 import sys.thread.Condition;
-import sys.thread.Semaphore;
 import sys.thread.Tls;
 import sys.thread.Thread;
 import hxcoro.concurrent.AtomicInt;
@@ -113,10 +112,8 @@ class FixedThreadPool implements IThreadPool {
 			shutdownCounter.store(pool.length);
 		}
 
-		final semaphore = new Semaphore(0);
-
 		function unlock() {
-			semaphore.release();
+
 		}
 		for (worker in pool) {
 			worker.shutDown(unlock);
@@ -125,8 +122,10 @@ class FixedThreadPool implements IThreadPool {
 		cond.broadcast();
 		cond.release();
 		if (block) {
-			for (_ in pool) {
-				semaphore.acquire();
+			while (activity.availableWorkers > 0) {
+				// Not ideal, should probably use a lock/semaphore or condition variable to
+				// avoid the busy-loop.
+				BackOff.backOff();
 			}
 		}
 	}
