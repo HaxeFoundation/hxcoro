@@ -2,10 +2,17 @@ package hxcoro.thread;
 import haxe.ds.Vector;
 import hxcoro.concurrent.AtomicInt;
 
-private abstract Storage<T>(Vector<T>) {
+private typedef ActualStorage<T> =
+#if hl
+	hl.NativeArray<T>
+#else
+	Vector<T>
+#end;
+
+private abstract Storage<T>(ActualStorage<T>) {
 	public var length(get, never):Int;
 
-	public inline function new(vector:Vector<T>) {
+	public inline function new(vector:ActualStorage<T>) {
 		this = vector;
 	}
 
@@ -37,11 +44,11 @@ class WorkStealingQueue<T> {
 	public function new() {
 		read = new AtomicInt(0);
 		write = new AtomicInt(0);
-		storage = new Storage(new Vector(16));
+		storage = new Storage(new ActualStorage(16));
 	}
 
 	function resize(from:Int, to:Int) {
-		final newStorage = new Storage(new Vector(storage.length << 1));
+		final newStorage = new Storage(new ActualStorage(storage.length << 1));
 		for (i in from...to) {
 			newStorage[i] = storage[i];
 		}
