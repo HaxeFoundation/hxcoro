@@ -1,3 +1,12 @@
 build-base.hxml
 --hl bin/coro.hl
 --cmd hl bin/coro.hl
+--cmd hl bin/coro.hl
+--cmd hl bin/coro.hl
+--cmd hl bin/coro.hl
+--cmd hl bin/coro.hl
+--cmd hl bin/coro.hl
+--cmd hl bin/coro.hl
+--cmd hl bin/coro.hl
+--cmd hl bin/coro.hl
+--cmd hl bin/coro.hl
