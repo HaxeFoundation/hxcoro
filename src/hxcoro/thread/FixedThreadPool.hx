@@ -60,8 +60,6 @@ class FixedThreadPool implements IThreadPool {
 	final queue:DispatchQueue;
 	final thread:Thread;
 
-	final shutdownCounter = new AtomicInt(0);
-
 	/**
 		Create a new thread pool with `threadsCount` threads.
 	**/
@@ -108,9 +106,6 @@ class FixedThreadPool implements IThreadPool {
 	public function shutdown(block:Bool = false):Void {
 		if(_isShutdown) return;
 		_isShutdown = true;
-		if (block) {
-			shutdownCounter.store(pool.length);
-		}
 
 		function unlock() {
 
