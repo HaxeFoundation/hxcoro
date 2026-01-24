@@ -137,7 +137,7 @@ class CoroRun {
 			if (scheduler.now() - start > 10000) {
 				scope.dump();
 				pool.dump();
-				pool.shutdown(true);
+				pool.shutdown();
 				throw "Inactivity shutdown";
 			}
 		}

@@ -138,13 +138,34 @@ class FixedThreadPool implements IThreadPool {
 		Sys.print('\tqueue 0: ');
 		queue.dump();
 		for (worker in pool) {
-			Sys.print('\tqueue ${@:privateAccess worker.ownQueueIndex}: ');
+			Sys.print('\tworker ${@:privateAccess worker.ownQueueIndex}(${worker.state.toString()}): ');
 			worker.queue.dump();
 		}
 	}
 }
 
 private class ShutdownException extends ThreadPoolException {}
+
+@:using(FixedThreadPool.WorkerStateTools)
+enum abstract WorkerState(Int) {
+	final Created;
+	final CheckingQueues;
+	final Working;
+	final Waiting;
+	final Terminated;
+}
+
+private class WorkerStateTools {
+	static public function toString(state:WorkerState) {
+		return switch (state) {
+			case Created: "Created";
+			case CheckingQueues: "CheckingQueues";
+			case Working: "Working";
+			case Waiting: "Waiting";
+			case Terminated: "Terminated";
+		}
+	}
+}
 
 /**
 	This class represents a worker for a thread pool. Some implementation details are:
@@ -160,6 +181,7 @@ private class ShutdownException extends ThreadPoolException {}
 **/
 private class Worker {
 	public var queue(get, never):DispatchQueue;
+	public var state(default, null):WorkerState;
 	var thread:Thread;
 
 	var shutdownCallback:Null<() -> Void>;
@@ -173,6 +195,7 @@ private class Worker {
 		this.queues = queues;
 		this.ownQueueIndex = ownQueueIndex;
 		this.activity = activity;
+		state = Created;
 	}
 
 	function get_queue() {
@@ -192,6 +215,7 @@ private class Worker {
 	function loop() {
 		var index = ownQueueIndex;
 		var inShutdown = false;
+		state = CheckingQueues;
 		while(true) {
 			var didSomething = false;
 			while (true) {
@@ -199,7 +223,9 @@ private class Worker {
 				final obj = queue.steal();
 				if (obj != null) {
 					didSomething = true;
+					state = Working;
 					obj.onDispatch();
+					state = CheckingQueues;
 					index = ownQueueIndex;
 					break;
 				}
@@ -240,7 +266,9 @@ private class Worker {
 				}
 				// These modifications are fine because we hold onto the cond mutex.
 				--activity.activeWorkers;
+				state = Waiting;
 				cond.wait();
+				state = CheckingQueues;
 				++activity.activeWorkers;
 				cond.release();
 			} else {
@@ -257,6 +285,7 @@ private class Worker {
 			start();
 			throw e;
 		}
+		state = Terminated;
 		shutdownCallback();
 	}
 }
