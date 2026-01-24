@@ -101,7 +101,7 @@ class WorkStealingQueue<T> {
 	public function dump() {
 		final r = read.load();
 		final w = write.load();
-		Sys.print('WorkStealingQueue (r $r, w $w): ');
+		Sys.print('(r $r, w $w): ');
 		for (i in r...w) {
 			if (i != r) {
 				Sys.print(" ");

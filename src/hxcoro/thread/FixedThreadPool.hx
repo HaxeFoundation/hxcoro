@@ -1,5 +1,6 @@
 package hxcoro.thread;
 
+import haxe.Int64;
 #if (!target.threaded)
 #error "This class is not available on this target"
 #end
@@ -133,11 +134,21 @@ class FixedThreadPool implements IThreadPool {
 	public function dump() {
 		Sys.println("FixedThreadPool");
 		Sys.println('\tisShutdown: $isShutdown');
+		var totalDispatches = 0i64;
+		var totalLoops = 0i64;
+		for (worker in pool) {
+			totalDispatches += worker.numDispatched;
+			totalLoops += worker.numLooped;
+		}
+		Sys.println('\ttotal worker loops: $totalLoops');
+		Sys.println('\ttotal worker dispatches: $totalDispatches');
 		Sys.println('\tworkers (active/available/total): ${activity.activeWorkers}/${activity.availableWorkers}/${pool.length}');
 		Sys.print('\tqueue 0: ');
 		queue.dump();
 		for (worker in pool) {
-			Sys.print('\tworker ${@:privateAccess worker.ownQueueIndex}(${worker.state.toString()}): ');
+			final loopShare = worker.numLooped * 100 / totalLoops;
+			final dispatchShare = worker.numDispatched * 100 / totalDispatches;
+			Sys.print('\tworker ${@:privateAccess worker.ownQueueIndex}(${worker.state.toString()}), dispatch/loop: $dispatchShare%/$loopShare%, queue: ');
 			worker.queue.dump();
 		}
 	}
@@ -181,6 +192,8 @@ private class WorkerStateTools {
 private class Worker {
 	public var queue(get, never):DispatchQueue;
 	public var state(default, null):WorkerState;
+	public var numDispatched(default, null):Int;
+	public var numLooped(default, null):Int;
 	var thread:Thread;
 
 	var shutdownCallback:Null<() -> Void>;
@@ -194,6 +207,8 @@ private class Worker {
 		this.queues = queues;
 		this.ownQueueIndex = ownQueueIndex;
 		this.activity = activity;
+		numDispatched = 0;
+		numLooped = 0;
 		state = Created;
 	}
 
@@ -215,12 +230,14 @@ private class Worker {
 		state = CheckingQueues;
 		while(true) {
 			var didSomething = false;
+			++numLooped;
 			while (true) {
 				final queue = queues[index];
 				final obj = queue.steal();
 				if (obj != null) {
 					didSomething = true;
 					state = Working;
+					++numDispatched;
 					obj.onDispatch();
 					state = CheckingQueues;
 					index = ownQueueIndex;
