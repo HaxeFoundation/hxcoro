@@ -94,10 +94,11 @@ class FixedThreadPool implements IThreadPool {
 			TlsQueue.get().add(obj);
 		}
 		// If no one holds onto the condition, notify everyone.
-		if (cond.tryAcquire()) {
+		// if (cond.tryAcquire()) {
+			cond.acquire();
 			cond.broadcast();
 			cond.release();
-		}
+		// }
 	}
 
 	/**
