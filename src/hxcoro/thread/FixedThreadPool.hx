@@ -237,37 +237,48 @@ private class Worker {
 				inShutdown = false;
 				continue;
 			}
-			// If we did nothing, wait for the condition variable.
-			if (cond.tryAcquire()) {
-				if (shutdownCallback != null) {
-					if (inShutdown) {
-						--activity.activeWorkers;
-						--activity.availableWorkers;
-						cond.broadcast();
-						cond.release();
-						break;
-					} else {
-						inShutdown = true;
-						cond.broadcast();
-						cond.release();
-						continue;
-					}
-				}
-				if (activity.activeWorkers == 1) {
-					cond.broadcast();
-					cond.release();
+			if (shutdownCallback != null) {
+				if (inShutdown) {
+					break;
+				} else {
+					inShutdown = true;
+					BackOff.backOff();
 					continue;
 				}
-				// These modifications are fine because we hold onto the cond mutex.
-				--activity.activeWorkers;
-				state = Waiting;
-				cond.wait();
-				state = CheckingQueues;
-				++activity.activeWorkers;
-				cond.release();
-			} else {
-				BackOff.backOff();
 			}
+			BackOff.backOff();
+
+			// If we did nothing, wait for the condition variable.
+			// if (cond.tryAcquire()) {
+			// 	if (shutdownCallback != null) {
+			// 		if (inShutdown) {
+			// 			--activity.activeWorkers;
+			// 			--activity.availableWorkers;
+			// 			cond.broadcast();
+			// 			cond.release();
+			// 			break;
+			// 		} else {
+			// 			inShutdown = true;
+			// 			cond.broadcast();
+			// 			cond.release();
+			// 			continue;
+			// 		}
+			// 	}
+			// 	if (activity.activeWorkers == 1) {
+			// 		cond.broadcast();
+			// 		cond.release();
+			// 		continue;
+			// 	}
+			// 	// These modifications are fine because we hold onto the cond mutex.
+			// 	--activity.activeWorkers;
+			// 	state = Waiting;
+			// 	cond.wait();
+			// 	state = CheckingQueues;
+			// 	++activity.activeWorkers;
+			// 	cond.release();
+			// } else {
+			// 	BackOff.backOff();
+			// }
 		}
 	}
 

@@ -11,7 +11,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [macos-latest, ubuntu-latest, windows-latest]
-        target: [jvm, cpp]
+        target: [jvm, cpp, hl]
         exclude:
           # php is not available by default for macos runners, probably not worth bothering
           - os: macos-latest
