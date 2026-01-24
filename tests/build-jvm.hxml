@@ -1,12 +1,3 @@
 build-base.hxml
 --jvm bin/coro.jar
 --cmd java -jar bin/coro.jar
---cmd java -jar bin/coro.jar
---cmd java -jar bin/coro.jar
---cmd java -jar bin/coro.jar
---cmd java -jar bin/coro.jar
---cmd java -jar bin/coro.jar
---cmd java -jar bin/coro.jar
---cmd java -jar bin/coro.jar
---cmd java -jar bin/coro.jar
---cmd java -jar bin/coro.jar
