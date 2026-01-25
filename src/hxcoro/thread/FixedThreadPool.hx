@@ -13,18 +13,6 @@ import haxe.coro.dispatchers.IDispatchObject;
 
 typedef DispatchQueue = WorkStealingQueue<IDispatchObject>;
 
-class TlsQueue {
-	static var tls = new Tls<DispatchQueue>();
-
-	static public inline function get() {
-		return tls.value;
-	}
-
-	static public function install(queue:DispatchQueue) {
-		tls.value = queue;
-	}
-}
-
 private class WorkerActivity {
 	public var activeWorkers:Int;
 	public var availableWorkers:Int;
@@ -56,8 +44,7 @@ class FixedThreadPool implements IThreadPool {
 	final cond:Condition;
 	final pool:Array<Worker>;
 	final activity:WorkerActivity;
-	final queue:DispatchQueue;
-	final thread:Thread;
+	final queueTls:Tls<DispatchQueue>;
 
 	/**
 		Create a new thread pool with `threadsCount` threads.
@@ -67,11 +54,11 @@ class FixedThreadPool implements IThreadPool {
 			throw new ThreadPoolException('FixedThreadPool needs threadsCount to be at least 1.');
 		this.threadsCount = threadsCount;
 		cond = new Condition();
-		thread = Thread.current();
+		queueTls = new Tls();
 		final queues = Vector.fromArrayCopy([for (_ in 0...threadsCount + 1) new WorkStealingQueue()]);
-		queue = queues[0];
+		queueTls.value = queues[0];
 		activity = new WorkerActivity(threadsCount);
-		pool = [for(i in 0...threadsCount) new Worker(cond, queues, i + 1, activity)];
+		pool = [for(i in 0...threadsCount) new Worker(cond, queueTls, queues, i + 1, activity)];
 		for (worker in pool) {
 			worker.start();
 		}
@@ -87,16 +74,7 @@ class FixedThreadPool implements IThreadPool {
 		if(obj == null) {
 			throw new ThreadPoolException('Task to run must not be null.');
 		}
-		// Check later: this branching could be avoided if we installed `queue` as a TLS
-		// value for the thread that creates the pool. The problem with that is that we're
-		// not the owner of that thread, and it could potentially create multiple thread pools
-		// which would then overwrite the TLS value. It would still be nice to avoid this thread
-		// comparison somehow because I'm unsure how expensive that is on all targets.
-		if (Thread.current() == thread) {
-			queue.add(obj);
-		} else {
-			TlsQueue.get().add(obj);
-		}
+		queueTls.value.add(obj);
 		// If no one holds onto the condition, notify everyone.
 		if (cond.tryAcquire()) {
 			cond.signal();
@@ -142,7 +120,7 @@ class FixedThreadPool implements IThreadPool {
 		Sys.println('\ttotal worker dispatches: $totalDispatches');
 		Sys.println('\tworkers (active/available/total): ${activity.activeWorkers}/${activity.availableWorkers}/${pool.length}');
 		Sys.print('\tqueue 0: ');
-		queue.dump();
+		queueTls.value.dump();
 		for (worker in pool) {
 			final loopShare = worker.numLooped * 100 / totalLoops;
 			final dispatchShare = worker.numDispatched * 100 / totalDispatches;
@@ -180,7 +158,7 @@ private class WorkerStateTools {
 
 	- A worker isn't a thread; instead, it has a thread.
 	- If the worker's thread terminates prematurely, a new thread is created.
-	- When a thread is created, it installs the worker's queue as a static TLS value. This
+	- When a thread is created, it installs the worker's queue as a TLS value. This
 	  is what the pool's `run` function adds events to.
 	- The worker loops over all queues, starting with its own, to look for events to steal
 	  and execute.
@@ -199,12 +177,14 @@ private class Worker {
 	final queues:Vector<DispatchQueue>;
 	final ownQueueIndex:Int;
 	final activity:WorkerActivity;
+	final queueTls:Tls<DispatchQueue>;
 
-	public function new(cond:Condition, queues:Vector<DispatchQueue>, ownQueueIndex:Int, activity:WorkerActivity) {
+	public function new(cond:Condition, queueTls:Tls<DispatchQueue>, queues:Vector<DispatchQueue>, ownQueueIndex:Int, activity:WorkerActivity) {
 		this.cond = cond;
 		this.queues = queues;
 		this.ownQueueIndex = ownQueueIndex;
 		this.activity = activity;
+		this.queueTls = queueTls;
 		numDispatched = 0;
 		numLooped = 0;
 		state = Created;
@@ -271,6 +251,7 @@ private class Worker {
 						continue;
 					}
 				}
+				// Always keep one worker alive to avoid race problems with `run`.
 				if (activity.activeWorkers == 1) {
 					cond.broadcast();
 					cond.release();
@@ -290,7 +271,7 @@ private class Worker {
 	}
 
 	function threadEntry() {
-		TlsQueue.install(queue);
+		queueTls.value = queue;
 		try {
 			loop();
 		} catch (e:Dynamic) {
