@@ -65,7 +65,7 @@ class WorkStealingQueue<T> {
 		final w = write.load();
 		final r = read.load();
 		final sizeNeeded = w - r;
-		if (sizeNeeded >= storage.length - 1) {
+		if (sizeNeeded >= storage.length) {
 			resize(r, w);
 		}
 		storage[w] = value;
