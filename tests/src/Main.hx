@@ -16,8 +16,8 @@ function main() {
 		#if js
 		new TestJsPromise(),
 		#end
-		#if (cpp)
-		// new TestCallStack(),
+		#if false // need to run this single-threaded, but it depends on a hack in BaseContinuation...
+		new TestCallStack(),
 		#end
 	];
 
