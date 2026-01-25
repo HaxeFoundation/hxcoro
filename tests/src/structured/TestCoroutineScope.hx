@@ -78,53 +78,71 @@ class TestCoroutineScope extends utest.Test {
 
 	function test_try_raise() {
 		final acc = [];
+		final mutex = new Mutex();
+		function push(v:String) {
+			mutex.acquire();
+			acc.push(v);
+			mutex.release();
+		}
 		Assert.raises(() ->
 			CoroRun.runScoped(node -> {
 				scope(_ -> {
-					acc.push("before yield");
+					push("before yield");
 					yield();
-					acc.push("after yield");
+					push("after yield");
 					throw new FooException();
-					acc.push("after throw");
+					push("after throw");
 				});
-				acc.push("at exit");
+				push("at exit");
 			}), FooException);
 		has(acc, ["before yield", "after yield"], ["after throw", "at exit"]);
 	}
 
 	function test_try_catch() {
 		final acc = [];
+		final mutex = new Mutex();
+		function push(v:String) {
+			mutex.acquire();
+			acc.push(v);
+			mutex.release();
+		}
 		CoroRun.runScoped(node -> {
 			try {
 				scope(_ -> {
-					acc.push("before yield");
+					push("before yield");
 					yield();
-					acc.push("after yield");
+					push("after yield");
 					throw new FooException();
-					acc.push("after throw");
+					push("after throw");
 				});
-				acc.push("after scope");
+				push("after scope");
 			} catch(e:FooException) {
-				acc.push("in catch");
+				push("in catch");
 			}
-			acc.push("at exit");
+			push("at exit");
 		});
 		has(acc, ["before yield", "after yield", "in catch", "at exit"], ["after throw", "after scope"]);
 	}
 
 	function test_try_raise_async() {
 		final acc = [];
+		final mutex = new Mutex();
+		function push(v:String) {
+			mutex.acquire();
+			acc.push(v);
+			mutex.release();
+		}
 		Assert.raises(() -> CoroRun.runScoped(node -> {
 			node.async(_ -> {
 				scope(_ -> {
-					acc.push("before yield");
+					push("before yield");
 					yield();
-					acc.push("after yield");
+					push("after yield");
 					throw new FooException();
-					acc.push("after throw");
+					push("after throw");
 				});
 			});
-			acc.push("at exit");
+			push("at exit");
 		}), FooException);
 		has(acc, ["before yield", "after yield", "at exit"], ["after throw"]);
 	}

@@ -265,7 +265,6 @@ abstract class AbstractTask implements ICancellationToken {
 	// called from child
 
 	function childCompletes(child:AbstractTask, processResult:Bool) {
-		numActiveChildren.sub(1);
 		if (processResult) {
 			switch (child.state.load()) {
 				case Completed:
@@ -281,6 +280,7 @@ abstract class AbstractTask implements ICancellationToken {
 					throw new TaskException('Invalid state $state in childCompletes');
 			}
 		}
+		numActiveChildren.sub(1);
 		checkCompletion();
 	}
 
