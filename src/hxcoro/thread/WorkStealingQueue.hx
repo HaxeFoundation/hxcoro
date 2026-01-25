@@ -98,10 +98,29 @@ class WorkStealingQueue<T> {
 		}
 	}
 
+	/**
+		Resets the queues internal indices and sets all storage values
+		to `null`. This function does not verify the absence of elements
+		in the queue, so it should only be called when it is certain that
+		no accessible elements exist.
+
+		Does not resize the internal storage.
+	**/
+	public function reset() {
+		final w = write.exchange(0);
+		if (w == 0) {
+			return;
+		}
+		read.store(0);
+		for (i in 0...w) {
+			storage[i] = null;
+		}
+	}
+
 	public function dump() {
 		final r = read.load();
 		final w = write.load();
-		Sys.print('(r $r, w $w): ');
+		Sys.print('(r $r, w $w, l ${storage.length}): ');
 		for (i in r...w) {
 			if (i != r) {
 				Sys.print(" ");

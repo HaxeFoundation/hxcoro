@@ -258,6 +258,9 @@ private class Worker {
 				// These modifications are fine because we hold onto the cond mutex.
 				--activity.activeWorkers;
 				state = Waiting;
+				// If we get here we know for sure that there's nothing in our own queue
+				// at the moment, so we can reset it.
+				queue.reset();
 				cond.wait();
 				state = CheckingQueues;
 				++activity.activeWorkers;
