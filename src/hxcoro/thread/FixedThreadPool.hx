@@ -6,6 +6,7 @@ package hxcoro.thread;
 
 import haxe.ds.Vector;
 import sys.thread.Condition;
+import sys.thread.Semaphore;
 import sys.thread.Tls;
 import sys.thread.Thread;
 import hxcoro.concurrent.BackOff;
@@ -89,20 +90,17 @@ class FixedThreadPool implements IThreadPool {
 		if(_isShutdown) return;
 		_isShutdown = true;
 
-		function unlock() {
+		final shutdownSemaphore = new Semaphore(0);
 
-		}
 		for (worker in pool) {
-			worker.shutDown(unlock);
+			worker.shutDown(shutdownSemaphore);
 		}
 		cond.acquire();
 		cond.broadcast();
 		cond.release();
 		if (block) {
-			while (activity.availableWorkers > 0) {
-				// Not ideal, should probably use a lock/semaphore or condition variable to
-				// avoid the busy-loop.
-				BackOff.backOff();
+			for (worker in pool) {
+				shutdownSemaphore.acquire();
 			}
 		}
 	}
@@ -172,7 +170,7 @@ private class Worker {
 	public var numLooped(default, null):Int;
 	var thread:Thread;
 
-	var shutdownCallback:Null<() -> Void>;
+	var shutdownSemaphore:Null<Semaphore>;
 	final cond:Condition;
 	final queues:Vector<DispatchQueue>;
 	final ownQueueIndex:Int;
@@ -198,8 +196,8 @@ private class Worker {
 		thread = Thread.create(threadEntry);
 	}
 
-	public function shutDown(callback:() -> Void) {
-		shutdownCallback = callback;
+	public function shutDown(shutdownSemaphore:Semaphore) {
+		this.shutdownSemaphore = shutdownSemaphore;
 	}
 
 	function loop() {
@@ -237,7 +235,7 @@ private class Worker {
 			}
 			// If we did nothing, wait for the condition variable.
 			if (cond.tryAcquire()) {
-				if (shutdownCallback != null) {
+				if (shutdownSemaphore != null) {
 					if (inShutdown) {
 						--activity.activeWorkers;
 						--activity.availableWorkers;
@@ -279,6 +277,6 @@ private class Worker {
 			throw e;
 		}
 		state = Terminated;
-		shutdownCallback();
+		shutdownSemaphore.release();
 	}
 }
