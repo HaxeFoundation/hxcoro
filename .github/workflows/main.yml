@@ -37,7 +37,7 @@ jobs:
         run: |
           haxelib newrepo
           ${{ matrix.target == 'jvm' }} && haxelib install hxjava || true
-          ${{ matrix.target == 'cpp' }} && haxelib git hxcpp https://github.com/HaxeFoundation/hxcpp.git && haxe --cwd .haxelib/hxcpp/git/tools/hxcpp compile.hxml || true
+          ${{ matrix.target == 'cpp' }} && haxelib git hxcpp https://github.com/Aidan63/hxcpp.git std-synchronisation && haxe --cwd .haxelib/hxcpp/git/tools/hxcpp compile.hxml || true
           haxelib git utest https://github.com/Aidan63/utest.git coro
           haxelib dev hxcoro .
           haxelib list
@@ -46,6 +46,6 @@ jobs:
 
       - name: Run tests
         run: |
-          haxe --cwd tests build-${{ matrix.target }}.hxml
+          haxe --cwd tests -debug build-${{ matrix.target }}.hxml
           haxe --cwd tests build-${{ matrix.target }}.hxml --hxb bin/test.hxb
           haxe --cwd tests build-${{ matrix.target }}.hxml --hxb-lib bin/test.hxb

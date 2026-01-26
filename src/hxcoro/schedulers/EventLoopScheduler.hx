@@ -123,11 +123,6 @@ private class MinimumHeap {
 	}
 
 	public function insert(event:ScheduledEvent) {
-		final minEvent = minimum();
-		if (minEvent != null && minEvent.runTime == event.runTime) {
-			minEvent.addChildEvent(event);
-			return;
-		}
 		ensureCapacity();
 		storage[length++] = event;
 		final runTime = event.runTime;
@@ -207,10 +202,6 @@ class EventLoopScheduler implements IScheduler {
 		heap         = new MinimumHeap();
 	}
 
-	public function hasEvents() {
-		return !heap.isEmpty();
-	}
-
     public function schedule(ms:Int64, func:()->Void):ISchedulerHandle {
 		if (ms < 0) {
 			throw new ArgumentException("Time must be greater or equal to zero");
@@ -226,21 +217,6 @@ class EventLoopScheduler implements IScheduler {
 
 		return event;
     }
-
-	public function scheduleObject(obj:IDispatchObject) {
-		futureMutex.acquire();
-		final currentTime = now();
-		final first = heap.minimum();
-		if (first == null || first.runTime > currentTime) {
-			// add normal event at front
-			final event = new ScheduledEvent(() -> obj.onDispatch(), currentTime);
-			heap.insert(event);
-		} else {
-			// attach to first event
-			first.addChildEvent(obj);
-		}
-		futureMutex.release();
-	}
 
 	public function now() {
 		return Timer.milliseconds();

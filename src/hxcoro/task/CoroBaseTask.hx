@@ -70,37 +70,64 @@ private class CallbackContinuation<T> implements IContinuation<T> {
 	}
 }
 
-enum abstract StackState(Int) to Int {
+enum abstract AggregatorState(Int) to Int {
 	final Ready;
 	final Modifying;
+	final Finished;
 }
 
-class ArrayFixThisLater<T> {
-	var array:Array<T>;
-	final state:AtomicState<StackState>;
+class ThreadSafeAggregator<T> {
+	var array:Null<Array<T>>;
+	final func:T -> Void;
+	final state:AtomicState<AggregatorState>;
 
-	public function new() {
-		array = [];
+	public function new(func:T -> Void) {
+		array = null;
+		this.func = func;
 		state = new AtomicState(Ready);
 	}
 
-	public function push(v:T) {
-		while (state.compareExchange(Ready, Modifying) != Ready) {
-			BackOff.backOff();
-		};
-		final r = array.push(v);
-		state.store(Ready);
-		return r;
+	// single threaded
+
+	public function run() {
+		while (true) {
+			switch (state.compareExchange(Ready, Finished)) {
+				case Ready:
+					break;
+				case Modifying:
+					BackOff.backOff();
+				case Finished:
+					// already done
+					return;
+			}
+		}
+		final array = array;
+		if (array == null) {
+			return;
+		}
+		this.array = null;
+		for (element in array) {
+			func(element);
+		}
 	}
 
-	public function exchangeIGuess() {
-		while (state.compareExchange(Ready, Modifying) != Ready) {
-			BackOff.backOff();
-		};
-		final ret = array;
-		array = [];
+	// thread-safe
+
+	public function add(element:T) {
+		while (true) {
+			switch (state.compareExchange(Ready, Modifying)) {
+				case Ready:
+					break;
+				case Modifying:
+					BackOff.backOff();
+				case Finished:
+					func(element);
+					return;
+			}
+		}
+		array ??= [];
+		array.push(element);
 		state.store(Ready);
-		return ret;
 	}
 }
 
@@ -120,7 +147,7 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 
 	final nodeStrategy:INodeStrategy;
 	var result:Null<T>;
-	var awaitingContinuations:ArrayFixThisLater<IContinuation<T>>;
+	var awaitingContinuations:ThreadSafeAggregator<IContinuation<T>>;
 	var awaitingChildContinuation:AtomicObject<Null<IContinuation<Any>>>;
 
 	/**
@@ -130,7 +157,9 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 		final parent = context.get(CoroTask);
 		this.context = context.clone().with(this).set(CancellationToken, this);
 		this.nodeStrategy = nodeStrategy;
-		awaitingContinuations = new ArrayFixThisLater();
+		awaitingContinuations = new ThreadSafeAggregator<IContinuation<T>>(cont ->
+			cont.resume(result, error)
+		);
 		awaitingChildContinuation = new AtomicObject(null);
 		super(parent, initialState);
 	}
@@ -197,15 +226,8 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 		This function also starts this task if it has not been started yet.
 	**/
 	public function awaitContinuation(cont:IContinuation<T>) {
-		switch (state.load()) {
-			case Completed:
-				cont.succeedSync(result);
-			case Cancelled:
-				cont.failSync(error);
-			case _:
-				awaitingContinuations.push(cont);
-				start();
-		}
+		awaitingContinuations.add(cont);
+		start();
 	}
 
 	override function cancel(?cause:CancellationException) {
@@ -216,14 +238,7 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 	}
 
 	public function onCompletion(callback:(result:T, error:Exception)->Void) {
-		switch (state.load()) {
-			case Completed:
-				callback(result, null);
-			case Cancelled:
-				callback(null, error);
-			case _:
-				awaitingContinuations.push(new CallbackContinuation(context.clone(), callback));
-		}
+		awaitingContinuations.add(new CallbackContinuation(context.clone(), callback));
 	}
 
 	/**
@@ -257,27 +272,7 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 	}
 
 	function handleAwaitingContinuations() {
-		final succeed = switch (state.load()) {
-				case Completed:
-					true;
-				case Cancelled:
-					false;
-				case state:
-					throw new TaskException('Invalid state $state in handleAwaitingContinuations');
-		}
-		while (true) {
-			final conts = awaitingContinuations.exchangeIGuess();
-			if (conts.length == 0) {
-				return;
-			}
-			for (cont in conts) {
-				if (succeed) {
-					cont.succeedAsync(result);
-				} else {
-					cont.failAsync(error);
-				}
-			}
-		}
+		awaitingContinuations.run();
 	}
 
 	function childrenCompleted() {

@@ -2,5 +2,6 @@
 --library utest
 --library hxcoro
 --main Main
---debug
 -D UTEST-PRINT-TESTS
+# -D UTEST-PATTERN=Issue93
+-D hxcoro_mt_debug
