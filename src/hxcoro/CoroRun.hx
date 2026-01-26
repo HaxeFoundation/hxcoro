@@ -133,17 +133,21 @@ class CoroRun {
 		final scope = new CoroTask(context.clone().with(dispatcher), CoroTask.CoroScopeStrategy);
 		scope.runNodeLambda(lambda);
 
+		#if hxcoro_mt_debug
 		final startTime = Timer.milliseconds();
 		var cancelled = false;
+		#end
 		while (scope.isActive()) {
 			scheduler.run();
 			pool.ping();
+			#if hxcoro_mt_debug
 			if (Timer.milliseconds() - startTime > 10000 && !cancelled) {
 				cancelled = true;
 				scope.dump();
 				pool.dump();
 				scope.cancel(new TimeoutException());
 			}
+			#end
 		}
 
 		pool.shutdown(true);
