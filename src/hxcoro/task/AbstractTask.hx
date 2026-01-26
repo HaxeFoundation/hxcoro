@@ -69,6 +69,10 @@ abstract class AbstractTask implements ICancellationToken {
 		cancellationManager = new TaskCancellationManager(this);
 		numActiveChildren = new AtomicInt(0);
 		firstChild = new AtomicObject(null);
+		// The correct order of operations here is:
+		// 1. Add child to parent
+		// 2. Start the child, if needed
+		// 3. Cancel the child if the parent is cancelled
 		if (parent != null) {
 			parent.addChild(this);
 		}
@@ -77,7 +81,16 @@ abstract class AbstractTask implements ICancellationToken {
 			case Running:
 				start();
 			case _:
-				throw new TaskException('Invalid initial state $initialState');
+				setInternalException('Invalid initial state $initialState');
+		}
+		if (parent != null) {
+			switch (parent.state.load()) {
+				case Cancelling:
+					cancel();
+				case state = Cancelled | Completed:
+					setInternalException('Child created in invalid parent state ${state}');
+				case Created | Running | Completing:
+			}
 		}
 	}
 
@@ -245,6 +258,11 @@ abstract class AbstractTask implements ICancellationToken {
 		}
 	}
 
+	function setInternalException(reason:String) {
+		error = new TaskException(reason);
+		cancel();
+	}
+
 	/**
 		Whether or not the task itself is doing something, unrelated to its children.
 	**/
@@ -265,7 +283,6 @@ abstract class AbstractTask implements ICancellationToken {
 	// called from child
 
 	function childCompletes(child:AbstractTask, processResult:Bool) {
-		numActiveChildren.sub(1);
 		if (processResult) {
 			switch (child.state.load()) {
 				case Completed:
@@ -278,9 +295,10 @@ abstract class AbstractTask implements ICancellationToken {
 						childErrors(child, childError);
 					}
 				case state:
-					throw new TaskException('Invalid state $state in childCompletes');
+					return setInternalException('Invalid state $state in childCompletes');
 			}
 		}
+		numActiveChildren.sub(1);
 		checkCompletion();
 	}
 
@@ -309,12 +327,5 @@ abstract class AbstractTask implements ICancellationToken {
 	function addChild(child:AbstractTask) {
 		child.nextSibling = firstChild.exchange(child);
 		numActiveChildren.add(1);
-		switch (state.load()) {
-			case Cancelling:
-				child.cancel();
-			case state = Cancelled | Completed:
-				throw new TaskException('Invalid state $state in addChild');
-			case Created | Running | Completing:
-		}
 	}
 }

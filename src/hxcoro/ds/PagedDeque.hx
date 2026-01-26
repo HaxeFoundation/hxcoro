@@ -14,10 +14,11 @@ class Page<T> {
 		numDeleted = 0;
 	}
 
-	function removeFrom(element:T, startIndex:Int) {
+	public function removeFrom(element:T, startIndex:Int) {
 		for (i in startIndex...data.length - numDeleted) {
 			if (data[i] == element) {
 				blitAt(i);
+				++numDeleted;
 				return true;
 			}
 		}
@@ -38,7 +39,6 @@ class Page<T> {
 		if (toBlit > 0) {
 			Vector.blit(data, index + 1, data, index, toBlit);
 		}
-		numDeleted++;
 	}
 }
 
@@ -47,7 +47,7 @@ class PagedDeque<T> {
 	var currentPage:Page<T>;
 	var currentIndex:Int;
 	var lastPage:Page<T>;
-	public var lastIndex(default, null):Int;
+	var lastIndex(default, null):Int;
 
 	public function new(vectorSize = 8) {
 		this.vectorSize = vectorSize;
@@ -119,7 +119,7 @@ class PagedDeque<T> {
 				lastPage.next = new Page(vectorSize);
 			}
 			lastPage = lastPage.next;
-			lastPage.next = null;
+			lastPage.reset();
 			lastIndex = 1;
 			setPageDataAt(lastPage, 0, x);
 			return lastPage;
@@ -138,7 +138,6 @@ class PagedDeque<T> {
 			if (lastPage.next == null) {
 				// reuse current page as next last page
 				lastPage.next = currentPage;
-				currentPage.next = null;
 				currentPage.reset();
 			}
 			currentPage = nextPage;
@@ -154,11 +153,16 @@ class PagedDeque<T> {
 	}
 
 	public function remove(page:Page<T>, element:T) {
-		return if (page == currentPage) {
-			@:privateAccess page.removeFrom(element, currentIndex);
+		final wasRemoved = if (page == currentPage) {
+			page.removeFrom(element, currentIndex);
 		} else {
-			@:privateAccess page.removeFrom(element, 0);
+			page.removeFrom(element, 0);
 		}
+		if (wasRemoved && page == lastPage) {
+			--lastIndex;
+			--page.numDeleted;
+		}
+		return wasRemoved;
 	}
 
 	public function tryPop(out:Out<T>) {
@@ -172,7 +176,7 @@ class PagedDeque<T> {
 			if (lastPage.next == null) {
 				// reuse current page as next last page
 				lastPage.next = currentPage;
-				currentPage.next = null;
+				currentPage.reset();
 			}
 			currentPage = nextPage;
 			currentIndex = 1;
