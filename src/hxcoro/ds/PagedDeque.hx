@@ -36,7 +36,8 @@ abstract PagedDeque<T>(VecDeque<T>) {
 	}
 
 	public inline function remove(index:Int, value:T) {
-		this.removeAt(index) != null;
+		final removed = this.removeAt(index);
+		return removed != null;
 	}
 }
 
