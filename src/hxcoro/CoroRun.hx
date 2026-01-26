@@ -151,6 +151,14 @@ class CoroRun {
 						// Give the task a second to wind down, otherwise break out of here
 						timeoutTime += 1000;
 					case 1:
+						scope.iterateChildren(child -> {
+							if (child.isActive()) {
+								Sys.println("Active child: " + child);
+								if (child is CoroTask) {
+									(cast child : CoroTask<Any>).dump();
+								}
+							}
+						});
 						break;
 				}
 			}
