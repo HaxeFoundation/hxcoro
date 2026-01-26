@@ -224,4 +224,12 @@ class TestPagedDeque extends utest.Test {
 		Assert.equals(5, d.pop());
 		Assert.isTrue(d.isEmpty());
 	}
+
+	public function testDeleteLastPageThenPushTwice() {
+		final pd = new PagedDeque(1);
+		final page = pd.push(1);
+		Assert.isTrue(pd.remove(page, 1));
+		Assert.equals(page, pd.push(2));
+		Assert.notEquals(page, pd.push(3));
+	}
 }
