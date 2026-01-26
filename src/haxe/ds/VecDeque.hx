@@ -84,6 +84,13 @@ class VecDeque<T> {
 		return storage[computeIndex(length - 1)];
 	}
 
+	public function peekFront() {
+		if (length == 0) {
+			return null;
+		}
+		return storage[head];
+	}
+
 	public function pushBack(value:T) {
 		if (isFull()) {
 			grow();
@@ -108,6 +115,7 @@ class VecDeque<T> {
 		}
 
 		storage[head] = value;
+		return head;
 	}
 
 	public function popBack():Null<T> {
