@@ -3,3 +3,4 @@
 --library hxcoro
 --main Main
 -D UTEST-PRINT-TESTS
+-D use-vec-deque

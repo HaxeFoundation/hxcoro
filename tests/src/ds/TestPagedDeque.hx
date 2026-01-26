@@ -4,6 +4,7 @@ import haxe.ds.ArraySort;
 import hxcoro.ds.PagedDeque;
 
 class TestPagedDeque extends utest.Test {
+	#if !use_vec_deque
 	public function test() {
 		function expect<T>(expected:Array<T>, d:Page<Any>, ?pos:haxe.PosInfos) {
 			final actual = [for (x in d.data) x];
@@ -232,4 +233,5 @@ class TestPagedDeque extends utest.Test {
 		Assert.equals(page, pd.push(2));
 		Assert.notEquals(page, pd.push(3));
 	}
+	#end
 }

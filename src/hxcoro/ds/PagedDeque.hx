@@ -1,5 +1,47 @@
 package hxcoro.ds;
 
+#if use_vec_deque
+
+import haxe.ds.VecDeque;
+
+@:forward.new
+abstract PagedDeque<T>(VecDeque<T>) {
+	public inline function isEmpty() {
+		return this.length == 0;
+	}
+
+	public inline function push(x:T) {
+		return this.pushBack(x);
+	}
+
+	public inline function pop() {
+		return this.popFront();
+	}
+
+	public function tryPeek(out:Out<T>) {
+		final value = this.peekBack();
+		if (value == null) {
+			return false;
+		}
+		out.set(value);
+		return true;
+	}
+
+	public function tryPop(out:Out<T>) {
+		if (isEmpty()) {
+			return false;
+		}
+		out.set(this.popFront());
+		return true;
+	}
+
+	public inline function remove(index:Int, value:T) {
+		this.removeAt(index) != null;
+	}
+}
+
+#else
+
 import haxe.ds.Vector;
 import haxe.Exception;
 import hxcoro.ds.Out;
@@ -223,3 +265,5 @@ class PagedDeque<T> {
 		currentPage.reset();
 	}
 }
+
+#end
