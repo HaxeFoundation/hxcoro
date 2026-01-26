@@ -9,6 +9,7 @@ import hxcoro.ds.CircularBuffer;
 import hxcoro.ds.channels.bounded.BoundedReader;
 import hxcoro.ds.channels.bounded.BoundedWriter;
 import hxcoro.ds.channels.bounded.SingleBoundedReader;
+import hxcoro.ds.channels.bounded.AtomicChannelState;
 import hxcoro.ds.channels.bounded.SingleBoundedWriter;
 import hxcoro.ds.channels.unbounded.UnboundedReader;
 import hxcoro.ds.channels.unbounded.UnboundedWriter;
@@ -51,7 +52,6 @@ class Channel<T> implements IChannelReader<T> implements IChannelWriter<T> {
 			throw new ArgumentException("size");
 		}
 
-		final closed         = new Out();
 		final writeBehaviour = options.writeBehaviour ?? Wait;
 
 		// TODO : Revisit this single consumer producer implementation once we have threading in and can make some comparisons.
@@ -71,14 +71,12 @@ class Channel<T> implements IChannelReader<T> implements IChannelWriter<T> {
 		final buffer       = new CircularBuffer(options.size);
 		final readWaiters  = new PagedDeque();
 		final writeWaiters = new PagedDeque();
-		final lock         = new Mutex();
-
-		closed.set(false);
+		final state        = new AtomicChannelState();
 
 		return
 			new Channel(
-				new BoundedReader(buffer, writeWaiters, readWaiters, closed, lock),
-				new BoundedWriter(buffer, writeWaiters, readWaiters, closed, writeBehaviour, lock));
+				new BoundedReader(buffer, writeWaiters, readWaiters, state),
+				new BoundedWriter(buffer, writeWaiters, readWaiters, writeBehaviour, state));
 	}
 
 	public static function createUnbounded<T>(options : ChannelOptions):Channel<T> {

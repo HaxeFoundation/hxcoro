@@ -1,5 +1,6 @@
 package hxcoro;
 
+import haxe.Timer;
 import haxe.coro.Coroutine;
 import haxe.coro.context.Context;
 import haxe.coro.context.IElement;
@@ -10,6 +11,7 @@ import hxcoro.task.NodeLambda;
 import hxcoro.task.StartableCoroTask;
 import hxcoro.schedulers.EventLoopScheduler;
 import hxcoro.dispatchers.TrampolineDispatcher;
+import hxcoro.exceptions.TimeoutException;
 
 abstract RunnableContext(ElementTree) {
 	inline function new(tree:ElementTree) {
@@ -137,6 +139,42 @@ class CoroRun {
 		cpp.luv.Luv.runLoop(loop, Default);
 		cpp.luv.Luv.freeLoop(loop);
 		// dispatcher.shutdown();
+
+		switch (scope.getError()) {
+			case null:
+				return scope.get();
+			case error:
+				throw error;
+		}
+	}
+
+	#elseif (jvm || hl || cpp)
+
+	static public function runWith<T>(context:Context, lambda:NodeLambda<T>):T {
+		final scheduler = new EventLoopScheduler();
+		final pool = new hxcoro.thread.FixedThreadPool(10);
+		final dispatcher = new hxcoro.dispatchers.ThreadPoolDispatcher(scheduler, pool);
+		final scope = new CoroTask(context.clone().with(dispatcher), CoroTask.CoroScopeStrategy);
+		scope.runNodeLambda(lambda);
+
+		#if hxcoro_mt_debug
+		final startTime = Timer.milliseconds();
+		var cancelled = false;
+		#end
+		while (scope.isActive()) {
+			scheduler.run();
+			pool.ping();
+			#if hxcoro_mt_debug
+			if (Timer.milliseconds() - startTime > 10000 && !cancelled) {
+				cancelled = true;
+				scope.dump();
+				pool.dump();
+				scope.cancel(new TimeoutException());
+			}
+			#end
+		}
+
+		pool.shutdown(true);
 
 		switch (scope.getError()) {
 			case null:

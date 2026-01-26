@@ -3,7 +3,11 @@ import sys.FileSystem;
 
 function autoRunCpp() {
 	haxe.macro.Context.onAfterGenerate(() -> {
+		#if debug
 		runCommand(FileSystem.fullPath("bin/cpp/Main-debug"));
+		#else
+		runCommand(FileSystem.fullPath("bin/cpp/Main"));
+		#end
 	});
 }
 

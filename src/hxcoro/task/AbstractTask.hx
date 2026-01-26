@@ -69,6 +69,10 @@ abstract class AbstractTask implements ICancellationToken {
 		cancellationManager = new TaskCancellationManager(this);
 		numActiveChildren = new AtomicInt(0);
 		firstChild = new AtomicObject(null);
+		// The correct order of operations here is:
+		// 1. Add child to parent
+		// 2. Start the child, if needed
+		// 3. Cancel the child if the parent is cancelled
 		if (parent != null) {
 			parent.addChild(this);
 		}
@@ -77,7 +81,16 @@ abstract class AbstractTask implements ICancellationToken {
 			case Running:
 				start();
 			case _:
-				throw new TaskException('Invalid initial state $initialState');
+				setInternalException('Invalid initial state $initialState');
+		}
+		if (parent != null) {
+			switch (parent.state.load()) {
+				case Cancelling:
+					cancel();
+				case state = Cancelled | Completed:
+					setInternalException('Child created in invalid parent state ${state}');
+				case Created | Running | Completing:
+			}
 		}
 	}
 
@@ -144,14 +157,7 @@ abstract class AbstractTask implements ICancellationToken {
 	}
 
 	public function onCancellationRequested(callback:ICancellationCallback):ICancellationHandle {
-		return switch (state.load()) {
-			case Cancelling | Cancelled:
-				callback.onCancellation(error.orCancellationException());
-
-				return TaskCancellationManager.CancellationHandle.noOpCancellationHandle;
-			case _:
-				cancellationManager.addCallback(callback);
-		}
+		return cancellationManager.addCallback(callback);
 	}
 
 	/**
@@ -216,29 +222,29 @@ abstract class AbstractTask implements ICancellationToken {
 			}
 		}
 
-		// If we get here, our current children are complete, but the task itself might still
-		// be doing something. Note that we cannot rely on state == Running because the task
-		// might do something in state == Cancelling as well.
-		if (isDoingSomething()) {
-			return;
-		}
-
 		// We now try to update to Completed/Cancelled.
 		var currentState = state.load();
 		while (true) {
 			final targetState = switch (currentState) {
+				case Created:
+					// Nothing to do
+					Completed;
+				case Running:
+					// Definitely not yet completed.
+					return;
 				case Completing:
 					Completed;
 				case Cancelling:
+					// We may or may not still be doing something in this state, so we have
+					// to check for that. This means that any code which modifies the condition
+					// to become `false` has to ensure that we re-enter this function.
+					if (isDoingSomething()) {
+						return;
+					}
 					Cancelled;
 				case Completed | Cancelled:
 					// This can happen from the loop, ignore.
 					return;
-				case state:
-					// We can't be in Created or Running because then the call to `isDoingSomething()`
-					// above should have returned true.
-					// TODO: check `wasResumed` management in CoroTask.
-					throw new TaskException('Invalid state $state in checkCompletion');
 			};
 			final nextState = state.compareExchange(currentState, targetState);
 			if (nextState == currentState) {
@@ -250,6 +256,11 @@ abstract class AbstractTask implements ICancellationToken {
 				currentState = nextState;
 			}
 		}
+	}
+
+	function setInternalException(reason:String) {
+		error = new TaskException(reason);
+		cancel();
 	}
 
 	/**
@@ -272,7 +283,6 @@ abstract class AbstractTask implements ICancellationToken {
 	// called from child
 
 	function childCompletes(child:AbstractTask, processResult:Bool) {
-		numActiveChildren.sub(1);
 		if (processResult) {
 			switch (child.state.load()) {
 				case Completed:
@@ -285,9 +295,10 @@ abstract class AbstractTask implements ICancellationToken {
 						childErrors(child, childError);
 					}
 				case state:
-					throw new TaskException('Invalid state $state in childCompletes');
+					return setInternalException('Invalid state $state in childCompletes');
 			}
 		}
+		numActiveChildren.sub(1);
 		checkCompletion();
 	}
 
@@ -316,12 +327,5 @@ abstract class AbstractTask implements ICancellationToken {
 	function addChild(child:AbstractTask) {
 		child.nextSibling = firstChild.exchange(child);
 		numActiveChildren.add(1);
-		switch (state.load()) {
-			case Cancelling:
-				child.cancel();
-			case state = Cancelled | Completed:
-				throw new TaskException('Invalid state $state in addChild');
-			case Created | Running | Completing:
-		}
 	}
 }

@@ -21,7 +21,7 @@ private class Trampoline {
 
 // 		return tls.value ??= new Trampoline();
 // #else
-		static final trampoline : Null<Trampoline> = null;
+		static var trampoline : Null<Trampoline> = null;
 
 		return trampoline ??= new Trampoline();
 // #end
