@@ -47,12 +47,15 @@ class FixedThreadPool implements IThreadPool {
 	final activity:WorkerActivity;
 	final queueTls:Tls<DispatchQueue>;
 
+	var hadMissedEventPing:Bool;
+
 	/**
 		Create a new thread pool with `threadsCount` threads.
 	**/
 	public function new(threadsCount:Int):Void {
 		if(threadsCount < 1)
 			throw new ThreadPoolException('FixedThreadPool needs threadsCount to be at least 1.');
+		hadMissedEventPing = false;
 		this.threadsCount = threadsCount;
 		cond = new Condition();
 		queueTls = new Tls();
@@ -78,6 +81,18 @@ class FixedThreadPool implements IThreadPool {
 		queueTls.value.add(obj);
 		// If no one holds onto the condition, notify everyone.
 		if (cond.tryAcquire()) {
+			cond.signal();
+			cond.release();
+		} else {
+			// If we lose the race, set this flag so we can be sure that somebody
+			// gets notified in the `ping` function.
+			hadMissedEventPing = true;
+		}
+	}
+
+	public function ping() {
+		if (hadMissedEventPing && cond.tryAcquire()) {
+			hadMissedEventPing = false;
 			cond.signal();
 			cond.release();
 		}
@@ -248,12 +263,6 @@ private class Worker {
 						cond.release();
 						continue;
 					}
-				}
-				// Always keep one worker alive to avoid race problems with `run`.
-				if (activity.activeWorkers == 1) {
-					cond.broadcast();
-					cond.release();
-					continue;
 				}
 				// These modifications are fine because we hold onto the cond mutex.
 				--activity.activeWorkers;

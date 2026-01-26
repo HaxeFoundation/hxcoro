@@ -137,7 +137,7 @@ class CoroRun {
 		var cancelled = false;
 		while (scope.isActive()) {
 			scheduler.run();
-
+			pool.ping();
 			if (Timer.milliseconds() - startTime > 10000 && !cancelled) {
 				cancelled = true;
 				scope.dump();
