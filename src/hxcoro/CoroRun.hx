@@ -1,5 +1,6 @@
 package hxcoro;
 
+import haxe.Timer;
 import haxe.coro.Coroutine;
 import haxe.coro.context.Context;
 import haxe.coro.context.IElement;
@@ -10,6 +11,7 @@ import hxcoro.task.NodeLambda;
 import hxcoro.task.StartableCoroTask;
 import hxcoro.schedulers.EventLoopScheduler;
 import hxcoro.dispatchers.TrampolineDispatcher;
+import hxcoro.exceptions.TimeoutException;
 
 abstract RunnableContext(ElementTree) {
 	inline function new(tree:ElementTree) {
@@ -131,8 +133,17 @@ class CoroRun {
 		final scope = new CoroTask(context.clone().with(dispatcher), CoroTask.CoroScopeStrategy);
 		scope.runNodeLambda(lambda);
 
+		final startTime = Timer.milliseconds();
+		var cancelled = false;
 		while (scope.isActive()) {
 			scheduler.run();
+
+			if (Timer.milliseconds() - startTime > 10000 && !cancelled) {
+				cancelled = true;
+				scope.dump();
+				pool.dump();
+				scope.cancel(new TimeoutException());
+			}
 		}
 
 		pool.shutdown(true);
