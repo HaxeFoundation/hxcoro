@@ -1,10 +1,11 @@
 package hxcoro.ds.channels.bounded;
 
-import hxcoro.concurrent.AtomicState;
 import hxcoro.concurrent.BackOff;
+import hxcoro.concurrent.AtomicState;
 
 enum abstract ChannelState(Int) to Int {
 	final Open;
+	final Draining;
 	final Locked;
 	final Closed;
 }
@@ -16,14 +17,26 @@ abstract AtomicChannelState(AtomicState<ChannelState>) {
 	}
 
 	public function lock() {
+		var state = this.load();
 		while (true) {
-			switch this.compareExchange(Open, Locked) {
-				case Open:
-					return true;
+			switch state {
+				case Open, Draining:
+					var next = this.compareExchange(state, Locked);
+					if (next == state) {
+						return next;
+					} else {
+						state = next;
+		
+						BackOff.backOff();
+		
+						continue;
+					}
 				case Locked:
 					BackOff.backOff();
+
+					state = this.load();
 				case Closed:
-					return false;
+					return state;
 			}
 		}
 	}

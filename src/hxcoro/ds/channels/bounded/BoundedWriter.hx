@@ -5,8 +5,9 @@ import haxe.coro.IContinuation;
 import hxcoro.ds.Out;
 import hxcoro.ds.CircularBuffer;
 import hxcoro.ds.channels.Channel;
-import hxcoro.ds.channels.exceptions.ChannelClosedException;
 import hxcoro.ds.channels.bounded.AtomicChannelState;
+import hxcoro.ds.channels.exceptions.ChannelClosedException;
+import hxcoro.ds.channels.exceptions.InvalidChannelStateException;
 
 using hxcoro.util.Convenience;
 using hxcoro.util.MutexExtensions;
@@ -69,18 +70,23 @@ final class BoundedWriter<T> implements IChannelWriter<T> {
 				final out = new Out();
 
 				while (tryWrite(v) == false) {
-					if (state.lock()) {
-						if (buffer.tryPopHead(out)) {
-							state.store(Open);
+					switch state.lock() {
+						case Open:
+							if (buffer.tryPopHead(out)) {
+								state.store(Open);
 
-							f(out.get());
-						} else {
-							state.store(Open);
+								f(out.get());
+							} else {
+								state.store(Open);
 
-							throw new Exception('Failed to drop newest item');
-						}
-					} else {
-						throw new ChannelClosedException();
+								throw new Exception('Failed to drop newest item');
+							}
+						case Locked:
+							throw new InvalidChannelStateException();
+						case rejected:
+							state.store(rejected);
+
+							throw new ChannelClosedException();
 					}
 				}
 
@@ -89,18 +95,23 @@ final class BoundedWriter<T> implements IChannelWriter<T> {
 				final out = new Out();
 
 				while (tryWrite(v) == false) {
-					if (state.lock()) {
-						if (buffer.tryPopTail(out)) {
-							state.store(Open);
+					switch state.lock() {
+						case Open:
+							if (buffer.tryPopTail(out)) {
+								state.store(Open);
 
-							f(out.get());
-						} else {
-							state.store(Open);
+								f(out.get());
+							} else {
+								state.store(Open);
 
-							throw new Exception('Failed to drop oldest item');
-						}
-					} else {
-						throw new ChannelClosedException();
+								throw new Exception('Failed to drop oldest item');
+							}
+						case Locked:
+							throw new InvalidChannelStateException();
+						case rejected:
+							state.store(rejected);
+
+							throw new ChannelClosedException();
 					}
 				}
 
@@ -115,53 +126,70 @@ final class BoundedWriter<T> implements IChannelWriter<T> {
 	}
 
 	@:coroutine public function waitForWrite():Bool {
-		if (false == state.lock()) {
-			return false;
-		}
+		switch state.lock() {
+			case Closed:
+				return false;
+			case Draining:
+				state.store(Draining);
 
-		return if (buffer.wasFull()) {
-			return suspendCancellable(cont -> {
-				final hostPage  = writeWaiters.push(cont);
-
-				state.store(Open);
-
-				cont.onCancellationRequested = _ -> {
-					if (state.lock()) {
-						writeWaiters.remove(hostPage, cont);
+				return false;
+			case Locked:
+				throw new InvalidChannelStateException();
+			case Open:
+				return if (buffer.wasFull()) {
+					return suspendCancellable(cont -> {
+						final hostPage = writeWaiters.push(cont);
+		
 						state.store(Open);
-					}
+		
+						cont.onCancellationRequested = _ -> {
+							switch state.lock() {
+								case Closed, Locked:
+									throw new InvalidChannelStateException();
+								case previous:
+									writeWaiters.remove(hostPage, cont);
+									state.store(previous);
+							}
+						}
+					});
+				} else {
+					state.store(Open);
+		
+					true;
 				}
-			});
-		} else {
-			state.store(Open);
-
-			true;
 		}
 	}
 
 	public function close() {
-		if (false == state.lock()) {
-			return;
+		switch state.lock() {
+			case Closed:
+				return;
+			case Draining:
+				state.store(Draining);
+
+				return;
+			case Locked:
+				throw new InvalidChannelStateException();
+			case Open:
+				while (writeWaiters.isEmpty() == false) {
+					switch writeWaiters.pop() {
+						case null:
+							continue;
+						case cont:
+							cont.succeedAsync(false);
+					}
+				};
+
+				while (readWaiters.isEmpty() == false) {
+					switch (readWaiters.pop()) {
+						case null:
+							continue;
+						case cont:
+							cont.succeedAsync(false);
+					}
+				};
+
+				state.store(if (buffer.wasEmpty()) Closed else Draining);
 		}
-
-		while (writeWaiters.isEmpty() == false) {
-			switch writeWaiters.pop() {
-				case null:
-					continue;
-				case cont:
-					cont.succeedAsync(false);
-			}
-		};
-
-		while (readWaiters.isEmpty() == false) {
-			switch (readWaiters.pop()) {
-				case null:
-					continue;
-				case cont:
-					cont.succeedAsync(false);
-			}
-		};
-
-		state.store(Closed);
 	}
 }
