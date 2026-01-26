@@ -35,10 +35,7 @@ class CoroTask<T> extends CoroBaseTask<T> implements IContinuation<T> {
 	function updateResumeStatus(expected:ResumeStatus, replacement:ResumeStatus, where:String) {
 		final previousStatus = resumeStatus.compareExchange(expected, replacement);
 		if (previousStatus != expected) {
-			// TODO: this currently does trigger in Issue47.testCancellableTaskFromCancelledTask, have to
-			// check if resume should even be called there.
-			// throw new TaskException('Unexpected resume status $previousStatus in $where');
-			trace('Unexpected resume status $previousStatus in $where, task state ${state.load()}');
+			setInternalException('Unexpected resume status $previousStatus in $where, task state ${state.load()}');
 		}
 	}
 
