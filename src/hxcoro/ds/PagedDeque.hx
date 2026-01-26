@@ -38,7 +38,6 @@ class Page<T> {
 		final toBlit = freeSpace() - index - 1;
 		if (toBlit > 0) {
 			Vector.blit(data, index + 1, data, index, toBlit);
-			data[data.length - 1] = null;
 		}
 	}
 }
