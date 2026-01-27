@@ -17,6 +17,9 @@ abstract AtomicChannelState(AtomicState<ChannelState>) {
 	}
 
 	public function lock() {
+		#if hxcoro_mt_debug
+		var timeoutTime = haxe.Timer.milliseconds() + 5000;
+		#end
 		var state = this.load();
 		while (true) {
 			switch state {
@@ -26,14 +29,18 @@ abstract AtomicChannelState(AtomicState<ChannelState>) {
 						return next;
 					} else {
 						state = next;
-		
+
 						BackOff.backOff();
-		
+
 						continue;
 					}
 				case Locked:
 					BackOff.backOff();
-
+					#if hxcoro_mt_debug
+					if (haxe.Timer.milliseconds() >= timeoutTime) {
+						throw 'Channel timeout';
+					}
+					#end
 					state = this.load();
 				case Closed:
 					return state;
