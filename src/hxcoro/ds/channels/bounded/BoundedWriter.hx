@@ -8,7 +8,6 @@ import hxcoro.ds.channels.Channel;
 import hxcoro.ds.channels.bounded.AtomicChannelState;
 import hxcoro.ds.channels.exceptions.ChannelClosedException;
 import hxcoro.ds.channels.exceptions.InvalidChannelStateException;
-import hxcoro.concurrent.BackOff;
 
 using hxcoro.util.Convenience;
 using hxcoro.util.MutexExtensions;
@@ -140,9 +139,9 @@ final class BoundedWriter<T> implements IChannelWriter<T> {
 				return if (buffer.wasFull()) {
 					return suspendCancellable(cont -> {
 						final hostPage = writeWaiters.push(cont);
-
+		
 						state.store(Open);
-
+		
 						cont.onCancellationRequested = _ -> {
 							switch state.lock() {
 								case Closed, Locked:
@@ -155,45 +154,42 @@ final class BoundedWriter<T> implements IChannelWriter<T> {
 					});
 				} else {
 					state.store(Open);
-
+		
 					true;
 				}
 		}
 	}
 
 	public function close() {
-		while (true) {
-			switch state.lock() {
-				case Closed:
-					return;
-				case Draining:
-					state.store(Draining);
+		switch state.lock() {
+			case Closed:
+				return;
+			case Draining:
+				state.store(Draining);
 
-					return;
-				case Locked:
-					BackOff.backOff();
-				case Open:
-					while (writeWaiters.isEmpty() == false) {
-						switch writeWaiters.pop() {
-							case null:
-								continue;
-							case cont:
-								cont.succeedAsync(false);
-						}
-					};
+				return;
+			case Locked:
+				throw new InvalidChannelStateException();
+			case Open:
+				while (writeWaiters.isEmpty() == false) {
+					switch writeWaiters.pop() {
+						case null:
+							continue;
+						case cont:
+							cont.succeedAsync(false);
+					}
+				};
 
-					while (readWaiters.isEmpty() == false) {
-						switch (readWaiters.pop()) {
-							case null:
-								continue;
-							case cont:
-								cont.succeedAsync(false);
-						}
-					};
+				while (readWaiters.isEmpty() == false) {
+					switch (readWaiters.pop()) {
+						case null:
+							continue;
+						case cont:
+							cont.succeedAsync(false);
+					}
+				};
 
-					state.store(if (buffer.wasEmpty()) Closed else Draining);
-					return;
-			}
+				state.store(if (buffer.wasEmpty()) Closed else Draining);
 		}
 	}
 }
