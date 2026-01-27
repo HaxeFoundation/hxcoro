@@ -84,7 +84,7 @@ class CoroTask<T> extends CoroBaseTask<T> implements IContinuation<T> {
 	public function dump() {
 		Sys.println('CoroTask $id');
 		Sys.println('\tstate: ${state.load()}');
-		Sys.println('\tfirstChild: $firstChild');
+		Sys.println('\tfirstChild: ${firstChild.load()}');
 		Sys.println('\tnumActiveChildren: ${numActiveChildren.load()}');
 		Sys.println('\tresumeStatus: ${resumeStatus.load()}');
 		Sys.println('\tresult: $result');
