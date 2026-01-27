@@ -38,6 +38,7 @@ abstract AtomicChannelState(AtomicState<ChannelState>) {
 					BackOff.backOff();
 					#if hxcoro_mt_debug
 					if (haxe.Timer.milliseconds() >= timeoutTime) {
+						trace("CHANNEL TIMEOUT");
 						throw 'Channel timeout';
 					}
 					#end
