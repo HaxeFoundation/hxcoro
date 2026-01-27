@@ -123,6 +123,7 @@ class FixedThreadPool implements IThreadPool {
 	public function dump() {
 		Sys.println("FixedThreadPool");
 		Sys.println('\tisShutdown: $isShutdown');
+		Sys.println('\thadMissedEventPing: $hadMissedEventPing');
 		var totalDispatches = 0i64;
 		var totalLoops = 0i64;
 		for (worker in pool) {
@@ -215,41 +216,50 @@ private class Worker {
 		this.shutdownSemaphore = shutdownSemaphore;
 	}
 
-	function loop() {
+	function checkQueues() {
 		var index = ownQueueIndex;
+		while (true) {
+			final queue = queues[index];
+			final obj = queue.steal();
+			if (obj != null) {
+				state = Working;
+				++numDispatched;
+				obj.onDispatch();
+				state = CheckingQueues;
+				return true;
+			}
+			if (index == queues.length - 1) {
+				index = 0;
+			} else {
+				++index;
+			}
+			if (index == ownQueueIndex) {
+				return false;
+			}
+		}
+	}
+
+	function loop() {
 		var inShutdown = false;
 		state = CheckingQueues;
 		while(true) {
 			var didSomething = false;
 			++numLooped;
-			while (true) {
-				final queue = queues[index];
-				final obj = queue.steal();
-				if (obj != null) {
-					didSomething = true;
-					state = Working;
-					++numDispatched;
-					obj.onDispatch();
-					state = CheckingQueues;
-					index = ownQueueIndex;
-					break;
-				}
-				if (index == queues.length - 1) {
-					index = 0;
-				} else {
-					++index;
-				}
-				if (index == ownQueueIndex) {
-					break;
-				}
-			}
-			// index == ownQueueIndex here
-			if (didSomething) {
+
+			if (checkQueues()) {
 				inShutdown = false;
 				continue;
 			}
+
 			// If we did nothing, wait for the condition variable.
 			if (cond.tryAcquire()) {
+				// An event could have come in between the queue checking and the acquire. In this
+				// case, the condition might have been signalled to, but we would still go to sleep.
+				// By checking the queues once more we can be sure that no such events are missed.
+				if (checkQueues()) {
+					cond.release();
+					continue;
+				}
 				if (shutdownSemaphore != null) {
 					if (inShutdown) {
 						--activity.activeWorkers;
