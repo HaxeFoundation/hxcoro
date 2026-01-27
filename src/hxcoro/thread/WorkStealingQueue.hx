@@ -52,7 +52,7 @@ class WorkStealingQueue<T> {
 		for (i in from...to) {
 			newStorage[i] = storage[i];
 		}
-		storage = newStorage;
+		return newStorage;
 	}
 
 	/**
@@ -66,10 +66,14 @@ class WorkStealingQueue<T> {
 		final r = read.load();
 		final sizeNeeded = w - r;
 		if (sizeNeeded >= storage.length) {
-			resize(r, w);
+			final storage = resize(r, w);
+			storage[w] = value;
+			this.storage = storage;
+			write.add(1);
+		} else {
+			storage[w] = value;
+			write.add(1);
 		}
-		storage[w] = value;
-		write.add(1);
 	}
 
 	/**
@@ -81,20 +85,18 @@ class WorkStealingQueue<T> {
 		fail for other reasons.
 	**/
 	public function steal() {
-		while (true) {
-			final r = read.load();
-			final w = write.load();
-			final size = w - r;
-			if (size <= 0) {
-				return null;
-			}
-			final storage = storage;
-			final v = storage[r];
-			if (read.compareExchange(r, r + 1) == r) {
-				return v;
-			} else {
-				// loop to try again
-			}
+		final r = read.load();
+		final w = write.load();
+		final size = w - r;
+		if (size <= 0) {
+			return null;
+		}
+		final storage = storage;
+		final v = storage[r];
+		if (read.compareExchange(r, r + 1) == r) {
+			return v;
+		} else {
+			return null;
 		}
 	}
 
