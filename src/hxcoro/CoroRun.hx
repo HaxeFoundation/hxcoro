@@ -134,18 +134,33 @@ class CoroRun {
 		scope.runNodeLambda(lambda);
 
 		#if hxcoro_mt_debug
-		final startTime = Timer.milliseconds();
-		var cancelled = false;
+		var timeoutTime = Timer.milliseconds() + 10000;
+		var cancelLevel = 0;
 		#end
 		while (scope.isActive()) {
 			scheduler.run();
 			pool.ping();
 			#if hxcoro_mt_debug
-			if (Timer.milliseconds() - startTime > 10000 && !cancelled) {
-				cancelled = true;
-				scope.dump();
-				pool.dump();
-				scope.cancel(new TimeoutException());
+			if (Timer.milliseconds() >= timeoutTime) {
+				switch (cancelLevel) {
+					case 0:
+						cancelLevel = 1;
+						scope.dump();
+						pool.dump();
+						scope.cancel(new TimeoutException());
+						// Give the task a second to wind down, otherwise break out of here
+						timeoutTime += 1000;
+					case 1:
+						scope.iterateChildren(child -> {
+							if (child.isActive()) {
+								Sys.println("Active child: " + child);
+								if (child is CoroTask) {
+									(cast child : CoroTask<Any>).dump();
+								}
+							}
+						});
+						break;
+				}
 			}
 			#end
 		}

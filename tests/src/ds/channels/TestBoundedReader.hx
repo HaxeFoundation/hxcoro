@@ -1,10 +1,8 @@
 package ds.channels;
 
-import hxcoro.dispatchers.TrampolineDispatcher;
 import haxe.Exception;
 import haxe.coro.IContinuation;
 import haxe.coro.context.Context;
-import hxcoro.schedulers.VirtualTimeScheduler;
 import haxe.exceptions.CancellationException;
 import hxcoro.ds.Out;
 import hxcoro.ds.PagedDeque;
@@ -12,6 +10,9 @@ import hxcoro.ds.CircularBuffer;
 import hxcoro.ds.channels.bounded.BoundedReader;
 import hxcoro.ds.channels.bounded.AtomicChannelState;
 import hxcoro.ds.channels.exceptions.ChannelClosedException;
+import hxcoro.ds.channels.exceptions.InvalidChannelStateException;
+import hxcoro.schedulers.VirtualTimeScheduler;
+import hxcoro.dispatchers.TrampolineDispatcher;
 
 using hxcoro.util.Convenience;
 
@@ -36,6 +37,17 @@ private class TestContinuation<T> implements IContinuation<Bool> {
 }
 
 class TestBoundedReader extends utest.Test {
+	static function transitionTo(state : AtomicChannelState, next:ChannelState) {
+		switch state.lock() {
+			case Closed:
+				return;
+			case Locked:
+				throw new InvalidChannelStateException();
+			case _:
+				state.store(next);
+		}
+	}
+
 	function test_try_read_has_data() {
 		final buffer        = new CircularBuffer(1);
 		final writeWaiters  = new PagedDeque();
@@ -354,9 +366,7 @@ class TestBoundedReader extends utest.Test {
 			actual.push(reader.waitForRead());
 		});
 
-		if (state.lock()) {
-			state.store(Closed);
-		}
+		transitionTo(state, Closed);
 
 		task.start();
 		scheduler.advanceBy(1);
@@ -380,9 +390,7 @@ class TestBoundedReader extends utest.Test {
 
 		Assert.isTrue(buffer.tryPush(10));
 
-		if (state.lock()) {
-			state.store(Closed);
-		}
+		transitionTo(state, Draining);
 
 		task.start();
 		scheduler.advanceBy(1);
@@ -399,9 +407,7 @@ class TestBoundedReader extends utest.Test {
 		final out          = new Out();
 		final reader       = new BoundedReader(buffer, writeWaiters, readWaiters, state);
 
-		if (state.lock()) {
-			state.store(Closed);
-		}
+		transitionTo(state, Closed);
 
 		Assert.isFalse(reader.tryRead(out));
 	}
@@ -416,9 +422,7 @@ class TestBoundedReader extends utest.Test {
 
 		Assert.isTrue(buffer.tryPush(10));
 
-		if (state.lock()) {
-			state.store(Closed);
-		}
+		transitionTo(state, Draining);
 
 		Assert.isTrue(reader.tryRead(out));
 		Assert.isTrue(buffer.wasEmpty());
@@ -438,9 +442,7 @@ class TestBoundedReader extends utest.Test {
 			AssertAsync.raises(reader.read(), ChannelClosedException);
 		});
 
-		if (state.lock()) {
-			state.store(Closed);
-		}
+		transitionTo(state, Closed);
 
 		task.start();
 		scheduler.advanceBy(1);
@@ -464,9 +466,7 @@ class TestBoundedReader extends utest.Test {
 
 		Assert.isTrue(buffer.tryPush(10));
 
-		if (state.lock()) {
-			state.store(Closed);
-		}
+		transitionTo(state, Draining);
 
 		task.start();
 		scheduler.advanceBy(1);

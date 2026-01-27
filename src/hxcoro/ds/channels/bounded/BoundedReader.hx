@@ -1,12 +1,12 @@
 package hxcoro.ds.channels.bounded;
 
 import haxe.Exception;
-import hxcoro.concurrent.BackOff;
 import haxe.coro.IContinuation;
 import haxe.coro.context.Context;
 import hxcoro.ds.Out;
 import hxcoro.ds.CircularBuffer;
 import hxcoro.ds.channels.exceptions.ChannelClosedException;
+import hxcoro.ds.channels.exceptions.InvalidChannelStateException;
 import hxcoro.ds.channels.bounded.AtomicChannelState;
 
 using hxcoro.util.Convenience;
@@ -56,53 +56,54 @@ final class BoundedReader<T> implements IChannelReader<T> {
 	}
 
 	public function tryRead(out:Out<T>):Bool {
-		while (true) {
-			switch state.compareExchange(Open, Locked) {
-				case Open:
-					return if (buffer.tryPopTail(out)) {
-						final out       = new Out();
-						final hasWaiter = writeWaiters.tryPop(out);
+		switch state.lock() {
+			case Closed:
+				return false;
+			case Locked:
+				throw new InvalidChannelStateException();
+			case previous:
+				final result = buffer.tryPopTail(out);
 
-						state.store(Open);
+				return if (previous == Draining) {
+					// In draining mode the channel does not accept any more data,
+					// so if we just read the last remaining data we want to transition
+					// to closed instead of draining.
+					state.store(if (buffer.wasEmpty()) Closed else Draining);
 
-						if (hasWaiter) {
-							out.get().succeedAsync(true);
-						}
+					result;
+				} else if (result) {
+					// Only try and wake up a writer if our pop succeeded,
+					// otherwise we might be waking up a write for no reason.
+					final out       = new Out();
+					final hasWaiter = writeWaiters.tryPop(out);
 
-						true;
-					} else {
-						state.store(Open);
+					state.store(Open);
 
-						false;
+					if (hasWaiter) {
+						out.get().succeedAsync(true);
 					}
-				case Locked:
-					BackOff.backOff();
-				case Closed:
-					while (true) {
-						switch state.compareExchange(Closed, Locked) {
-							case Closed:
-								final result = buffer.tryPopTail(out);
 
-								state.store(Closed);
+					result;
+				} else {
+					state.store(Open);
 
-								return result;
-							case _:
-								BackOff.backOff();
-						}
-					}
-			}
+					result;
+				}
 		}
 	}
 
 	public function tryPeek(out:Out<T>):Bool {
-		return if (state.lock()) {
-			final result = buffer.tryPeekHead(out);
+		return switch state.lock() {
+			case Closed:
+				false;
+			case Locked:
+				throw new InvalidChannelStateException();
+			case previous:
+				final result = buffer.tryPeekHead(out);
 
-			state.store(Open);
+				state.store(previous);
 
-			result;
-		} else {
-			false;
+				result;
 		}
 	}
 
@@ -122,28 +123,40 @@ final class BoundedReader<T> implements IChannelReader<T> {
 	}
 
 	@:coroutine public function waitForRead():Bool {
-		if (state.lock() == false) {
-			return buffer.wasEmpty() == false;
-		}
+		switch state.lock() {
+			case Closed:
+				return false;
+			case Locked:
+				throw new InvalidChannelStateException();
+			case Draining:
+				// In draining mode there is always data in the buffer,
+				// which is why it's safe to blindly return true.
+				state.store(Draining);
 
-		if (buffer.wasEmpty() == false) {
-			state.store(Open);
-
-			return true;
-		}
-
-		return suspendCancellable(cont -> {
-			final obj       = new WaitContinuation(cont, buffer);
-			final hostPage  = readWaiters.push(obj);
-
-			state.store(Open);
-
-			cont.onCancellationRequested = _ -> {
-				if (state.lock()) {
-					readWaiters.remove(hostPage, obj);
+				return true;
+			case Open:
+				if (buffer.wasEmpty() == false) {
 					state.store(Open);
+
+					return true;
 				}
-			}
-		});
+
+				return suspendCancellable(cont -> {
+					final obj       = new WaitContinuation(cont, buffer);
+					final hostPage  = readWaiters.push(obj);
+
+					state.store(Open);
+
+					cont.onCancellationRequested = _ -> {
+						switch state.lock() {
+							case Closed, Locked:
+								throw new InvalidChannelStateException();
+							case previous:
+								readWaiters.remove(hostPage, obj);
+								state.store(previous);
+						}
+					}
+				});
+		}
 	}
 }
