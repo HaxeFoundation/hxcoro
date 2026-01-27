@@ -279,7 +279,8 @@ private class Worker {
 				state = Waiting;
 				// If we get here we know for sure that there's nothing in our own queue
 				// at the moment, so we can reset it.
-				queue.reset();
+				// TODO: In my head this makes sense but reality disagrees.
+				// queue.reset();
 				cond.wait();
 				state = CheckingQueues;
 				++activity.activeWorkers;
