@@ -34,7 +34,7 @@ class Coro {
 
 	static function delayImpl<T>(ms:Int, cont:ICancellableContinuation<T>) {
 		final handle = cont.context.get(Dispatcher).scheduler.schedule(ms, () -> {
-			cont.callSync();
+			cont.callAsync();
 		});
 
 		cont.onCancellationRequested = _ -> {
