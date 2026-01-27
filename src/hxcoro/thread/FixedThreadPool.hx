@@ -18,9 +18,24 @@ private class WorkerActivity {
 	public var activeWorkers:Int;
 	public var availableWorkers:Int;
 
+	/**
+		This is set when an event comes in and the mutex cannot be acquired for signalling.
+		In this case the `ping` function can signal later because somebody has to.
+	**/
+	public var hadMissedEventPing:Bool;
+
+	/**
+		Conversely, this is set when the mutex could be acquired and deals with a special case
+		where we signal the condition variable before the worker thread waits on it. In particular,
+		this can happen with a thread pool of size 1.
+	**/
+	public var hadEvent:Bool;
+
 	public function new(activeWorkers:Int) {
 		this.activeWorkers = activeWorkers;
 		this.availableWorkers = activeWorkers;
+		hadMissedEventPing = false;
+		hadEvent = false;
 	}
 }
 
@@ -47,15 +62,12 @@ class FixedThreadPool implements IThreadPool {
 	final activity:WorkerActivity;
 	final queueTls:Tls<DispatchQueue>;
 
-	var hadMissedEventPing:Bool;
-
 	/**
 		Create a new thread pool with `threadsCount` threads.
 	**/
 	public function new(threadsCount:Int):Void {
 		if(threadsCount < 1)
 			throw new ThreadPoolException('FixedThreadPool needs threadsCount to be at least 1.');
-		hadMissedEventPing = false;
 		this.threadsCount = threadsCount;
 		cond = new Condition();
 		queueTls = new Tls();
@@ -81,18 +93,19 @@ class FixedThreadPool implements IThreadPool {
 		queueTls.value.add(obj);
 		// If no one holds onto the condition, notify everyone.
 		if (cond.tryAcquire()) {
+			activity.hadEvent = true;
 			cond.signal();
 			cond.release();
 		} else {
 			// If we lose the race, set this flag so we can be sure that somebody
 			// gets notified in the `ping` function.
-			hadMissedEventPing = true;
+			activity.hadMissedEventPing = true;
 		}
 	}
 
 	public function ping() {
-		if (hadMissedEventPing && cond.tryAcquire()) {
-			hadMissedEventPing = false;
+		if (activity.hadMissedEventPing && cond.tryAcquire()) {
+			activity.hadMissedEventPing = false;
 			cond.signal();
 			cond.release();
 		}
@@ -123,7 +136,7 @@ class FixedThreadPool implements IThreadPool {
 	public function dump() {
 		Sys.println("FixedThreadPool");
 		Sys.println('\tisShutdown: $isShutdown');
-		Sys.println('\thadMissedEventPing: $hadMissedEventPing');
+		Sys.println('\thadMissedEventPing: ${activity.hadMissedEventPing}');
 		var totalDispatches = 0i64;
 		var totalLoops = 0i64;
 		for (worker in pool) {
@@ -255,8 +268,8 @@ private class Worker {
 			if (cond.tryAcquire()) {
 				// An event could have come in between the queue checking and the acquire. In this
 				// case, the condition might have been signalled to, but we would still go to sleep.
-				// By checking the queues once more we can be sure that no such events are missed.
-				if (checkQueues()) {
+				if (activity.hadEvent) {
+					activity.hadEvent = false;
 					cond.release();
 					continue;
 				}
