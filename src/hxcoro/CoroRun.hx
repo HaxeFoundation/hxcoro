@@ -113,7 +113,7 @@ class CoroRun {
 
 		while (loop.run(NOWAIT)) { }
 
-		pool.shutdown();
+		pool.shutdown(true);
 		loop.close();
 
 		switch (scope.getError()) {
