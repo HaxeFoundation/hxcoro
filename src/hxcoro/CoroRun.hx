@@ -146,11 +146,6 @@ class CoroRun {
 					case 0:
 						cancelLevel = 1;
 						scope.dump();
-						pool.dump();
-						scope.cancel(new TimeoutException());
-						// Give the task a second to wind down, otherwise break out of here
-						timeoutTime += 1000;
-					case 1:
 						scope.iterateChildren(child -> {
 							if (child.isActive()) {
 								Sys.println("Active child: " + child);
@@ -159,6 +154,11 @@ class CoroRun {
 								}
 							}
 						});
+						pool.dump();
+						scope.cancel(new TimeoutException());
+						// Give the task a second to wind down, otherwise break out of here
+						timeoutTime += 1000;
+					case 1:
 						break;
 				}
 			}

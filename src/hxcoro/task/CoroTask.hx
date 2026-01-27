@@ -12,10 +12,21 @@ import haxe.coro.context.Context;
 import haxe.coro.dispatchers.IDispatchObject;
 import haxe.Exception;
 
+@:using(CoroTask.ResumeStatusTools)
 private enum abstract ResumeStatus(Int) to Int {
 	final NeverStarted;
 	final Unresumed;
 	final Resumed;
+}
+
+private class ResumeStatusTools {
+	static public function toString(status:ResumeStatus) {
+		return switch (status) {
+			case NeverStarted: "NeverStarted";
+			case Unresumed: "Unresumed";
+			case Resumed: "Resumed";
+		}
+	}
 }
 
 class CoroTask<T> extends CoroBaseTask<T> implements IContinuation<T> {
@@ -83,10 +94,10 @@ class CoroTask<T> extends CoroBaseTask<T> implements IContinuation<T> {
 	#if sys
 	public function dump() {
 		Sys.println('CoroTask $id');
-		Sys.println('\tstate: ${state.load()}');
+		Sys.println('\tstate: ${state.load().toString()}');
 		Sys.println('\tfirstChild: ${firstChild.load()}');
 		Sys.println('\tnumActiveChildren: ${numActiveChildren.load()}');
-		Sys.println('\tresumeStatus: ${resumeStatus.load()}');
+		Sys.println('\tresumeStatus: ${resumeStatus.load().toString()}');
 		Sys.println('\tresult: $result');
 		Sys.println('\terror: $error');
 	}
