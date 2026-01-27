@@ -22,6 +22,8 @@ class Issue37 extends utest.Test {
 				var count = new AtomicInt(0);
 				for (_ in 0...numTasks) {
 					node.async(_ -> {
+						delay(1);
+
 						channel.writer.write(1);
 
 						if (count.add(1) == numTasks - 1) {
@@ -77,6 +79,7 @@ class Issue37 extends utest.Test {
 						final o = new Out();
 
 						while (channel.reader.waitForRead()) {
+							delay(1);
 							if (channel.reader.tryRead(o)) {
 								aggregateValue.add(o.get());
 								break;
@@ -106,6 +109,8 @@ class Issue37 extends utest.Test {
 				var count = 0;
 				for (_ in 0...numTasks) {
 					node.async(_ -> {
+						delay(1);
+
 						channel.writer.write(1);
 
 						if (++count == numTasks) {
