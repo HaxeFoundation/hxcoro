@@ -80,8 +80,8 @@ class ThreadAwareScheduler implements IScheduler {
 	final heap:MinimumHeap;
 	final queueTls:Tls<Null<TlsQueue>>;
 	final queueDeque:Deque<TlsQueueEvent>;
-	var firstQueue:TlsQueue;
 	final toDispatch:Array<ScheduledEvent>;
+	var firstQueue:TlsQueue;
 
 	public function new() {
 		heap = new MinimumHeap();
@@ -190,6 +190,19 @@ class ThreadAwareScheduler implements IScheduler {
 			event.onDispatch();
 		}
 		toDispatch.resize(0);
+	}
+
+	public function dump() {
+		Sys.println("ThreadAwareScheduler");
+		Sys.println('\theap minimum: ${heap.minimum()}');
+		var current = firstQueue;
+		var totalWrites = 0;
+		@:privateAccess while (current != null) {
+			Sys.println('\tqueue: (r ${current.read}, w ${current.write}, l: ${current.storage.length})');
+			totalWrites += current.write;
+			current = current.next;
+		}
+		Sys.println('\ttotal writes: $totalWrites');
 	}
 
 	public function toString() {

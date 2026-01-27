@@ -147,6 +147,7 @@ class CoroRun {
 						cancelLevel = 1;
 						scope.dump();
 						pool.dump();
+						scheduler.dump();
 						scope.cancel(new TimeoutException());
 						// Give the task a second to wind down, otherwise break out of here
 						timeoutTime += 1000;
