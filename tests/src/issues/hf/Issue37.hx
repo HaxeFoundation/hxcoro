@@ -48,8 +48,6 @@ class Issue37 extends utest.Test {
 						}
 					});
 				}
-
-				node.awaitChildren();
 			});
 			actual.push(aggregateValue.load());
 		}
@@ -91,8 +89,6 @@ class Issue37 extends utest.Test {
 						}
 					});
 				}
-
-				node.awaitChildren();
 			});
 			actual.push(aggregateValue.load());
 		}
@@ -139,8 +135,6 @@ class Issue37 extends utest.Test {
 						}
 					});
 				}
-
-				node.awaitChildren();
 			});
 			actual.push(aggregateValue.load());
 		}
