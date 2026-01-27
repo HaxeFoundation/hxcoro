@@ -99,7 +99,7 @@ class CoroRun {
 
 	#end
 
-	#if (eval && !macro)
+	#if interp
 
 	static public function runWith<T>(context:Context, lambda:NodeLambda<T>):T {
 		final loop = eval.luv.Loop.init().resolve();
