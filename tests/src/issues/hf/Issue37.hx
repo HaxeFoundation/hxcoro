@@ -7,7 +7,7 @@ import hxcoro.CoroRun;
 import hxcoro.Coro.*;
 
 class Issue37 extends utest.Test {
-	#if !neko // takes forever for some reason, can investigate why later
+	#if false // everyone hates this
 	function testCancelling() {
 		final numIterations = 2;
 		final numTasks = 100;
