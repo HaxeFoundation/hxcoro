@@ -16,15 +16,15 @@ private class Trampoline {
 	}
 
 	public static function get() {
-// #if target.threaded
-// 		static final tls = new sys.thread.Tls<Trampoline>();
+#if target.threaded
+ 		static final tls = new sys.thread.Tls<Trampoline>();
 
-// 		return tls.value ??= new Trampoline();
-// #else
+		return tls.value ??= new Trampoline();
+#else
 		static var trampoline : Null<Trampoline> = null;
 
 		return trampoline ??= new Trampoline();
-// #end
+#end
 	}
 }
 
