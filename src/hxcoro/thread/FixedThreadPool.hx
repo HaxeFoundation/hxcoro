@@ -231,6 +231,7 @@ private class Worker {
 
 	function checkQueues() {
 		var index = ownQueueIndex;
+		var didSomething = false;
 		while (true) {
 			final queue = queues[index];
 			final obj = queue.steal();
@@ -239,15 +240,18 @@ private class Worker {
 				++numDispatched;
 				obj.onDispatch();
 				state = CheckingQueues;
-				return true;
+				didSomething = true;
+				// Loop with same index because there's a good chance there's more in
+				// the current queue.
+				continue;
 			}
 			if (index == queues.length - 1) {
 				index = 0;
 			} else {
 				++index;
-			}
-			if (index == ownQueueIndex) {
-				return false;
+				if (index == ownQueueIndex) {
+					return didSomething;
+				}
 			}
 		}
 	}
@@ -256,12 +260,10 @@ private class Worker {
 		var inShutdown = false;
 		state = CheckingQueues;
 		while(true) {
-			var didSomething = false;
 			++numLooped;
 
 			if (checkQueues()) {
 				inShutdown = false;
-				continue;
 			}
 
 			// If we did nothing, wait for the condition variable.
