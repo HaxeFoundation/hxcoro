@@ -9,6 +9,8 @@ class BackOff {
 		untyped __cpp__("__hxcpp_gc_safe_point()");
 		#elseif eval
 		eval.vm.NativeThread.yield();
+		#elseif jvm
+		// jvm seems to do best without anything here
 		#elseif sys
 		Sys.sleep(1 / 0xFFFFFFFFu32);
 		#else
