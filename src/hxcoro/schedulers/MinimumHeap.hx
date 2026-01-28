@@ -67,11 +67,6 @@ class MinimumHeap {
 	}
 
 	public function insert(event:ScheduledEvent) {
-		final minEvent = minimum();
-		if (minEvent != null && minEvent.runTime == event.runTime) {
-			minEvent.addChildEvent(event);
-			return;
-		}
 		ensureCapacity();
 		storage[length++] = event;
 		final runTime = event.runTime;
