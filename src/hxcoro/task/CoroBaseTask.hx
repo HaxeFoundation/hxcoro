@@ -280,6 +280,13 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 		cont?.callSync();
 	}
 
+	final inline function beginCompleting(result:T) {
+		if (state.changeIf(Running, Completing)) {
+			this.result = result;
+			startChildren();
+		}
+	}
+
 	// strategy dispatcher
 
 	function complete() {
