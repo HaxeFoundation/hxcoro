@@ -135,6 +135,8 @@ class ThreadSafeAggregator<T> {
 	CoroTask provides the basic functionality for coroutine tasks.
 **/
 abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode implements ICoroTask<T> implements ILocalContext implements IElement<CoroBaseTask<Any>> {
+	public static final key = new Key<CoroBaseTask<Any>>('Task');
+
 	/**
 		This task's immutable `Context`.
 	**/
@@ -154,7 +156,7 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 		Creates a new task using the provided `context`.
 	**/
 	public function new(context:Context, nodeStrategy:INodeStrategy, initialState:TaskState) {
-		final parent = context.get(CoroTask);
+		final parent = context.get(CoroBaseTask);
 		this.context = context.clone().with(this).set(CancellationToken, this);
 		this.nodeStrategy = nodeStrategy;
 		awaitingContinuations = new ThreadSafeAggregator<IContinuation<T>>(cont ->
@@ -183,7 +185,7 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 	}
 
 	public function getKey() {
-		return CoroTask.key;
+		return key;
 	}
 
 	/**
@@ -278,6 +280,13 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 	function childrenCompleted() {
 		final cont = awaitingChildContinuation.exchange(null);
 		cont?.callSync();
+	}
+
+	final inline function beginCompleting(result:T) {
+		if (state.changeIf(Running, Completing)) {
+			this.result = result;
+			startChildren();
+		}
 	}
 
 	// strategy dispatcher
