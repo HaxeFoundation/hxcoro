@@ -10,6 +10,7 @@ private typedef Lambda = () -> Void;
 
 class ScheduledEvent implements ISchedulerHandle implements IDispatchObject {
 	public final runTime:Int64;
+	public var next:Null<ScheduledEvent>;
 
 	var cont:Null<IContinuation<Any>>;
 	var childEvents:Array<ScheduledEvent>;
