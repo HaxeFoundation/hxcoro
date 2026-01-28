@@ -137,8 +137,8 @@ class CoroRun {
 		scope.runNodeLambda(lambda);
 
 		cpp.luv.Luv.runLoop(loop, Default);
+		cpp.luv.Luv.shutdownLoop(loop);
 		cpp.luv.Luv.freeLoop(loop);
-		// dispatcher.shutdown();
 
 		switch (scope.getError()) {
 			case null:

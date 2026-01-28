@@ -198,5 +198,6 @@ class LuvDispatcher extends Dispatcher
 		eventQueue.close();
 		closeQueue.close();
 		loopCloses();
+		cpp.luv.Luv.stopLoop(loop);
 	}
 }
