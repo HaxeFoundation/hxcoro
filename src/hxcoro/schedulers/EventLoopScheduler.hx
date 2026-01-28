@@ -17,10 +17,6 @@ class EventLoopScheduler implements IScheduler {
 		heap         = new MinimumHeap();
 	}
 
-	public function hasEvents() {
-		return !heap.isEmpty();
-	}
-
     public function schedule(ms:Int64, func:()->Void):ISchedulerHandle {
 		if (ms < 0) {
 			throw new ArgumentException("Time must be greater or equal to zero");
