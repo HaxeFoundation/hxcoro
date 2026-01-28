@@ -1,10 +1,12 @@
 package hxcoro.schedulers;
 
+import haxe.coro.dispatchers.Dispatcher;
 import hxcoro.concurrent.AtomicState;
 import eval.luv.Async;
 import haxe.atomic.AtomicInt;
 import sys.thread.Deque;
 import haxe.Int64;
+import haxe.coro.IContinuation;
 import haxe.coro.schedulers.IScheduler;
 import haxe.coro.schedulers.ISchedulerHandle;
 import haxe.coro.dispatchers.IDispatchObject;
@@ -64,17 +66,17 @@ private enum abstract LuvTimerEventState(Int) to Int {
 	final Stopped;
 }
 
-private class LuvTimerEvent implements ISchedulerHandle {
+private class LuvTimerEvent implements ISchedulerHandle implements IDispatchObject {
 	final delayMs:Int64;
 	final closeQueue:AsyncDeque<LuvTimerEvent>;
-	final obj:IDispatchObject;
+	final cont:IContinuation<Any>;
 	var timer:Null<Timer>;
 	var state:AtomicInt;
 
-	public function new(closeQueue:AsyncDeque<LuvTimerEvent>, ms:Int64, obj:IDispatchObject) {
+	public function new(closeQueue:AsyncDeque<LuvTimerEvent>, ms:Int64, cont:IContinuation<Any>) {
 		this.delayMs = ms;
 		this.closeQueue = closeQueue;
-		this.obj = obj;
+		this.cont = cont;
 		state = new AtomicInt(Created);
 	}
 
@@ -114,8 +116,12 @@ private class LuvTimerEvent implements ISchedulerHandle {
 
 	function run() {
 		if (stop()) {
-			obj.onDispatch();
+			cont.context.get(Dispatcher).dispatch(this);
 		}
+	}
+
+	public function onDispatch() {
+		cont.resume(null, null);
 	}
 
 	// maybe from other threads
@@ -130,19 +136,6 @@ private class LuvTimerEvent implements ISchedulerHandle {
 			closeQueue.add(this);
 		}
 		// Already cancelled or stopped, ignore
-	}
-}
-
-private class LuvTimerEventFunction extends LuvTimerEvent implements IDispatchObject {
-	final func:() -> Void;
-
-	public function new(closeQueue:AsyncDeque<LuvTimerEvent>, ms:Int64, func:() -> Void) {
-		super(closeQueue, ms, this);
-		this.func = func;
-	}
-
-	public function onDispatch() {
-		func();
 	}
 }
 
@@ -164,8 +157,8 @@ class LuvScheduler implements IScheduler {
 	}
 
 	@:inheritDoc
-	public function schedule(ms:Int64, func:() -> Void) {
-		final event = new LuvTimerEventFunction(closeQueue, ms, func);
+	public function schedule(ms:Int64, cont:IContinuation<Any>) {
+		final event = new LuvTimerEvent(closeQueue, ms, cont);
 		eventQueue.add(event);
 		return event;
 	}
