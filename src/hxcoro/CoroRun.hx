@@ -103,7 +103,7 @@ class CoroRun {
 
 	static public function runWith<T>(context:Context, lambda:NodeLambda<T>):T {
 		final loop = eval.luv.Loop.init().resolve();
-		final pool = new hxcoro.thread.FixedThreadPool(2);
+		final pool = new hxcoro.thread.FixedThreadPool(1);
 		final scheduler = new hxcoro.schedulers.LuvScheduler(loop);
 		final dispatcher = new hxcoro.dispatchers.ThreadPoolDispatcher(scheduler, pool);
 
