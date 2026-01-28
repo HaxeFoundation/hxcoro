@@ -1,4 +1,6 @@
 build-base.hxml
+-D hl-ver=1.16.0
 -hl bin/hlc/hlout/run.c
 -D hlgen.makefile=vs2019
 -D hlgen.makefilepath=bin/hlc
+--macro Macro.autoRunHl()
