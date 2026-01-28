@@ -116,6 +116,7 @@ class CoroRun {
 		var cancelLevel = 0;
 		#end
 		while (loop.run(NOWAIT)) {
+			pool.ping();
 			#if hxcoro_mt_debug
 			if (Timer.milliseconds() >= timeoutTime) {
 				switch (cancelLevel) {
