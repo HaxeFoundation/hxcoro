@@ -37,7 +37,6 @@ class CoroSemaphore {
 			}
 		}
 		suspendCancellable(cont -> {
-			final task = cont.context.get(CoroTask);
 			dequeMutex.acquire();
 			if (deque == null) {
 				deque = new PagedDeque();
