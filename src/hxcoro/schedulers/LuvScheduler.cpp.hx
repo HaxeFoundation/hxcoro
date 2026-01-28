@@ -5,6 +5,7 @@ import haxe.coro.dispatchers.Dispatcher;
 import haxe.atomic.AtomicInt;
 import sys.thread.Deque;
 import haxe.Int64;
+import haxe.coro.IContinuation;
 import haxe.coro.schedulers.IScheduler;
 import haxe.coro.dispatchers.IDispatchObject;
 import haxe.coro.schedulers.ISchedulerHandle;
@@ -43,17 +44,17 @@ private enum abstract LuvTimerEventState(Int) to Int {
 	final Stopped;
 }
 
-private class LuvTimerEvent implements ISchedulerHandle {
+private class LuvTimerEvent implements ISchedulerHandle implements IDispatchObject {
 	final delayMs:Int64;
 	final closeQueue:AsyncDeque<LuvTimerEvent>;
-	final func:() -> Void;
+	final cont:IContinuation<Any>;
 	var timer:Null<LuvTimer>;
 	var state:AtomicInt;
 
-	public function new(closeQueue:AsyncDeque<LuvTimerEvent>, ms:Int64, func:() -> Void) {
+	public function new(closeQueue:AsyncDeque<LuvTimerEvent>, ms:Int64, cont:IContinuation<Any>) {
 		this.delayMs = ms;
 		this.closeQueue = closeQueue;
-		this.func = func;
+		this.cont = cont;
 		state = new AtomicInt(Created);
 	}
 
@@ -90,8 +91,12 @@ private class LuvTimerEvent implements ISchedulerHandle {
 
 	function run() {
 		if (stop()) {
-			func();
+			cont.context.get(Dispatcher).dispatch(this);
 		}
+	}
+
+	public function onDispatch() {
+		cont.resume(null, null);
 	}
 
 	// maybe from other threads
@@ -127,8 +132,8 @@ class LuvScheduler implements IScheduler {
 	}
 
 	@:inheritDoc
-	public function schedule(ms:Int64, func:() -> Void) {
-		final event = new LuvTimerEvent(closeQueue, ms, func);
+	public function schedule(ms:Int64, cont:IContinuation<Any>) {
+		final event = new LuvTimerEvent(closeQueue, ms, cont);
 		eventQueue.add(event);
 		return event;
 	}
