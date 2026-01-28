@@ -203,13 +203,6 @@ abstract class AbstractTask implements ICancellationToken {
 		} while(child != null);
 	}
 
-	final inline function beginCompleting(f:() -> Void) {
-		if (state.changeIf(Running, Completing)) {
-			f();
-			startChildren();
-		}
-	}
-
 	function startChildren() {
 		var child = firstChild.load();
 		while (child != null) {

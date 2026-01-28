@@ -153,7 +153,7 @@ class CoroRun {
 		}
 	}
 
-	#elseif (jvm || hl || cpp)
+	#elseif (jvm || cpp)
 
 	static public function runWith<T>(context:Context, lambda:NodeLambda<T>):T {
 		final scheduler = new hxcoro.schedulers.ThreadAwareScheduler();
