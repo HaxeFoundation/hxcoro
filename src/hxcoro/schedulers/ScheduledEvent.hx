@@ -12,6 +12,7 @@ class ScheduledEvent implements ISchedulerHandle implements IDispatchObject {
 	public final runTime:Int64;
 
 	var childEvents:Array<IDispatchObject>;
+	public var next:Null<ScheduledEvent>;
 
 	public function new(func, runTime) {
 		this.func = func;

@@ -80,14 +80,14 @@ class ThreadAwareScheduler implements IScheduler {
 	final heap:MinimumHeap;
 	final queueTls:Tls<Null<TlsQueue>>;
 	final queueDeque:Deque<TlsQueueEvent>;
-	final toDispatch:Array<ScheduledEvent>;
+	final rootEvent:ScheduledEvent;
 	var firstQueue:TlsQueue;
 
 	public function new() {
 		heap = new MinimumHeap();
 		queueTls = new Tls();
 		queueDeque = new Deque();
-		toDispatch = [];
+		rootEvent = new ScheduledEvent(() -> {}, 0);
 	}
 
 	function getTlsQueue() {
@@ -159,6 +159,8 @@ class ThreadAwareScheduler implements IScheduler {
 		// First we consume the coordination deque so we know all queues.
 		consumeQueueDeque();
 
+		var currentEvent = rootEvent;
+
 		// Next we dispatch all expired and current events in the heap.
 		while (true) {
 			var minimum = heap.minimum();
@@ -167,7 +169,8 @@ class ThreadAwareScheduler implements IScheduler {
 			}
 
 			heap.extract();
-			toDispatch.push(minimum);
+			currentEvent.next = minimum;
+			currentEvent = minimum;
 		}
 
 		// Now we loop over all queues from the threads.
@@ -181,15 +184,20 @@ class ThreadAwareScheduler implements IScheduler {
 					heap.insert(event);
 				} else {
 					// Other events are dispatched immediately.
-					toDispatch.push(event);
+					currentEvent.next = event;
+					currentEvent = event;
 				}
 			}
 			current = current.next;
 		}
-		for (event in toDispatch) {
+		var event = rootEvent;
+		while (true) {
+			event = event.next;
+			if (event == null) {
+				break;
+			}
 			event.onDispatch();
 		}
-		toDispatch.resize(0);
 	}
 
 	public function dump() {
