@@ -18,9 +18,24 @@ private class WorkerActivity {
 	public var activeWorkers:Int;
 	public var availableWorkers:Int;
 
+	/**
+		This is set when an event comes in and the mutex cannot be acquired for signalling.
+		In this case the `ping` function can signal later because somebody has to.
+	**/
+	public var hadMissedEventPing:Bool;
+
+	/**
+		Conversely, this is set when the mutex could be acquired and deals with a special case
+		where we signal the condition variable before the worker thread waits on it. In particular,
+		this can happen with a thread pool of size 1.
+	**/
+	public var hadEvent:Bool;
+
 	public function new(activeWorkers:Int) {
 		this.activeWorkers = activeWorkers;
 		this.availableWorkers = activeWorkers;
+		hadMissedEventPing = false;
+		hadEvent = false;
 	}
 }
 
@@ -47,15 +62,12 @@ class FixedThreadPool implements IThreadPool {
 	final activity:WorkerActivity;
 	final queueTls:Tls<DispatchQueue>;
 
-	var hadMissedEventPing:Bool;
-
 	/**
 		Create a new thread pool with `threadsCount` threads.
 	**/
 	public function new(threadsCount:Int):Void {
 		if(threadsCount < 1)
 			throw new ThreadPoolException('FixedThreadPool needs threadsCount to be at least 1.');
-		hadMissedEventPing = false;
 		this.threadsCount = threadsCount;
 		cond = new Condition();
 		queueTls = new Tls();
@@ -81,18 +93,19 @@ class FixedThreadPool implements IThreadPool {
 		queueTls.value.add(obj);
 		// If no one holds onto the condition, notify everyone.
 		if (cond.tryAcquire()) {
+			activity.hadEvent = true;
 			cond.signal();
 			cond.release();
 		} else {
 			// If we lose the race, set this flag so we can be sure that somebody
 			// gets notified in the `ping` function.
-			hadMissedEventPing = true;
+			activity.hadMissedEventPing = true;
 		}
 	}
 
 	public function ping() {
-		if (hadMissedEventPing && cond.tryAcquire()) {
-			hadMissedEventPing = false;
+		if (activity.hadMissedEventPing && cond.tryAcquire()) {
+			activity.hadMissedEventPing = false;
 			cond.signal();
 			cond.release();
 		}
@@ -123,6 +136,7 @@ class FixedThreadPool implements IThreadPool {
 	public function dump() {
 		Sys.println("FixedThreadPool");
 		Sys.println('\tisShutdown: $isShutdown');
+		Sys.println('\thadMissedEventPing: ${activity.hadMissedEventPing}');
 		var totalDispatches = 0i64;
 		var totalLoops = 0i64;
 		for (worker in pool) {
@@ -215,41 +229,52 @@ private class Worker {
 		this.shutdownSemaphore = shutdownSemaphore;
 	}
 
-	function loop() {
+	function checkQueues() {
 		var index = ownQueueIndex;
+		var didSomething = false;
+		while (true) {
+			final queue = queues[index];
+			final obj = queue.steal();
+			if (obj != null) {
+				state = Working;
+				++numDispatched;
+				obj.onDispatch();
+				state = CheckingQueues;
+				didSomething = true;
+				// Loop with same index because there's a good chance there's more in
+				// the current queue.
+				continue;
+			}
+			if (index == queues.length - 1) {
+				index = 0;
+			} else {
+				++index;
+				if (index == ownQueueIndex) {
+					return didSomething;
+				}
+			}
+		}
+	}
+
+	function loop() {
 		var inShutdown = false;
 		state = CheckingQueues;
 		while(true) {
-			var didSomething = false;
 			++numLooped;
-			while (true) {
-				final queue = queues[index];
-				final obj = queue.steal();
-				if (obj != null) {
-					didSomething = true;
-					state = Working;
-					++numDispatched;
-					obj.onDispatch();
-					state = CheckingQueues;
-					index = ownQueueIndex;
-					break;
-				}
-				if (index == queues.length - 1) {
-					index = 0;
-				} else {
-					++index;
-				}
-				if (index == ownQueueIndex) {
-					break;
-				}
-			}
-			// index == ownQueueIndex here
-			if (didSomething) {
+
+			if (checkQueues()) {
 				inShutdown = false;
-				continue;
 			}
+
 			// If we did nothing, wait for the condition variable.
 			if (cond.tryAcquire()) {
+				// An event could have come in between the queue checking and the acquire. In this
+				// case, the condition might have been signalled to, but we would still go to sleep.
+				if (activity.hadEvent) {
+					activity.hadEvent = false;
+					cond.release();
+					continue;
+				}
 				if (shutdownSemaphore != null) {
 					if (inShutdown) {
 						--activity.activeWorkers;
@@ -269,7 +294,8 @@ private class Worker {
 				state = Waiting;
 				// If we get here we know for sure that there's nothing in our own queue
 				// at the moment, so we can reset it.
-				queue.reset();
+				// TODO: In my head this makes sense but reality disagrees.
+				// queue.reset();
 				cond.wait();
 				state = CheckingQueues;
 				++activity.activeWorkers;

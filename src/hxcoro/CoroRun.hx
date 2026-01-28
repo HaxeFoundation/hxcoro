@@ -151,7 +151,7 @@ class CoroRun {
 	#elseif (jvm || hl || cpp)
 
 	static public function runWith<T>(context:Context, lambda:NodeLambda<T>):T {
-		final scheduler = new EventLoopScheduler();
+		final scheduler = new hxcoro.schedulers.ThreadAwareScheduler();
 		final pool = new hxcoro.thread.FixedThreadPool(10);
 		final dispatcher = new hxcoro.dispatchers.ThreadPoolDispatcher(scheduler, pool);
 		final scope = new CoroTask(context.clone().with(dispatcher), CoroTask.CoroScopeStrategy);
@@ -170,11 +170,6 @@ class CoroRun {
 					case 0:
 						cancelLevel = 1;
 						scope.dump();
-						pool.dump();
-						scope.cancel(new TimeoutException());
-						// Give the task a second to wind down, otherwise break out of here
-						timeoutTime += 1000;
-					case 1:
 						scope.iterateChildren(child -> {
 							if (child.isActive()) {
 								Sys.println("Active child: " + child);
@@ -183,6 +178,12 @@ class CoroRun {
 								}
 							}
 						});
+						pool.dump();
+						scheduler.dump();
+						scope.cancel(new TimeoutException());
+						// Give the task a second to wind down, otherwise break out of here
+						timeoutTime += 1000;
+					case 1:
 						break;
 				}
 			}

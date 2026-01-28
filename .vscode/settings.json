@@ -3,6 +3,7 @@
 		{"label": "JavaScript", "args": ["--cwd", "tests", "build-js.hxml"]},
 		{"label": "C++", "args": ["--cwd", "tests", "-debug", "build-cpp.hxml"]},
 		{"label": "HashLink/JIT", "args": ["--cwd", "tests", "build-hl.hxml"]},
+		{"label": "HashLink/C", "args": ["--cwd", "tests", "build-hlc.hxml"]},
 		{"label": "JVM", "args": ["--cwd", "tests", "build-jvm.hxml"]},
 		{"label": "Interp", "args": ["--cwd", "tests", "build-eval.hxml"]},
 		{"label": "Neko", "args": ["--cwd", "tests", "build-neko.hxml"]},

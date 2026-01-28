@@ -4,6 +4,7 @@ import hxcoro.continuations.RacingContinuation;
 import hxcoro.continuations.CancellingContinuation;
 import haxe.coro.IContinuation;
 import haxe.coro.ICancellableContinuation;
+import haxe.coro.SuspensionResult;
 import haxe.coro.dispatchers.Dispatcher;
 import haxe.exceptions.ArgumentException;
 import hxcoro.task.NodeLambda;
@@ -13,11 +14,11 @@ import hxcoro.continuations.TimeoutContinuation;
 
 class Coro {
 	@:coroutine @:coroutine.transformed
-	public static function suspend<T>(completion:IContinuation<T>, func:IContinuation<T>->Void):T {
+	public static function suspend<T>(completion:IContinuation<T>, func:IContinuation<T>->Void):SuspensionResult<T> {
 		var safe = new RacingContinuation(completion);
 		func(safe);
 		safe.resolve();
-		return cast safe;
+		return safe;
 	}
 
 	/**
@@ -25,16 +26,17 @@ class Coro {
 	 * The `ICancellableContinuation` passed to the function allows registering a callback which is invoked on cancellation
 	 * allowing the easy cleanup of resources.
 	 */
-	@:coroutine @:coroutine.transformed public static function suspendCancellable<T>(completion:IContinuation<T>, func:ICancellableContinuation<T>->Void):T {
+	@:coroutine @:coroutine.transformed public static function suspendCancellable<T>(completion:IContinuation<T>, func:ICancellableContinuation<T>->Void):SuspensionResult<T> {
 		var safe = new CancellingContinuation(completion);
 		func(safe);
 		safe.resolve();
-		return cast safe;
+		return safe;
 	}
 
 	static function delayImpl<T>(ms:Int, cont:ICancellableContinuation<T>) {
-		final handle = cont.context.get(Dispatcher).scheduler.schedule(ms, () -> {
-			cont.callAsync();
+		final dispatcher = cont.context.get(Dispatcher);
+		final handle = dispatcher.scheduler.schedule(ms, () -> {
+			dispatcher.dispatchContinuation(cont, null, null);
 		});
 
 		cont.onCancellationRequested = _ -> {

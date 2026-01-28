@@ -9,6 +9,7 @@ import haxe.coro.cancellation.ICancellationToken;
 import haxe.exceptions.CancellationException;
 import haxe.Exception;
 
+@:using(AbstractTask.TaskStateTools)
 enum abstract TaskState(Int) to Int {
 	final Created;
 	final Running;
@@ -16,6 +17,19 @@ enum abstract TaskState(Int) to Int {
 	final Completed;
 	final Cancelling;
 	final Cancelled;
+}
+
+private class TaskStateTools {
+	static public function toString(state:TaskState) {
+		return switch (state) {
+			case Created: "Created";
+			case Running: "Running";
+			case Completing: "Completing";
+			case Completed: "Completed";
+			case Cancelling: "Cancelling";
+			case Cancelled: "Cancelled";
+		}
+	};
 }
 
 class TaskException extends Exception {}

@@ -1,34 +1,6 @@
 package hxcoro.thread;
-import haxe.ds.Vector;
 import hxcoro.concurrent.AtomicInt;
-
-private typedef ActualStorage<T> =
-#if hl
-	hl.NativeArray<T>
-#else
-	Vector<T>
-#end;
-
-private abstract Storage<T>(ActualStorage<T>) {
-	public var length(get, never):Int;
-
-	public inline function new(vector:ActualStorage<T>) {
-		this = vector;
-	}
-
-	public inline function get_length() {
-		return this.length;
-	}
-
-	@:arrayAccess public inline function get(i:Int) {
-		// `& (x - 1)` is the same as `% x` when x is a power of two
-		return this[i & (this.length - 1)];
-	}
-
-	@:arrayAccess public inline function set(i:Int, v:T) {
-		return this[i & (this.length - 1)] = v;
-	}
-}
+import hxcoro.ds.CircularVector;
 
 /**
 	A single-producer multi-consumer work-stealing queue.
@@ -36,7 +8,7 @@ private abstract Storage<T>(ActualStorage<T>) {
 class WorkStealingQueue<T> {
 	final read:AtomicInt;
 	final write:AtomicInt;
-	var storage:Storage<T>;
+	var storage:CircularVector<T>;
 
 	/**
 		Creates a new work-stealing queue.
@@ -44,15 +16,15 @@ class WorkStealingQueue<T> {
 	public function new() {
 		read = new AtomicInt(0);
 		write = new AtomicInt(0);
-		storage = new Storage(new ActualStorage(16));
+		storage = CircularVector.create(16);
 	}
 
 	function resize(from:Int, to:Int) {
-		final newStorage = new Storage(new ActualStorage(storage.length << 1));
+		final newStorage = CircularVector.create(storage.length << 1);
 		for (i in from...to) {
 			newStorage[i] = storage[i];
 		}
-		storage = newStorage;
+		return newStorage;
 	}
 
 	/**
@@ -66,10 +38,14 @@ class WorkStealingQueue<T> {
 		final r = read.load();
 		final sizeNeeded = w - r;
 		if (sizeNeeded >= storage.length) {
-			resize(r, w);
+			final storage = resize(r, w);
+			storage[w] = value;
+			this.storage = storage;
+			write.add(1);
+		} else {
+			storage[w] = value;
+			write.add(1);
 		}
-		storage[w] = value;
-		write.add(1);
 	}
 
 	/**
@@ -81,20 +57,18 @@ class WorkStealingQueue<T> {
 		fail for other reasons.
 	**/
 	public function steal() {
-		while (true) {
-			final r = read.load();
-			final w = write.load();
-			final size = w - r;
-			if (size <= 0) {
-				return null;
-			}
-			final storage = storage;
-			final v = storage[r];
-			if (read.compareExchange(r, r + 1) == r) {
-				return v;
-			} else {
-				// loop to try again
-			}
+		final r = read.load();
+		final w = write.load();
+		final size = w - r;
+		if (size <= 0) {
+			return null;
+		}
+		final storage = storage;
+		final v = storage[r];
+		if (read.compareExchange(r, r + 1) == r) {
+			return v;
+		} else {
+			return null;
 		}
 	}
 

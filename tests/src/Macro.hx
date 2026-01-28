@@ -11,6 +11,13 @@ function autoRunCpp() {
 	});
 }
 
+function autoRunHl() {
+	haxe.macro.Context.onAfterGenerate(() -> {
+		// TODO: this probably only works for me
+		runCommand(FileSystem.fullPath("bin/hlc/x64/Release/run"));
+	});
+}
+
 class CommandFailure extends haxe.Exception {
 	public final exitCode:Int;
 	public function new(exitCode:Int = 1) {

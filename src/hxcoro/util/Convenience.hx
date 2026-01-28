@@ -19,6 +19,22 @@ private class FunctionDispatchObject implements IDispatchObject {
 	}
 }
 
+private class ContinuationDispatchObject<T> implements IDispatchObject {
+	public final cont:IContinuation<T>;
+	public final result:Null<T>;
+	public final error:Null<Exception>;
+
+	public function new(cont:IContinuation<T>, result:Null<T>, error:Null<Exception>) {
+		this.cont = cont;
+		this.result = result;
+		this.error = error;
+	}
+
+	public function onDispatch() {
+		cont.resume(result, error);
+	}
+}
+
 /**
 	A set of convenience functions for working with hxcoro data.
 **/
@@ -81,7 +97,7 @@ class Convenience {
 		thread if the current dispatcher allows that.
 	**/
 	static public inline function resumeAsync<T>(cont:IContinuation<T>, result:T, error:Exception) {
-		cont.context.get(Dispatcher).dispatchFunction(() -> cont.resume(result, error));
+		cont.context.get(Dispatcher).dispatchContinuation(cont, result, error);
 	}
 
 	static public inline function orCancellationException(exc:Exception):CancellationException {
@@ -94,5 +110,9 @@ class Convenience {
 
 	static public inline function dispatchFunction(dispatcher:Dispatcher, f:()->Void) {
 		return dispatcher.dispatch(new FunctionDispatchObject(f));
+	}
+
+	static public inline function dispatchContinuation<T>(dispatcher: Dispatcher, cont:IContinuation<T>, result:T, error:Exception) {
+		dispatcher.dispatch(new ContinuationDispatchObject(cont, result, error));
 	}
 }

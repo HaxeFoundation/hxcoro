@@ -1,7 +1,10 @@
 package haxe.coro;
 
+import haxe.coro.context.Context;
+
 class CoroIntrinsics {
-	@:coroutine static public function getContext() {
-		return hxcoro.Coro.suspend(cont -> cont.resume(cont.context, null));
+	@:coroutine @:coroutine.transformed
+	static public function getContext(cont:IContinuation<Any>):SuspensionResult<Context> {
+		return ImmediateSuspensionResult.withResult(cont.context);
 	}
 }
