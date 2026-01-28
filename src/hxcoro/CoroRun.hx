@@ -124,6 +124,30 @@ class CoroRun {
 		}
 	}
 
+	#elseif (cpp && hxcpp_luv_io)
+
+	static public function runWith<T>(context:Context, lambda:NodeLambda<T>):T {
+		final loop = cpp.luv.Luv.allocLoop();
+		final dispatcher = new hxcoro.schedulers.LuvScheduler.LuvDispatcher(loop);
+
+		final scope = new CoroTask(context.clone().with(dispatcher), CoroTask.CoroScopeStrategy);
+		scope.onCompletion((_, _) -> {
+			dispatcher.shutdown();
+		});
+		scope.runNodeLambda(lambda);
+
+		cpp.luv.Luv.runLoop(loop, Default);
+		cpp.luv.Luv.shutdownLoop(loop);
+		cpp.luv.Luv.freeLoop(loop);
+
+		switch (scope.getError()) {
+			case null:
+				return scope.get();
+			case error:
+				throw error;
+		}
+	}
+
 	#elseif (jvm || cpp)
 
 	static public function runWith<T>(context:Context, lambda:NodeLambda<T>):T {
