@@ -2,22 +2,23 @@ package hxcoro.schedulers;
 
 import haxe.Int64;
 import haxe.Timer;
+import haxe.coro.IContinuation;
 import haxe.coro.schedulers.IScheduler;
 import haxe.coro.schedulers.ISchedulerHandle;
 
 private class TimerEvent implements ISchedulerHandle {
 	final timer:Timer;
-	final func:() -> Void;
+	final cont:IContinuation<Any>;
 
-	public function new(ms:Int64, func:() -> Void) {
+	public function new(ms:Int64, cont:IContinuation<Any>) {
 		timer = new Timer(Int64.toInt(ms));
-		this.func = func;
+		this.cont = cont;
 		timer.run = run;
 	}
 
 	function run() {
 		timer.stop();
-		func();
+		cont.resume(null, null);
 	}
 
 	public function close() {
@@ -35,8 +36,8 @@ class HaxeTimerScheduler implements IScheduler {
 	public function new() {}
 
 	@:inheritDoc
-	public function schedule(ms:Int64, func:() -> Void) {
-		return new TimerEvent(Int64.toInt(ms), func);
+	public function schedule(ms:Int64, cont:IContinuation<Any>) {
+		return new TimerEvent(Int64.toInt(ms), cont);
 	}
 
 	@:inheritDoc

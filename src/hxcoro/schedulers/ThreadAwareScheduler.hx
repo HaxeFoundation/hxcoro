@@ -1,5 +1,6 @@
 package hxcoro.schedulers;
 
+import haxe.coro.IContinuation;
 import haxe.Exception;
 import sys.thread.Thread;
 import hxcoro.ds.CircularVector;
@@ -87,7 +88,7 @@ class ThreadAwareScheduler implements IScheduler {
 		heap = new MinimumHeap();
 		queueTls = new Tls();
 		queueDeque = new Deque();
-		rootEvent = new ScheduledEvent(() -> {}, 0);
+		rootEvent = new ScheduledEvent(null, 0);
 	}
 
 	function getTlsQueue() {
@@ -110,12 +111,12 @@ class ThreadAwareScheduler implements IScheduler {
 		return newQueue;
 	}
 
-    public function schedule(ms:Int64, func:()->Void):ISchedulerHandle {
+    public function schedule(ms:Int64, cont:IContinuation<Any>):ISchedulerHandle {
 		if (ms < 0) {
 			throw new ArgumentException("Time must be greater or equal to zero");
 		}
 
-		final event = new ScheduledEvent(func, now() + ms);
+		final event = new ScheduledEvent(cont, now() + ms);
 
 		getTlsQueue().add(event);
 
@@ -196,7 +197,7 @@ class ThreadAwareScheduler implements IScheduler {
 			if (event == null) {
 				break;
 			}
-			event.onDispatch();
+			event.dispatch();
 		}
 	}
 

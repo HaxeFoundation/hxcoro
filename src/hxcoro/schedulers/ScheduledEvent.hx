@@ -1,5 +1,7 @@
 package hxcoro.schedulers;
 
+import haxe.coro.dispatchers.Dispatcher;
+import haxe.coro.IContinuation;
 import haxe.coro.dispatchers.IDispatchObject;
 import haxe.coro.schedulers.ISchedulerHandle;
 import haxe.Int64;
@@ -7,36 +9,41 @@ import haxe.Int64;
 private typedef Lambda = () -> Void;
 
 class ScheduledEvent implements ISchedulerHandle implements IDispatchObject {
-	var func:Null<Lambda>;
-
 	public final runTime:Int64;
-
-	var childEvents:Array<IDispatchObject>;
 	public var next:Null<ScheduledEvent>;
 
-	public function new(func, runTime) {
-		this.func = func;
+	var cont:Null<IContinuation<Any>>;
+	var childEvents:Array<ScheduledEvent>;
+
+	public function new(cont, runTime) {
+		this.cont = cont;
 		this.runTime = runTime;
 	}
 
-	public function addChildEvent(event:IDispatchObject) {
+	public function addChildEvent(event:ScheduledEvent) {
 		childEvents ??= [];
 		childEvents.push(event);
 	}
 
-	public inline function onDispatch() {
-		final func = func;
-		if (func != null) {
-			this.func = null;
-			func();
+	public function dispatch() {
+		final cont = cont;
+		if (cont != null) {
+			cont.context.get(Dispatcher).dispatch(this);
 		}
-
 		if (childEvents != null) {
 			final childEvents = childEvents;
 			this.childEvents = null;
 			for (childEvent in childEvents) {
-				childEvent.onDispatch();
+				childEvent.dispatch();
 			}
+		}
+	}
+
+	public inline function onDispatch() {
+		final cont = cont;
+		if (cont != null) {
+			this.cont = null;
+			cont.resume(null, null);
 		}
 	}
 
@@ -52,6 +59,6 @@ class ScheduledEvent implements ISchedulerHandle implements IDispatchObject {
 	}
 
 	public function close() {
-		func = null;
+		cont = null;
 	}
 }

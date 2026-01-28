@@ -35,9 +35,7 @@ class Coro {
 
 	static function delayImpl<T>(ms:Int, cont:ICancellableContinuation<T>) {
 		final dispatcher = cont.context.get(Dispatcher);
-		final handle = dispatcher.scheduler.schedule(ms, () -> {
-			dispatcher.dispatchContinuation(cont, null, null);
-		});
+		final handle = dispatcher.scheduler.schedule(ms, cont);
 
 		cont.onCancellationRequested = _ -> {
 			handle.close();
@@ -96,7 +94,7 @@ class Coro {
 
 			final context = cont.context;
 			final scope = new CoroTask(context, CoroTask.CoroScopeStrategy);
-			final handle = context.get(Dispatcher).scheduler.schedule(ms, () -> {
+			final handle = context.scheduleFunction(ms, () -> {
 				scope.cancel(new TimeoutException());
 			});
 
