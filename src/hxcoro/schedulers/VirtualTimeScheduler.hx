@@ -45,7 +45,7 @@ class VirtualTimeScheduler extends EventLoopScheduler {
 
 			final toRun = heap.extract();
 			currentTime = toRun.runTime;
-			toRun.onDispatch();
+			toRun.dispatch();
 		}
 
 		currentTime = endTime;

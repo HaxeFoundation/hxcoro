@@ -1,12 +1,12 @@
 package hxcoro.schedulers;
 
+import haxe.coro.IContinuation;
 import haxe.Timer;
 import haxe.Int64;
 import haxe.coro.Mutex;
 import haxe.exceptions.ArgumentException;
 import haxe.coro.schedulers.IScheduler;
 import haxe.coro.schedulers.ISchedulerHandle;
-import haxe.coro.dispatchers.IDispatchObject;
 
 class EventLoopScheduler implements IScheduler {
 	final futureMutex : Mutex;
@@ -17,12 +17,12 @@ class EventLoopScheduler implements IScheduler {
 		heap         = new MinimumHeap();
 	}
 
-    public function schedule(ms:Int64, func:()->Void):ISchedulerHandle {
+    public function schedule(ms:Int64, cont:IContinuation<Any>):ISchedulerHandle {
 		if (ms < 0) {
 			throw new ArgumentException("Time must be greater or equal to zero");
 		}
 
-		final event = new ScheduledEvent(func, now() + ms);
+		final event = new ScheduledEvent(cont, now() + ms);
 
 		futureMutex.acquire();
 
@@ -49,7 +49,7 @@ class EventLoopScheduler implements IScheduler {
 			final toRun = heap.extract();
 			futureMutex.release();
 
-			toRun.onDispatch();
+			toRun.dispatch();
 		}
 
 		futureMutex.release();

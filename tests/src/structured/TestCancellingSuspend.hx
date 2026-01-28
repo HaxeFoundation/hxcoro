@@ -38,7 +38,7 @@ class TestCancellingSuspend extends utest.Test {
 		final task       = CoroRun.with(dispatcher).create(node -> {
 			AssertAsync.raises(() -> {
 				suspendCancellable(cont -> {
-					scheduler.schedule(0, () -> {
+					cont.context.scheduleFunction(0, () -> {
 						cont.resume(null, null);
 					});
 				});
@@ -60,7 +60,7 @@ class TestCancellingSuspend extends utest.Test {
 		final task       = CoroRun.with(dispatcher).create(node -> {
 			AssertAsync.raises(() -> {
 				suspendCancellable(cont -> {
-					scheduler.schedule(0, () -> {
+					cont.context.scheduleFunction(0, () -> {
 						cont.resume(null, new ArgumentException(''));
 					});
 				});
