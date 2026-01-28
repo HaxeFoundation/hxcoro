@@ -99,7 +99,7 @@ class CoroRun {
 
 	#end
 
-	#if (false && (eval && !macro))
+	#if interp
 
 	static public function runWith<T>(context:Context, lambda:NodeLambda<T>):T {
 		final loop = eval.luv.Loop.init().resolve();
@@ -111,9 +111,38 @@ class CoroRun {
 		scope.onCompletion((_, _) -> scheduler.shutdown());
 		scope.runNodeLambda(lambda);
 
-		while (loop.run(NOWAIT)) { }
+		#if hxcoro_mt_debug
+		var timeoutTime = Timer.milliseconds() + 10000;
+		var cancelLevel = 0;
+		#end
+		while (loop.run(NOWAIT)) {
+			pool.ping();
+			#if hxcoro_mt_debug
+			if (Timer.milliseconds() >= timeoutTime) {
+				switch (cancelLevel) {
+					case 0:
+						cancelLevel = 1;
+						scope.dump();
+						scope.iterateChildren(child -> {
+							if (child.isActive()) {
+								Sys.println("Active child: " + child);
+								if (child is CoroTask) {
+									(cast child : CoroTask<Any>).dump();
+								}
+							}
+						});
+						pool.dump();
+						scope.cancel(new TimeoutException());
+						// Give the task a second to wind down, otherwise break out of here
+						timeoutTime += 1000;
+					case 1:
+						break;
+				}
+			}
+			#end
+		}
 
-		pool.shutdown();
+		pool.shutdown(true);
 		loop.close();
 
 		switch (scope.getError()) {

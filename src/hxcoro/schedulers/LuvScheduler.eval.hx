@@ -1,27 +1,53 @@
 package hxcoro.schedulers;
 
+import haxe.coro.dispatchers.Dispatcher;
+import hxcoro.concurrent.AtomicState;
 import eval.luv.Async;
 import haxe.atomic.AtomicInt;
 import sys.thread.Deque;
 import haxe.Int64;
+import haxe.coro.IContinuation;
 import haxe.coro.schedulers.IScheduler;
 import haxe.coro.schedulers.ISchedulerHandle;
 import haxe.coro.dispatchers.IDispatchObject;
 import eval.luv.Timer;
 import eval.luv.Loop;
 
+enum abstract AsyncDequeState(Int) to Int {
+	final Open;
+	final Sending;
+	final Closed;
+}
+
 class AsyncDeque<T> {
 	final deque:Deque<T>;
 	var async:Null<Async>;
+	var state:AtomicState<AsyncDequeState>;
 
 	public function new(loop:Loop, f:Async -> Void) {
 		this.deque = new Deque<T>();
 		this.async = Async.init(loop, f).resolve();
+		state = new AtomicState(Open);
 	}
 
 	public function add(x:T) {
-		deque.add(x);
-		async.send();
+		while (true) {
+			switch (state.compareExchange(Open, Sending)) {
+				case Open:
+					deque.add(x);
+					async.send();
+					state.store(Open);
+					break;
+				case Sending:
+					// loop
+				case Closed:
+					// If we're already closed we must be in LuvScheduler.shutdown. We
+					// can't use async anymore, but we can still add to the deque so the
+					// shutdown can drain it.
+					deque.add(x);
+					return;
+			}
+		}
 	}
 
 	public function pop(block:Bool) {
@@ -40,17 +66,17 @@ private enum abstract LuvTimerEventState(Int) to Int {
 	final Stopped;
 }
 
-private class LuvTimerEvent implements ISchedulerHandle {
+private class LuvTimerEvent implements ISchedulerHandle implements IDispatchObject {
 	final delayMs:Int64;
 	final closeQueue:AsyncDeque<LuvTimerEvent>;
-	final obj:IDispatchObject;
+	final cont:IContinuation<Any>;
 	var timer:Null<Timer>;
 	var state:AtomicInt;
 
-	public function new(closeQueue:AsyncDeque<LuvTimerEvent>, ms:Int64, obj:IDispatchObject) {
+	public function new(closeQueue:AsyncDeque<LuvTimerEvent>, ms:Int64, cont:IContinuation<Any>) {
 		this.delayMs = ms;
 		this.closeQueue = closeQueue;
-		this.obj = obj;
+		this.cont = cont;
 		state = new AtomicInt(Created);
 	}
 
@@ -90,8 +116,12 @@ private class LuvTimerEvent implements ISchedulerHandle {
 
 	function run() {
 		if (stop()) {
-			obj.onDispatch();
+			cont.context.get(Dispatcher).dispatch(this);
 		}
+	}
+
+	public function onDispatch() {
+		cont.resume(null, null);
 	}
 
 	// maybe from other threads
@@ -106,19 +136,6 @@ private class LuvTimerEvent implements ISchedulerHandle {
 			closeQueue.add(this);
 		}
 		// Already cancelled or stopped, ignore
-	}
-}
-
-private class LuvTimerEventFunction extends LuvTimerEvent implements IDispatchObject {
-	final func:() -> Void;
-
-	public function new(closeQueue:AsyncDeque<LuvTimerEvent>, ms:Int64, func:() -> Void) {
-		super(closeQueue, ms, this);
-		this.func = func;
-	}
-
-	public function onDispatch() {
-		func();
 	}
 }
 
@@ -140,8 +157,8 @@ class LuvScheduler implements IScheduler {
 	}
 
 	@:inheritDoc
-	public function schedule(ms:Int64, func:() -> Void) {
-		final event = new LuvTimerEventFunction(closeQueue, ms, func);
+	public function schedule(ms:Int64, cont:IContinuation<Any>) {
+		final event = new LuvTimerEvent(closeQueue, ms, cont);
 		eventQueue.add(event);
 		return event;
 	}
@@ -170,9 +187,8 @@ class LuvScheduler implements IScheduler {
 	}
 
 	public function shutdown() {
-		loopEvents(null);
-		loopCloses(null);
 		eventQueue.close();
 		closeQueue.close();
+		loopCloses(null);
 	}
 }
