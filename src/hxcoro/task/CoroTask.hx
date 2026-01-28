@@ -30,8 +30,6 @@ private class ResumeStatusTools {
 }
 
 class CoroTask<T> extends CoroBaseTask<T> implements IContinuation<T> {
-	public static final key = new Key<CoroBaseTask<Any>>('Task');
-
 	static public final CoroChildStrategy = new CoroChildStrategy();
 	static public final CoroScopeStrategy = new CoroScopeStrategy();
 	static public final CoroSupervisorStrategy = new CoroSupervisorStrategy();
