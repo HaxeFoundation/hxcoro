@@ -1,13 +1,11 @@
 package hxcoro.task;
 
-import hxcoro.concurrent.AtomicState;
 import hxcoro.task.node.CoroChildStrategy;
 import hxcoro.task.node.CoroScopeStrategy;
 import hxcoro.task.node.CoroSupervisorStrategy;
 import hxcoro.task.node.INodeStrategy;
 import hxcoro.task.AbstractTask;
 import haxe.coro.IContinuation;
-import haxe.coro.context.Key;
 import haxe.coro.context.Context;
 import haxe.coro.dispatchers.IDispatchObject;
 import haxe.Exception;
@@ -34,23 +32,11 @@ class CoroTask<T> extends CoroBaseTask<T> implements IContinuation<T> {
 	static public final CoroScopeStrategy = new CoroScopeStrategy();
 	static public final CoroSupervisorStrategy = new CoroSupervisorStrategy();
 
-	var resumeStatus:AtomicState<ResumeStatus>;
-
 	public function new(context:Context, nodeStrategy:INodeStrategy, initialState:TaskState = Running) {
-		resumeStatus = new AtomicState(NeverStarted);
 		super(context, nodeStrategy, initialState);
 	}
 
-	function updateResumeStatus(expected:ResumeStatus, replacement:ResumeStatus, where:String) {
-		final previousStatus = resumeStatus.compareExchange(expected, replacement);
-		if (previousStatus != expected) {
-			setInternalException('Unexpected resume status $previousStatus in $where, task state ${state.load()}');
-		}
-	}
-
-	public function doStart() {
-		updateResumeStatus(NeverStarted, Unresumed, "doStart");
-	}
+	public function doStart() {}
 
 	public function runNodeLambda(lambda:NodeLambda<T>) {
 		start();
@@ -69,22 +55,13 @@ class CoroTask<T> extends CoroBaseTask<T> implements IContinuation<T> {
 		Resumes the task with the provided `result` and `error`.
 	**/
 	public function resume(result:T, error:Exception) {
-		updateResumeStatus(Unresumed, Resumed, "resume");
 		if (error == null) {
-			switch (state.load()) {
-				case Running:
-					beginCompleting(result);
-				case _:
-			}
+			beginCompleting(result);
 			checkCompletion();
 		} else {
-			this.error ??= error;
-			cancel();
+			beginCancelling(error);
+			checkCompletion();
 		}
-	}
-
-	function isDoingSomething() {
-		return resumeStatus.load() == Unresumed;
 	}
 
 	#if sys
@@ -93,7 +70,6 @@ class CoroTask<T> extends CoroBaseTask<T> implements IContinuation<T> {
 		Sys.println('\tstate: ${state.load().toString()}');
 		Sys.println('\tfirstChild: ${firstChild.load()}');
 		Sys.println('\tnumActiveChildren: ${numActiveChildren.load()}');
-		Sys.println('\tresumeStatus: ${resumeStatus.load().toString()}');
 		Sys.println('\tresult: $result');
 		Sys.println('\terror: $error');
 	}

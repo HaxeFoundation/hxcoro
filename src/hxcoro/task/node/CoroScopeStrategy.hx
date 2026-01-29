@@ -19,11 +19,8 @@ class CoroScopeStrategy implements INodeStrategy {
 		switch (task.state.load()) {
 			case Created | Running | Completing:
 				// inherit child error
-				task.error ??= cause;
-				task.cancel();
-			case Cancelling:
-				// not sure about this one, what if we cancel normally and then get a real exception?
-			case Completed | Cancelled:
+				task.doCancel(cause);
+			case Cancelling | Completed | Cancelled:
 		}
 	}
 
