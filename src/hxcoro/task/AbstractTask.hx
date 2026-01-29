@@ -235,8 +235,9 @@ abstract class AbstractTask implements ICancellationToken {
 						}
 					}
 				case Cancelling:
-					state.store(Cancelled);
-					complete();
+					if (state.compareExchange(Cancelling, Completed) == Cancelling) {
+						complete();
+					}
 					return;
 				case Completed | Cancelled:
 					// This can happen from the loop, ignore.
@@ -280,7 +281,9 @@ abstract class AbstractTask implements ICancellationToken {
 					return setInternalException('Invalid state $state in childCompletes');
 			}
 		}
-		numActiveChildren.sub(1);
+		if (numActiveChildren.sub(1) < 0) {
+			setInternalException('numActiveChildren < 0');
+		}
 		checkCompletion();
 	}
 
