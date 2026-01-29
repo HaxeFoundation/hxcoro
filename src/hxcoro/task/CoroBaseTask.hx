@@ -148,9 +148,9 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 	public var localContext(get, null):Null<AdjustableContext>;
 
 	final nodeStrategy:INodeStrategy;
+	final awaitingContinuations:ThreadSafeAggregator<IContinuation<T>>;
+	final awaitingChildContinuation:AtomicObject<Null<IContinuation<Any>>>;
 	var result:Null<T>;
-	var awaitingContinuations:ThreadSafeAggregator<IContinuation<T>>;
-	var awaitingChildContinuation:AtomicObject<Null<IContinuation<Any>>>;
 
 	/**
 		Creates a new task using the provided `context`.
@@ -160,7 +160,7 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 		this.context = context.clone().with(this).set(CancellationToken, this);
 		this.nodeStrategy = nodeStrategy;
 		awaitingContinuations = new ThreadSafeAggregator<IContinuation<T>>(cont ->
-			cont.resume(result, error)
+			cont.resume(result, error.load())
 		);
 		awaitingChildContinuation = new AtomicObject(null);
 		super(parent, initialState);
@@ -282,10 +282,16 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 		cont?.callSync();
 	}
 
-	final inline function beginCompleting(result:T) {
-		if (state.changeIf(Running, Completing)) {
+	final function beginCompleting(result:T) {
+		if (state.compareExchange(Running, Completing) == Running) {
 			this.result = result;
 			startChildren();
+		}
+	}
+
+	final function beginCancelling(error:Exception) {
+		if (state.compareExchange(Running, Cancelling) == Running) {
+			doCancel(error);
 		}
 	}
 
