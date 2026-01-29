@@ -1,16 +1,13 @@
 package hxcoro.concurrent;
 
 import hxcoro.concurrent.exceptions.SemaphoreFullException;
-import haxe.coro.Mutex;
 import haxe.exceptions.ArgumentException;
-import hxcoro.task.CoroTask;
 import hxcoro.ds.PagedDeque;
 import haxe.coro.IContinuation;
 import haxe.coro.cancellation.CancellationToken;
 
 class CoroSemaphore {
 	final maxFree:Int;
-	final dequeMutex:Mutex;
 	var deque:Null<PagedDeque<IContinuation<Any>>>;
 	var free:AtomicInt;
 
@@ -20,7 +17,6 @@ class CoroSemaphore {
 		}
 
 		maxFree = free;
-		dequeMutex = new Mutex();
 		this.free = new AtomicInt(free);
 	}
 
@@ -28,21 +24,27 @@ class CoroSemaphore {
 		// CAS loop until we update the free atomic or it reports full.
 		while (true) {
 			final old = free.load();
-			if (0 == old) {
-				break;
+			if (old < 0) {
+				// Someone has the "mutex", let's wait
+				BackOff.backOff();
+				continue;
 			}
-
 			if (free.compareExchange(old, old - 1) == old) {
-				return;
+				if (old == 0) {
+					// The value is -1 now, so we have the mutex and can suspend.
+					break;
+				} else {
+					// Normal acquire
+					return;
+				}
 			}
 		}
+		// If we get here, free is == -1
 		suspendCancellable(cont -> {
-			dequeMutex.acquire();
-			if (deque == null) {
-				deque = new PagedDeque();
-			}
+			deque ??= new PagedDeque();
 			deque.push(cont);
-			dequeMutex.release();
+			// Unlock
+			free.store(0);
 		});
 	}
 
@@ -59,47 +61,56 @@ class CoroSemaphore {
 	}
 
 	public function release() {
-		// CAS loop until we update the free atomic or it reports full.
+		var old = free.load();
 		while (true) {
-			final old = free.load();
 			if (maxFree == old) {
 				throw new SemaphoreFullException();
 			}
-
+			if (old < 0) {
+				// Someone has the "mutex", let's wait
+				BackOff.backOff();
+				continue;
+			}
+			if (old == 0) {
+				// This is the case where we might have to inspect the deque, so we go to -1.
+				if (free.compareExchange(old, -1) == old) {
+					// We successfully locked the mutex, leave this loop.
+					break;
+				} else {
+					BackOff.backOff();
+					continue;
+				}
+			}
 			if (free.compareExchange(old, old + 1) == old) {
-				break;
+				// Normal release and nobody waits in the deque, we're done.
+				return;
+			} else {
+				// Update failure means waiting.
+				BackOff.backOff();
 			}
 		}
-
-		dequeMutex.acquire();
+		// If we get here, free == -1.
 		if (deque == null) {
-			dequeMutex.release();
+			// No deque at all means there's room for 1 now.
+			free.store(1);
 			return;
 		}
 		while (true) {
 			if (deque.isEmpty()) {
-				// nobody else wants it right now, return
-				dequeMutex.release();
+				// Empty deque also means there's room for 1.
+				free.store(1);
 				return;
 			}
-			// a continuation waits for this mutex, wake it up now
 			final cont = deque.pop();
 			final ct = cont.context.get(CancellationToken);
 			if (ct.isCancellationRequested()) {
-				// ignore, back to the loop
-			} else {
-				// continue normally
-				while (true) {
-					// we need to CAS-decrement the free value here as if we acquired it normally
-					final old = free.load();
-					if (free.compareExchange(old, old - 1) == old) {
-						break;
-					}
-				}
-				dequeMutex.release();
-				cont.callAsync();
-				return;
+				// Ignore, back to the loop.
+				continue;
 			}
+			// There's a continuation to execute, so free is 0 again.
+			free.store(0);
+			cont.callAsync();
+			break;
 		}
 	}
 }
