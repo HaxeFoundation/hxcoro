@@ -166,7 +166,7 @@ class CoroRun {
 			#end
 		}
 
-		pool.shutdown(true);
+		pool.shutDown(true);
 
 		switch (scope.getError()) {
 			case null:

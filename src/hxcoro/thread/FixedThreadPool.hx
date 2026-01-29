@@ -51,11 +51,10 @@ class FixedThreadPool implements IThreadPool {
 	function get_threadsCount():Int return threadsCount;
 
 	/**
-		@see `IThreadPool.isShutdown`
+		@see `IThreadPool.isShutDown`
 	**/
-	public var isShutdown(get,never):Bool;
-	var _isShutdown = false;
-	function get_isShutdown():Bool return _isShutdown;
+	public var isShutDown(get,null):Bool;
+	function get_isShutDown():Bool return isShutDown;
 
 	final cond:Condition;
 	final pool:Array<Worker>;
@@ -84,15 +83,15 @@ class FixedThreadPool implements IThreadPool {
 		@see `IThreadPool.run`
 	**/
 	public function run(obj:IDispatchObject):Void {
-		if(_isShutdown) {
+		if(isShutDown) {
 			throw new ThreadPoolException('Task is rejected. Thread pool is shut down.');
 		}
 		if(obj == null) {
 			throw new ThreadPoolException('Task to run must not be null.');
 		}
 		queueTls.value.add(obj);
-		// If no one holds onto the condition, notify everyone.
 		if (cond.tryAcquire()) {
+			// If no one holds onto the condition, notify someone.
 			activity.hadEvent = true;
 			cond.signal();
 			cond.release();
@@ -114,9 +113,11 @@ class FixedThreadPool implements IThreadPool {
 	/**
 		@see `IThreadPool.shutdown`
 	**/
-	public function shutdown(block:Bool = false):Void {
-		if(_isShutdown) return;
-		_isShutdown = true;
+	public function shutDown(block:Bool = false):Void {
+		if(isShutDown) {
+			return;
+		}
+		isShutDown = true;
 
 		final shutdownSemaphore = new Semaphore(0);
 
@@ -135,7 +136,7 @@ class FixedThreadPool implements IThreadPool {
 
 	public function dump() {
 		Sys.println("FixedThreadPool");
-		Sys.println('\tisShutdown: $isShutdown');
+		Sys.println('\tisShutDown: $isShutDown');
 		Sys.println('\thadMissedEventPing: ${activity.hadMissedEventPing}');
 		var totalDispatches = 0i64;
 		var totalLoops = 0i64;
@@ -292,10 +293,6 @@ private class Worker {
 				// These modifications are fine because we hold onto the cond mutex.
 				--activity.activeWorkers;
 				state = Waiting;
-				// If we get here we know for sure that there's nothing in our own queue
-				// at the moment, so we can reset it.
-				// TODO: In my head this makes sense but reality disagrees.
-				// queue.reset();
 				cond.wait();
 				state = CheckingQueues;
 				++activity.activeWorkers;
