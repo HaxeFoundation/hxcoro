@@ -32,7 +32,7 @@ final class BoundedWriter<T> implements IChannelWriter<T> {
 	}
 
 	public function tryWrite(v:T):Bool {
-		if (state.changeIf(Open, Locked) == false) {
+		if (state.compareExchange(Open, Locked) != Open) {
 			return false;
 		}
 
@@ -139,9 +139,9 @@ final class BoundedWriter<T> implements IChannelWriter<T> {
 				return if (buffer.wasFull()) {
 					return suspendCancellable(cont -> {
 						final hostPage = writeWaiters.push(cont);
-		
+
 						state.store(Open);
-		
+
 						cont.onCancellationRequested = _ -> {
 							switch state.lock() {
 								case Closed, Locked:
@@ -154,7 +154,7 @@ final class BoundedWriter<T> implements IChannelWriter<T> {
 					});
 				} else {
 					state.store(Open);
-		
+
 					true;
 				}
 		}

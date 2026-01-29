@@ -160,10 +160,14 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 		this.context = context.clone().with(this).set(CancellationToken, this);
 		this.nodeStrategy = nodeStrategy;
 		awaitingContinuations = new ThreadSafeAggregator<IContinuation<T>>(cont ->
-			cont.resume(result, error)
+			cont.resume(result, error.load())
 		);
 		awaitingChildContinuation = new AtomicObject(null);
 		super(parent, initialState);
+	}
+
+	public function doStart() {
+
 	}
 
 	inline function get_context() {
@@ -282,10 +286,16 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 		cont?.callSync();
 	}
 
-	final inline function beginCompleting(result:T) {
-		if (state.changeIf(Running, Completing)) {
+	final function beginCompleting(result:T) {
+		if (state.compareExchange(Running, Completing) == Running) {
 			this.result = result;
 			startChildren();
+		}
+	}
+
+	final function beginCancelling(error:Exception) {
+		if (state.compareExchange(Running, Cancelling) == Running) {
+			doCancel(error);
 		}
 	}
 
