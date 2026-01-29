@@ -1,6 +1,5 @@
 package hxcoro.task;
 
-import hxcoro.concurrent.BackOff;
 import hxcoro.concurrent.AtomicObject;
 import hxcoro.concurrent.AtomicState;
 import hxcoro.concurrent.AtomicInt;

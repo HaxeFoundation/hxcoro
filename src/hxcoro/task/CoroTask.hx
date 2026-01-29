@@ -1,6 +1,5 @@
 package hxcoro.task;
 
-import hxcoro.concurrent.AtomicState;
 import hxcoro.task.node.CoroChildStrategy;
 import hxcoro.task.node.CoroScopeStrategy;
 import hxcoro.task.node.CoroSupervisorStrategy;
