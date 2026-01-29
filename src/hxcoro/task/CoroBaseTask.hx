@@ -166,10 +166,6 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 		super(parent, initialState);
 	}
 
-	public function doStart() {
-
-	}
-
 	inline function get_context() {
 		return context;
 	}

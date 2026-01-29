@@ -37,6 +37,8 @@ class CoroTask<T> extends CoroBaseTask<T> implements IContinuation<T> {
 		super(context, nodeStrategy, initialState);
 	}
 
+	public function doStart() {}
+
 	public function runNodeLambda(lambda:NodeLambda<T>) {
 		start();
 		final result = lambda(this, this);
