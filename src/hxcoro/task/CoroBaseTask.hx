@@ -1,5 +1,6 @@
 package hxcoro.task;
 
+import hxcoro.continuations.FunctionContinuation;
 import hxcoro.concurrent.AtomicState;
 import hxcoro.concurrent.AtomicObject;
 import hxcoro.concurrent.BackOff;
@@ -50,26 +51,6 @@ private class CoroTaskWith<T> implements ICoroNodeWith {
 		return task.without(...keys);
 	}
 }
-
-private class CallbackContinuation<T> implements IContinuation<T> {
-	final callback:(result:T, error:Exception)->Void;
-
-	public var context (get, default) : Context;
-
-	inline function get_context() {
-		return context;
-	}
-
-	public function new(context, callback) {
-		this.callback = callback;
-		this.context  = context;
-	}
-
-	public function resume(value:T, error:Exception) {
-		callback(value, error);
-	}
-}
-
 enum abstract AggregatorState(Int) to Int {
 	final Ready;
 	final Modifying;
@@ -240,7 +221,7 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 	}
 
 	public function onCompletion(callback:(result:T, error:Exception)->Void) {
-		awaitingContinuations.add(new CallbackContinuation(context.clone(), callback));
+		awaitingContinuations.add(new FunctionContinuation(context.clone(), callback));
 	}
 
 	/**
