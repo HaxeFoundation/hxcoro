@@ -213,35 +213,24 @@ abstract class AbstractTask implements ICancellationToken {
 			}
 		}
 
-		var currentState = state.load();
-		while (true) {
-			switch (currentState) {
-				case Created:
-					setInternalException('Bad state Created in checkCompletion');
-				case Running:
-					// Definitely not yet completed.
-					return;
-				case Completing:
-					if (isCancelling()) {
-						currentState = Cancelling;
-						// loop
-					} else {
-						currentState = state.compareExchange(Completing, Completed);
-						if (currentState == Completing) {
-							complete();
-							return;
-						} else {
-							// loop
-						}
-					}
-				case Cancelling:
-					state.store(Cancelled);
+		switch (state.load()) {
+			case Created:
+				setInternalException('Bad state Created in checkCompletion');
+			case Running:
+				// Definitely not yet completed.
+			case Completing if (isCancelling()):
+				if (state.compareExchange(Completing, Cancelled) == Completing) {
 					complete();
-					return;
-				case Completed | Cancelled:
-					// This can happen from the loop, ignore.
-					return;
-			}
+				}
+			case Completing:
+				if (state.compareExchange(Completing, Completed) == Completing) {
+					complete();
+				}
+			case Cancelling:
+				if (state.compareExchange(Cancelling, Cancelled) == Cancelling) {
+					complete();
+				}
+			case Completed | Cancelled:
 		}
 	}
 
@@ -280,7 +269,9 @@ abstract class AbstractTask implements ICancellationToken {
 					return setInternalException('Invalid state $state in childCompletes');
 			}
 		}
-		numActiveChildren.sub(1);
+		if (numActiveChildren.sub(1) < 0) {
+			setInternalException('numActiveChildren < 0');
+		}
 		checkCompletion();
 	}
 
