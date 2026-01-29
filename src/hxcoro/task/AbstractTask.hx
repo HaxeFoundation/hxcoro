@@ -47,8 +47,8 @@ abstract class AbstractTask implements ICancellationToken {
 
 	final parent:AbstractTask;
 
-	var cancellationManager:TaskCancellationManager;
-	var error:AtomicObject<Null<Exception>>;
+	final cancellationManager:TaskCancellationManager;
+	final error:AtomicObject<Null<Exception>>;
 	final state:AtomicState<TaskState>;
 
 	public var id(get, null):Int;
@@ -56,8 +56,8 @@ abstract class AbstractTask implements ICancellationToken {
 
 	// children
 
-	var numActiveChildren:AtomicInt;
-	var firstChild:AtomicObject<Null<AbstractTask>>;
+	final numActiveChildren:AtomicInt;
+	final firstChild:AtomicObject<Null<AbstractTask>>;
 	var nextSibling:Null<AbstractTask>;
 
 	function get_cancellationException() {

@@ -148,9 +148,9 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 	public var localContext(get, null):Null<AdjustableContext>;
 
 	final nodeStrategy:INodeStrategy;
+	final awaitingContinuations:ThreadSafeAggregator<IContinuation<T>>;
+	final awaitingChildContinuation:AtomicObject<Null<IContinuation<Any>>>;
 	var result:Null<T>;
-	var awaitingContinuations:ThreadSafeAggregator<IContinuation<T>>;
-	var awaitingChildContinuation:AtomicObject<Null<IContinuation<Any>>>;
 
 	/**
 		Creates a new task using the provided `context`.
