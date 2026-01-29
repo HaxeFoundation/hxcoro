@@ -118,22 +118,21 @@ abstract class AbstractTask implements ICancellationToken {
 	**/
 	public function cancel(?cause:CancellationException) {
 		cause ??= new CancellationException();
-		doCancel(cause, cause);
+		doCancel(cause);
 	}
 
-	function doCancel(error:Exception, ?cause:CancellationException) {
+	function doCancel(error:Exception) {
 		if (this.error.compareExchange(null, error) != null) {
 			// Already done
 			checkCompletion();
 			return;
 		}
-		if (cause == null) {
+		final cause:CancellationException =
 			if (error is CancellationException) {
-				cause = cast error;
+				cast error;
 			} else {
-				cause = new CancellationException();
+				new CancellationException();
 			}
-		}
 		cancellationManager.run();
 		cancelChildren();
 		checkCompletion();
