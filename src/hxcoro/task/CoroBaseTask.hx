@@ -166,6 +166,10 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 		super(parent, initialState);
 	}
 
+	public function doStart() {
+
+	}
+
 	inline function get_context() {
 		return context;
 	}
@@ -282,10 +286,17 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 		cont?.callSync();
 	}
 
-	final inline function beginCompleting(result:T) {
-		if (state.changeIf(Running, Completing)) {
+	final function beginCompleting(result:T) {
+		if (state.compareExchange(Running, Completing) == Running) {
 			this.result = result;
 			startChildren();
+		}
+	}
+
+	final function beginCancelling(error:Exception) {
+		if (state.compareExchange(Running, Cancelling) == Running) {
+			this.error ??= error;
+			cancel();
 		}
 	}
 

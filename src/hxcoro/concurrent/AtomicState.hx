@@ -14,14 +14,6 @@ abstract AtomicState<T:Int>(AtomicInt) {
 
 	/**
 		Atomically updates the value to `replacement` if the current value is `expected`.
-		Returns true on success.
-	**/
-	public inline function changeIf(expected:T, replacement:T) {
-		return this.compareExchange(expected, replacement) == expected;
-	}
-
-	/**
-		Atomically updates the value to `replacement` if the current value is `expected`.
 		Returns the current value.
 	**/
 	public inline function compareExchange(expected:T, replacement:T):T {

@@ -1,5 +1,6 @@
 package hxcoro.task;
 
+import hxcoro.concurrent.BackOff;
 import hxcoro.concurrent.AtomicObject;
 import hxcoro.concurrent.AtomicState;
 import hxcoro.concurrent.AtomicInt;
@@ -8,6 +9,12 @@ import haxe.coro.cancellation.ICancellationHandle;
 import haxe.coro.cancellation.ICancellationToken;
 import haxe.exceptions.CancellationException;
 import haxe.Exception;
+
+enum abstract CancellationState(Int) to Int {
+	final NotCancelled;
+	final SettingCancellationCause;
+	final HasCancellationCause;
+}
 
 @:using(AbstractTask.TaskStateTools)
 enum abstract TaskState(Int) to Int {
@@ -47,8 +54,9 @@ abstract class AbstractTask implements ICancellationToken {
 	final parent:AbstractTask;
 
 	var cancellationManager:TaskCancellationManager;
-	var state:AtomicState<TaskState>;
 	var error:Null<Exception>;
+	final state:AtomicState<TaskState>;
+	final cancellationState:AtomicState<CancellationState>;
 
 	public var id(get, null):Int;
 	public var cancellationException(get, never):Null<CancellationException>;
@@ -59,12 +67,16 @@ abstract class AbstractTask implements ICancellationToken {
 	var firstChild:AtomicObject<Null<AbstractTask>>;
 	var nextSibling:Null<AbstractTask>;
 
-	inline function get_cancellationException() {
-		return switch state.load() {
-			case Cancelling | Cancelled:
-				error.orCancellationException();
-			case _:
-				null;
+	function get_cancellationException() {
+		while (true) {
+			switch (cancellationState.load()) {
+				case NotCancelled:
+					return null;
+				case SettingCancellationCause:
+					BackOff.backOff();
+				case HasCancellationCause:
+					return error.orCancellationException();
+			}
 		}
 	}
 
@@ -79,6 +91,7 @@ abstract class AbstractTask implements ICancellationToken {
 		id = atomicId.add(1);
 		this.parent = parent;
 		state = new AtomicState(Created);
+		cancellationState = new AtomicState(NotCancelled);
 		error = null;
 		cancellationManager = new TaskCancellationManager(this);
 		numActiveChildren = new AtomicInt(0);
@@ -97,14 +110,8 @@ abstract class AbstractTask implements ICancellationToken {
 			case _:
 				setInternalException('Invalid initial state $initialState');
 		}
-		if (parent != null) {
-			switch (parent.state.load()) {
-				case Cancelling:
-					cancel();
-				case state = Cancelled | Completed:
-					setInternalException('Child created in invalid parent state ${state}');
-				case Created | Running | Completing:
-			}
+		if (parent?.isCancelling()) {
+			cancel();
 		}
 	}
 
@@ -124,37 +131,17 @@ abstract class AbstractTask implements ICancellationToken {
 		task has completed and initiates the appropriate behavior.
 	**/
 	public function cancel(?cause:CancellationException) {
-		// Use Zeta-loop to make sure we don't miss a state change
-		var currentState = state.load();
-		while (true) {
-			switch (currentState) {
-				case Created | Running | Completing:
-					final nextState = state.compareExchange(currentState, Cancelling);
-					if (nextState == currentState) {
-						// Update successful, so this is the first and only time we get here
-						cause ??= new CancellationException();
-						// This has to happen before the state update!
-						error ??= cause;
-						state.store(Cancelling);
-
-						cancellationManager.run();
-
-						cancelChildren(cause);
-						checkCompletion();
-						break;
-					} else {
-						// Loop with current value to try again
-						currentState = nextState;
-					}
-				case Cancelling :
-					// Someone else got here first, check completion.
-					checkCompletion();
-					break;
-				case Cancelled | Completed:
-					// Nothing to do
-					break;
-			}
+		if (cancellationState.compareExchange(NotCancelled, SettingCancellationCause) != NotCancelled) {
+			// Already done
+			checkCompletion();
+			return;
 		}
+		cause ??= new CancellationException();
+		error ??= cause;
+		cancellationState.store(HasCancellationCause);
+		cancellationManager.run();
+		cancelChildren(cause);
+		checkCompletion();
 	}
 
 	/**
@@ -170,6 +157,15 @@ abstract class AbstractTask implements ICancellationToken {
 		}
 	}
 
+	public function isCancelling() {
+		return switch (cancellationState.load()) {
+			case NotCancelled:
+				false;
+			case SettingCancellationCause | HasCancellationCause:
+				true;
+		}
+	}
+
 	public function onCancellationRequested(callback:ICancellationCallback):ICancellationHandle {
 		return cancellationManager.addCallback(callback);
 	}
@@ -178,7 +174,7 @@ abstract class AbstractTask implements ICancellationToken {
 		Starts executing this task. Has no effect if the task is already active or has completed.
 	**/
 	public final function start() {
-		if (state.changeIf(Created, Running)) {
+		if (state.compareExchange(Created, Running) == Created) {
 			doStart();
 		}
 	}
@@ -229,38 +225,34 @@ abstract class AbstractTask implements ICancellationToken {
 			}
 		}
 
-		// We now try to update to Completed/Cancelled.
 		var currentState = state.load();
 		while (true) {
-			final targetState = switch (currentState) {
+			switch (currentState) {
 				case Created:
-					// Nothing to do
-					Completed;
+					setInternalException('Bad state Created in checkCompletion');
 				case Running:
 					// Definitely not yet completed.
 					return;
 				case Completing:
-					Completed;
-				case Cancelling:
-					// We may or may not still be doing something in this state, so we have
-					// to check for that. This means that any code which modifies the condition
-					// to become `false` has to ensure that we re-enter this function.
-					if (isDoingSomething()) {
-						return;
+					if (isCancelling()) {
+						currentState = Cancelling;
+						// loop
+					} else {
+						currentState = state.compareExchange(Completing, Completed);
+						if (currentState == Completing) {
+							complete();
+							return;
+						} else {
+							// loop
+						}
 					}
-					Cancelled;
+				case Cancelling:
+					state.store(Cancelled);
+					complete();
+					return;
 				case Completed | Cancelled:
 					// This can happen from the loop, ignore.
 					return;
-			};
-			final nextState = state.compareExchange(currentState, targetState);
-			if (nextState == currentState) {
-				// CAS success means we're 100% done.
-				complete();
-				break;
-			} else {
-				// This could happen on a change from Completing to Cancelling, so we loop.
-				currentState = nextState;
 			}
 		}
 	}
@@ -269,11 +261,6 @@ abstract class AbstractTask implements ICancellationToken {
 		error = new TaskException(reason);
 		cancel();
 	}
-
-	/**
-		Whether or not the task itself is doing something, unrelated to its children.
-	**/
-	abstract function isDoingSomething():Bool;
 
 	abstract function doStart():Void;
 

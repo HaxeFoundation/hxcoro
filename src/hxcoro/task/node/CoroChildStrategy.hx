@@ -21,9 +21,7 @@ class CoroChildStrategy implements INodeStrategy {
 				// inherit child error
 				task.error ??= cause;
 				task.cancel();
-			case Cancelling:
-				// not sure about this one, what if we cancel normally and then get a real exception?
-			case Completed | Cancelled:
+			case Cancelling | Completed | Cancelled:
 		}
 	}
 
