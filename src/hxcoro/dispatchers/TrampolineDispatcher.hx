@@ -34,7 +34,7 @@ final class TrampolineDispatcher extends Dispatcher {
 
 	public function new(scheduler : IScheduler = null) {
 		s          = scheduler ?? new EventLoopScheduler();
-		trampoline = new Trampoline();
+		trampoline = Trampoline.get();
 	}
 
 	public function get_scheduler() {
