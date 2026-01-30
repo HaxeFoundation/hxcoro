@@ -11,12 +11,23 @@ class CoroSemaphore {
 	var deque:Null<PagedDeque<IContinuation<Any>>>;
 	var free:AtomicInt;
 
-	public function new(free:Int) {
-		if (free < 1) {
-			throw new ArgumentException("free", "Maximum free count must be greater than 1");
+	public function new(free:Int, ?maxFree:Int) {
+		if (free < 0) {
+			throw new ArgumentException("free", "Value of free must be >= 0");
+		}
+		if (maxFree == null) {
+			if (free == 0) {
+				throw new ArgumentException("maxFree", "If free is 0, maxFree must be set");
+			}
+			this.maxFree = free;
+		} else if (maxFree < 1) {
+			throw new ArgumentException("maxFree", "Maximum free count must be greater than 1");
+		} else if (free > maxFree) {
+			throw new ArgumentException("free", "Value of free must be <= maxFree");
+		} else {
+			this.maxFree = maxFree;
 		}
 
-		maxFree = free;
 		this.free = new AtomicInt(free);
 	}
 
