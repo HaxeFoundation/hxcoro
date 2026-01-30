@@ -7,7 +7,7 @@ import hxcoro.CoroRun;
 import hxcoro.Coro.*;
 
 class Issue37 extends utest.Test {
-	#if false // everyone hates this
+	#if !neko // neko can't count milliseconds
 	function testCancelling() {
 		final numIterations = 2;
 		final numTasks = 100;
