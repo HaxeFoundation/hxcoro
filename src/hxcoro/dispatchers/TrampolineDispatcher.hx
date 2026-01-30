@@ -17,7 +17,11 @@ private class Trampoline {
 
 	public static function get() {
 #if target.threaded
- 		static final tls = new sys.thread.Tls<Trampoline>();
+ 		static final tls = {
+			final l = new sys.thread.Tls<Trampoline>();
+			l.value = null;
+			l;
+		}
 
 		return tls.value ??= new Trampoline();
 #else
