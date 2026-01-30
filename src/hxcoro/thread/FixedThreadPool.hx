@@ -308,10 +308,12 @@ private class Worker {
 		try {
 			loop();
 		} catch (e:Dynamic) {
+			queueTls.value = null;
 			start();
 			throw e;
 		}
 		state = Terminated;
+		queueTls.value = null;
 		shutdownSemaphore.release();
 	}
 }
