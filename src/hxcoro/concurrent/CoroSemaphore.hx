@@ -8,7 +8,7 @@ import haxe.coro.cancellation.CancellationToken;
 
 class CoroSemaphore {
 	final maxFree:Int;
-	var deque:Null<PagedDeque<IContinuation<Any>>>;
+	var deque:PagedDeque<IContinuation<Any>>;
 	var free:AtomicInt;
 
 	public function new(free:Int, ?maxFree:Int) {
@@ -29,6 +29,7 @@ class CoroSemaphore {
 		}
 
 		this.free = new AtomicInt(free);
+		deque = new PagedDeque();
 	}
 
 	@:coroutine public function acquire() {
@@ -52,7 +53,6 @@ class CoroSemaphore {
 		}
 		// If we get here, free is == -1
 		suspendCancellable(cont -> {
-			deque ??= new PagedDeque();
 			deque.push(cont);
 			// Unlock
 			free.store(0);
@@ -101,11 +101,6 @@ class CoroSemaphore {
 			}
 		}
 		// If we get here, free == -1.
-		if (deque == null) {
-			// No deque at all means there's room for 1 now.
-			free.store(1);
-			return;
-		}
 		while (true) {
 			if (deque.isEmpty()) {
 				// Empty deque also means there's room for 1.
