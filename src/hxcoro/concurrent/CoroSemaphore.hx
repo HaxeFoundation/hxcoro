@@ -80,23 +80,28 @@ class CoroSemaphore {
 			if (old < 0) {
 				// Someone has the "mutex", let's wait
 				BackOff.backOff();
+				old = free.load();
 				continue;
 			}
 			if (old == 0) {
 				// This is the case where we might have to inspect the deque, so we go to -1.
-				if (free.compareExchange(old, -1) == old) {
+				final next = free.compareExchange(old, -1);
+				if (next == old) {
 					// We successfully locked the mutex, leave this loop.
 					break;
 				} else {
+					old = next;
 					BackOff.backOff();
 					continue;
 				}
 			}
-			if (free.compareExchange(old, old + 1) == old) {
+			final next = free.compareExchange(old, old + 1);
+			if (next == old) {
 				// Normal release and nobody waits in the deque, we're done.
 				return;
 			} else {
 				// Update failure means waiting.
+				old = next;
 				BackOff.backOff();
 			}
 		}
