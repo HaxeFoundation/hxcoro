@@ -271,6 +271,21 @@ class TestMutex extends utest.Test {
 		}
 	}
 
+	function testAcquireConcurrency() {
+		final numTasks = 1000;
+
+		CoroRun.runScoped(node -> {
+			final sem = new CoroSemaphore(numTasks);
+			for (_ in 0...numTasks) {
+				node.async(node -> {
+					sem.acquire();
+				});
+			}
+		});
+		// termination is test result
+		Assert.pass();
+	}
+
 	function testReleaseConcurrency() {
 		final numTasks = 1000;
 
