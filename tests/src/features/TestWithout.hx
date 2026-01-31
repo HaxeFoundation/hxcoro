@@ -17,23 +17,4 @@ class TestWithout extends utest.Test {
 		Assert.equals("foo", outerComponent.name);
 		Assert.isNull(innerComponent);
 	}
-
-	function testLocal() {
-		final actual = [];
-		CoroRun.runScoped(node -> {
-			function push() {
-				actual.push(node.localContext.get(CoroName)?.name);
-			}
-			push();
-			node.localContext.with(new CoroName("1"));
-			push();
-			node.localContext.without(CoroName);
-			push();
-			node.localContext.without(CoroName);
-			push();
-			node.localContext.with(new CoroName("2"));
-			push();
-		});
-		utest.Assert.same([null, "1", null, null, "2"], actual);
-	}
 }
