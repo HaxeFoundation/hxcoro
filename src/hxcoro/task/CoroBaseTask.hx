@@ -115,18 +115,13 @@ class ThreadSafeAggregator<T> {
 /**
 	CoroTask provides the basic functionality for coroutine tasks.
 **/
-abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode implements ICoroTask<T> implements ILocalContext implements IElement<CoroBaseTask<Any>> {
+abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode implements ICoroTask<T> implements IElement<CoroBaseTask<Any>> {
 	public static final key = new Key<CoroBaseTask<Any>>('Task');
 
 	/**
 		This task's immutable `Context`.
 	**/
 	public var context(get, null):Context;
-
-	/**
-		This task's mutable local `Context`.
-	**/
-	public var localContext(get, null):Null<AdjustableContext>;
 
 	final nodeStrategy:INodeStrategy;
 	final awaitingContinuations:ThreadSafeAggregator<IContinuation<T>>;
@@ -149,13 +144,6 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 
 	inline function get_context() {
 		return context;
-	}
-
-	inline function get_localContext() {
-		if (localContext == null) {
-			localContext = Context.create();
-		}
-		return localContext;
 	}
 
 	/**
@@ -214,7 +202,7 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 	}
 
 	override function cancel(?cause:CancellationException) {
-		if (context.get(NonCancellable) != null || localContext.get(NonCancellable) != null) {
+		if (context.get(NonCancellable) != null) {
 			return;
 		}
 		super.cancel(cause);
