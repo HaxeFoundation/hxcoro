@@ -5,7 +5,7 @@ class BackOff {
 		#if hl
 		hl.Gc.safepoint();
 		#elseif cpp
-		cpp.vm.Gc.safepoint();
+		cpp.vm.Gc.safePoint();
 		#elseif eval
 		eval.vm.NativeThread.yield();
 		#elseif jvm
