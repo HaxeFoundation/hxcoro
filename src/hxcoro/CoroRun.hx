@@ -42,8 +42,8 @@ class CoroRun {
 		if (defaultContext != null) {
 			return defaultContext;
 		}
-		final stackTraceManagerComponent = new haxe.coro.BaseContinuation.StackTraceManager();
-		defaultContext = Context.create(stackTraceManagerComponent);
+		final stackTraceManager = new haxe.coro.BaseContinuation.StackTraceManager();
+		defaultContext = Context.create(stackTraceManager);
 		return defaultContext;
 	}
 
@@ -71,8 +71,8 @@ class CoroRun {
 
 	static function promiseImpl<T>(lambda:NodeLambda<T>) {
 		final scheduler = new HaxeTimerScheduler();
-		final dispatcherComponent = new TrampolineDispatcher(scheduler);
-		final task = new CoroTask(defaultContext.clone().with(dispatcherComponent), CoroTask.CoroScopeStrategy);
+		final dispatcher = new TrampolineDispatcher(scheduler);
+		final task = new CoroTask(defaultContext.clone().with(dispatcher), CoroTask.CoroScopeStrategy);
 		task.runNodeLambda(lambda);
 
 		return new js.lib.Promise((resolve, reject) -> {
@@ -116,7 +116,6 @@ class CoroRun {
 		var cancelLevel = 0;
 		#end
 		while (loop.run(NOWAIT)) {
-			pool.ping();
 			#if hxcoro_mt_debug
 			if (Timer.milliseconds() >= timeoutTime) {
 				switch (cancelLevel) {
@@ -142,7 +141,7 @@ class CoroRun {
 			#end
 		}
 
-		pool.shutdown(true);
+		pool.shutDown(true);
 		loop.close();
 
 		switch (scope.getError()) {
@@ -153,7 +152,7 @@ class CoroRun {
 		}
 	}
 
-	#elseif (jvm || cpp)
+	#elseif (jvm || cpp || hl)
 
 	static public function runWith<T>(context:Context, lambda:NodeLambda<T>):T {
 		final scheduler = new hxcoro.schedulers.ThreadAwareScheduler();
@@ -168,7 +167,6 @@ class CoroRun {
 		#end
 		while (scope.isActive()) {
 			scheduler.run();
-			pool.ping();
 			#if hxcoro_mt_debug
 			if (Timer.milliseconds() >= timeoutTime) {
 				switch (cancelLevel) {
@@ -195,7 +193,7 @@ class CoroRun {
 			#end
 		}
 
-		pool.shutdown(true);
+		pool.shutDown(true);
 
 		switch (scope.getError()) {
 			case null:
@@ -208,13 +206,13 @@ class CoroRun {
 	#else
 
 	static public function runWith<T>(context:Context, lambda:NodeLambda<T>):T {
-		final schedulerComponent  = new EventLoopScheduler();
-		final dispatcherComponent = new TrampolineDispatcher(schedulerComponent);
-		final scope = new CoroTask(context.clone().with(dispatcherComponent), CoroTask.CoroScopeStrategy);
+		final scheduler  = new EventLoopScheduler();
+		final dispatcher = new TrampolineDispatcher(scheduler);
+		final scope = new CoroTask(context.clone().with(dispatcher), CoroTask.CoroScopeStrategy);
 		scope.runNodeLambda(lambda);
 
 		while (scope.isActive()) {
-			schedulerComponent.run();
+			scheduler.run();
 		}
 
 		switch (scope.getError()) {

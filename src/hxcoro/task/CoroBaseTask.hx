@@ -1,9 +1,10 @@
 package hxcoro.task;
 
+import hxcoro.continuations.FunctionContinuation;
 import hxcoro.concurrent.AtomicState;
 import hxcoro.concurrent.AtomicObject;
 import hxcoro.concurrent.BackOff;
-import hxcoro.components.NonCancellable;
+import hxcoro.elements.NonCancellable;
 import hxcoro.task.CoroTask;
 import hxcoro.task.node.INodeStrategy;
 import hxcoro.task.ICoroTask;
@@ -50,26 +51,6 @@ private class CoroTaskWith<T> implements ICoroNodeWith {
 		return task.without(...keys);
 	}
 }
-
-private class CallbackContinuation<T> implements IContinuation<T> {
-	final callback:(result:T, error:Exception)->Void;
-
-	public var context (get, default) : Context;
-
-	inline function get_context() {
-		return context;
-	}
-
-	public function new(context, callback) {
-		this.callback = callback;
-		this.context  = context;
-	}
-
-	public function resume(value:T, error:Exception) {
-		callback(value, error);
-	}
-}
-
 enum abstract AggregatorState(Int) to Int {
 	final Ready;
 	final Modifying;
@@ -134,7 +115,7 @@ class ThreadSafeAggregator<T> {
 /**
 	CoroTask provides the basic functionality for coroutine tasks.
 **/
-abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode implements ICoroTask<T> implements ILocalContext implements IElement<CoroBaseTask<Any>> {
+abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode implements ICoroTask<T> implements IElement<CoroBaseTask<Any>> {
 	public static final key = new Key<CoroBaseTask<Any>>('Task');
 
 	/**
@@ -142,15 +123,10 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 	**/
 	public var context(get, null):Context;
 
-	/**
-		This task's mutable local `Context`.
-	**/
-	public var localContext(get, null):Null<AdjustableContext>;
-
 	final nodeStrategy:INodeStrategy;
+	final awaitingContinuations:ThreadSafeAggregator<IContinuation<T>>;
+	final awaitingChildContinuation:AtomicObject<Null<IContinuation<Any>>>;
 	var result:Null<T>;
-	var awaitingContinuations:ThreadSafeAggregator<IContinuation<T>>;
-	var awaitingChildContinuation:AtomicObject<Null<IContinuation<Any>>>;
 
 	/**
 		Creates a new task using the provided `context`.
@@ -160,7 +136,7 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 		this.context = context.clone().with(this).set(CancellationToken, this);
 		this.nodeStrategy = nodeStrategy;
 		awaitingContinuations = new ThreadSafeAggregator<IContinuation<T>>(cont ->
-			cont.resume(result, error)
+			cont.resume(result, error.load())
 		);
 		awaitingChildContinuation = new AtomicObject(null);
 		super(parent, initialState);
@@ -168,13 +144,6 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 
 	inline function get_context() {
 		return context;
-	}
-
-	inline function get_localContext() {
-		if (localContext == null) {
-			localContext = Context.create();
-		}
-		return localContext;
 	}
 
 	/**
@@ -233,14 +202,14 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 	}
 
 	override function cancel(?cause:CancellationException) {
-		if (context.get(NonCancellable) != null || localContext.get(NonCancellable) != null) {
+		if (context.get(NonCancellable) != null) {
 			return;
 		}
 		super.cancel(cause);
 	}
 
 	public function onCompletion(callback:(result:T, error:Exception)->Void) {
-		awaitingContinuations.add(new CallbackContinuation(context.clone(), callback));
+		awaitingContinuations.add(new FunctionContinuation(context.clone(), callback));
 	}
 
 	/**
@@ -282,10 +251,16 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 		cont?.callSync();
 	}
 
-	final inline function beginCompleting(result:T) {
-		if (state.changeIf(Running, Completing)) {
+	final function beginCompleting(result:T) {
+		if (state.compareExchange(Running, Completing) == Running) {
 			this.result = result;
 			startChildren();
+		}
+	}
+
+	final function beginCancelling(error:Exception) {
+		if (state.compareExchange(Running, Cancelling) == Running) {
+			doCancel(error);
 		}
 	}
 

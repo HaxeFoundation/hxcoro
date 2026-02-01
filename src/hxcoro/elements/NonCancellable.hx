@@ -1,4 +1,4 @@
-package hxcoro.components;
+package hxcoro.elements;
 
 import haxe.coro.context.Key;
 import haxe.coro.context.IElement;

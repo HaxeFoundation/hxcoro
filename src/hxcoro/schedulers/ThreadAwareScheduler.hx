@@ -99,11 +99,12 @@ class ThreadAwareScheduler implements IScheduler {
 
 		final newQueue = new CircularQueue(4);
 		final currentThread = Thread.current();
-		var onAbort = currentThread.onAbort;
-		currentThread.onAbort = function(e:Exception) {
+		var onExit = currentThread.onExit;
+		currentThread.onExit = function() {
 			queueDeque.add(Remove(newQueue));
-			if (onAbort != null) {
-				onAbort(e);
+			queueTls.value = null;
+			if (onExit != null) {
+				onExit();
 			}
 		}
 		queueTls.value = newQueue;

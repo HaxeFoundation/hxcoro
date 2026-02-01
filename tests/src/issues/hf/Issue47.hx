@@ -1,6 +1,6 @@
 package issues.hf;
 
-import hxcoro.components.NonCancellable;
+import hxcoro.elements.NonCancellable;
 import haxe.exceptions.CancellationException;
 
 class Issue47 extends utest.Test {
