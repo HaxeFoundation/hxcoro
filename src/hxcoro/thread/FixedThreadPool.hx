@@ -19,12 +19,6 @@ private class WorkerActivity {
 	public var availableWorkers:Int;
 
 	/**
-		This is set when an event comes in and the mutex cannot be acquired for signalling.
-		In this case the `ping` function can signal later because somebody has to.
-	**/
-	public var hadMissedEventPing:Bool;
-
-	/**
 		Conversely, this is set when the mutex could be acquired and deals with a special case
 		where we signal the condition variable before the worker thread waits on it. In particular,
 		this can happen with a thread pool of size 1.
@@ -34,7 +28,6 @@ private class WorkerActivity {
 	public function new(activeWorkers:Int) {
 		this.activeWorkers = activeWorkers;
 		this.availableWorkers = activeWorkers;
-		hadMissedEventPing = false;
 		hadEvent = false;
 	}
 }
@@ -51,11 +44,10 @@ class FixedThreadPool implements IThreadPool {
 	function get_threadsCount():Int return threadsCount;
 
 	/**
-		@see `IThreadPool.isShutdown`
+		@see `IThreadPool.isShutDown`
 	**/
-	public var isShutdown(get,never):Bool;
-	var _isShutdown = false;
-	function get_isShutdown():Bool return _isShutdown;
+	public var isShutDown(get,null):Bool;
+	function get_isShutDown():Bool return isShutDown;
 
 	final cond:Condition;
 	final pool:Array<Worker>;
@@ -84,28 +76,16 @@ class FixedThreadPool implements IThreadPool {
 		@see `IThreadPool.run`
 	**/
 	public function run(obj:IDispatchObject):Void {
-		if(_isShutdown) {
+		if(isShutDown) {
 			throw new ThreadPoolException('Task is rejected. Thread pool is shut down.');
 		}
 		if(obj == null) {
 			throw new ThreadPoolException('Task to run must not be null.');
 		}
 		queueTls.value.add(obj);
-		// If no one holds onto the condition, notify everyone.
 		if (cond.tryAcquire()) {
+			// If no one holds onto the condition, notify someone.
 			activity.hadEvent = true;
-			cond.signal();
-			cond.release();
-		} else {
-			// If we lose the race, set this flag so we can be sure that somebody
-			// gets notified in the `ping` function.
-			activity.hadMissedEventPing = true;
-		}
-	}
-
-	public function ping() {
-		if (activity.hadMissedEventPing && cond.tryAcquire()) {
-			activity.hadMissedEventPing = false;
 			cond.signal();
 			cond.release();
 		}
@@ -114,9 +94,11 @@ class FixedThreadPool implements IThreadPool {
 	/**
 		@see `IThreadPool.shutdown`
 	**/
-	public function shutdown(block:Bool = false):Void {
-		if(_isShutdown) return;
-		_isShutdown = true;
+	public function shutDown(block:Bool = false):Void {
+		if(isShutDown) {
+			return;
+		}
+		isShutDown = true;
 
 		final shutdownSemaphore = new Semaphore(0);
 
@@ -135,8 +117,7 @@ class FixedThreadPool implements IThreadPool {
 
 	public function dump() {
 		Sys.println("FixedThreadPool");
-		Sys.println('\tisShutdown: $isShutdown');
-		Sys.println('\thadMissedEventPing: ${activity.hadMissedEventPing}');
+		Sys.println('\tisShutDown: $isShutDown');
 		var totalDispatches = 0i64;
 		var totalLoops = 0i64;
 		for (worker in pool) {
@@ -289,13 +270,15 @@ private class Worker {
 						continue;
 					}
 				}
+				if (activity.activeWorkers == 1) {
+					// Always keep one thread alive until we can find a better solution to the
+					// run/loop synchronization problem.
+					cond.release();
+					continue;
+				}
 				// These modifications are fine because we hold onto the cond mutex.
 				--activity.activeWorkers;
 				state = Waiting;
-				// If we get here we know for sure that there's nothing in our own queue
-				// at the moment, so we can reset it.
-				// TODO: In my head this makes sense but reality disagrees.
-				// queue.reset();
 				cond.wait();
 				state = CheckingQueues;
 				++activity.activeWorkers;
@@ -311,10 +294,12 @@ private class Worker {
 		try {
 			loop();
 		} catch (e:Dynamic) {
+			queueTls.value = null;
 			start();
 			throw e;
 		}
 		state = Terminated;
+		queueTls.value = null;
 		shutdownSemaphore.release();
 	}
 }

@@ -16,15 +16,19 @@ private class Trampoline {
 	}
 
 	public static function get() {
-// #if target.threaded
-// 		static final tls = new sys.thread.Tls<Trampoline>();
+#if target.threaded
+ 		static final tls = {
+			final l = new sys.thread.Tls<Trampoline>();
+			l.value = null;
+			l;
+		}
 
-// 		return tls.value ??= new Trampoline();
-// #else
+		return tls.value ??= new Trampoline();
+#else
 		static var trampoline : Null<Trampoline> = null;
 
 		return trampoline ??= new Trampoline();
-// #end
+#end
 	}
 }
 
@@ -34,7 +38,7 @@ final class TrampolineDispatcher extends Dispatcher {
 
 	public function new(scheduler : IScheduler = null) {
 		s          = scheduler ?? new EventLoopScheduler();
-		trampoline = new Trampoline();
+		trampoline = Trampoline.get();
 	}
 
 	public function get_scheduler() {

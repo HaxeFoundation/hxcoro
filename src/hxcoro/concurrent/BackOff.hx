@@ -3,10 +3,9 @@ package hxcoro.concurrent;
 class BackOff {
 	static public inline function backOff() {
 		#if hl
-		hl.Gc.blocking(true);
-		hl.Gc.blocking(false);
+		hl.Gc.safepoint();
 		#elseif cpp
-		untyped __cpp__("__hxcpp_gc_safe_point()");
+		cpp.vm.Gc.safePoint();
 		#elseif eval
 		eval.vm.NativeThread.yield();
 		#elseif jvm

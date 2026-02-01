@@ -11,7 +11,7 @@ interface IThreadPool {
 	var threadsCount(get,never):Int;
 
 	/** Indicates if `shutdown` method of this pool has been called. */
-	var isShutdown(get,never):Bool;
+	var isShutDown(get,never):Bool;
 
 	/**
 		Submit a task to run in a thread.
@@ -30,5 +30,5 @@ interface IThreadPool {
 
 		Multiple calls to this method have no effect.
 	**/
-	function shutdown(block:Bool = false):Void;
+	function shutDown(block:Bool = false):Void;
 }

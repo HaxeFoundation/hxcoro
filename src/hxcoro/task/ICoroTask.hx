@@ -4,7 +4,7 @@ import haxe.coro.context.Context;
 import haxe.Exception;
 import haxe.exceptions.CancellationException;
 
-interface ICoroTask<T> extends ILocalContext {
+interface ICoroTask<T> {
 	var id(get, never):Int;
 	var context(get, never):Context;
 	function cancel(?cause:CancellationException):Void;
