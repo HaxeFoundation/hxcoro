@@ -157,7 +157,7 @@ class CoroRun {
 		models.
 	**/
 	static public function runWith<T>(context:Context, lambda:NodeLambda<T>):T {
-		#if (jvm || cpp || hl)
+		#if (jvm || cpp)
 		final scheduler = new hxcoro.schedulers.ThreadAwareScheduler();
 		final pool = new hxcoro.thread.FixedThreadPool(10);
 		final dispatcher = new hxcoro.dispatchers.ThreadPoolDispatcher(scheduler, pool);
@@ -168,7 +168,7 @@ class CoroRun {
 
 		final task = runInLoop(context.clone().with(dispatcher), scheduler, lambda);
 
-		#if (jvm || cpp || hl)
+		#if (jvm || cpp)
 		pool.shutDown(true);
 		#end
 
