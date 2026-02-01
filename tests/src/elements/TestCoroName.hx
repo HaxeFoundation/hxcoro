@@ -1,6 +1,6 @@
-package components;
+package elements;
 
-import hxcoro.components.CoroName;
+import hxcoro.elements.CoroName;
 
 class TestCoroName extends utest.Test {
 	@:coroutine
