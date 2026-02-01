@@ -274,6 +274,7 @@ private class Worker {
 					// Always keep one thread alive until we can find a better solution to the
 					// run/loop synchronization problem.
 					cond.release();
+					BackOff.backOff();
 					continue;
 				}
 				// These modifications are fine because we hold onto the cond mutex.
