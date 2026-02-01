@@ -4,7 +4,7 @@ import hxcoro.continuations.FunctionContinuation;
 import hxcoro.concurrent.AtomicState;
 import hxcoro.concurrent.AtomicObject;
 import hxcoro.concurrent.BackOff;
-import hxcoro.components.NonCancellable;
+import hxcoro.elements.NonCancellable;
 import hxcoro.task.CoroTask;
 import hxcoro.task.node.INodeStrategy;
 import hxcoro.task.ICoroTask;
