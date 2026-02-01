@@ -4,14 +4,25 @@ import haxe.Timer;
 import haxe.coro.Coroutine;
 import haxe.coro.context.Context;
 import haxe.coro.context.IElement;
-import hxcoro.schedulers.HaxeTimerScheduler;
+import haxe.coro.dispatchers.Dispatcher;
 import hxcoro.task.CoroTask;
 import hxcoro.task.ICoroTask;
 import hxcoro.task.NodeLambda;
 import hxcoro.task.StartableCoroTask;
 import hxcoro.schedulers.EventLoopScheduler;
+import hxcoro.schedulers.ILoop;
+import hxcoro.schedulers.HaxeTimerScheduler;
 import hxcoro.dispatchers.TrampolineDispatcher;
 import hxcoro.exceptions.TimeoutException;
+
+function resolveTask<T>(task:CoroTask<T>) {
+	switch (task.getError()) {
+		case null:
+			return task.get();
+		case error:
+			throw error;
+	}
+}
 
 abstract RunnableContext(ElementTree) {
 	inline function new(tree:ElementTree) {
@@ -23,7 +34,15 @@ abstract RunnableContext(ElementTree) {
 	}
 
 	public function run<T>(lambda:NodeLambda<T>):T {
-		return CoroRun.runWith(new Context(this), lambda);
+		final context = new Context(this);
+		final dispatcher = context.get(Dispatcher);
+		if (dispatcher == null) {
+			throw 'Cannot run without a Dispatcher element';
+		}
+		if (!(dispatcher.scheduler is ILoop)) {
+			throw 'Cannot run because ${dispatcher.scheduler} is not an instance of ILoop';
+		}
+		return resolveTask(CoroRun.runInLoop(context, cast dispatcher.scheduler, lambda));
 	}
 
 	@:from static function fromAdjustableContext(context:AdjustableContext) {
@@ -130,22 +149,39 @@ class CoroRun {
 		final scheduler = new hxcoro.schedulers.ThreadAwareScheduler();
 		final pool = new hxcoro.thread.FixedThreadPool(10);
 		final dispatcher = new hxcoro.dispatchers.ThreadPoolDispatcher(scheduler, pool);
-		final scope = new CoroTask(context.clone().with(dispatcher), CoroTask.CoroScopeStrategy);
-		scope.runNodeLambda(lambda);
+		final task = runInLoop(context.clone().with(dispatcher), scheduler, lambda);
+		pool.shutDown(true);
+		return resolveTask(task);
+	}
 
-		#if hxcoro_mt_debug
+	#else
+
+	static public function runWith<T>(context:Context, lambda:NodeLambda<T>):T {
+		final scheduler  = new EventLoopScheduler();
+		final dispatcher = new TrampolineDispatcher(scheduler);
+		final task = runInLoop(context.clone().with(dispatcher), scheduler, lambda);
+		return resolveTask(task);
+	}
+
+	#end
+
+	static public function runInLoop<T>(context:Context, loop:ILoop, lambda:NodeLambda<T>):CoroTask<T> {
+		final task = new CoroTask(context, CoroTask.CoroScopeStrategy);
+		task.runNodeLambda(lambda);
+
+		#if (target.threaded && hxcoro_mt_debug)
 		var timeoutTime = Timer.milliseconds() + 10000;
 		var cancelLevel = 0;
 		#end
-		while (scope.isActive()) {
-			scheduler.run();
-			#if hxcoro_mt_debug
+		while (task.isActive()) {
+			loop.run();
+			#if (target.threaded && hxcoro_mt_debug)
 			if (Timer.milliseconds() >= timeoutTime) {
 				switch (cancelLevel) {
 					case 0:
 						cancelLevel = 1;
-						scope.dump();
-						scope.iterateChildren(child -> {
+						task.dump();
+						task.iterateChildren(child -> {
 							if (child.isActive()) {
 								Sys.println("Active child: " + child);
 								if (child is CoroTask) {
@@ -153,9 +189,7 @@ class CoroRun {
 								}
 							}
 						});
-						pool.dump();
-						scheduler.dump();
-						scope.cancel(new TimeoutException());
+						task.cancel(new TimeoutException());
 						// Give the task a second to wind down, otherwise break out of here
 						timeoutTime += 1000;
 					case 1:
@@ -164,36 +198,6 @@ class CoroRun {
 			}
 			#end
 		}
-
-		pool.shutDown(true);
-
-		switch (scope.getError()) {
-			case null:
-				return scope.get();
-			case error:
-				throw error;
-		}
+		return task;
 	}
-
-	#else
-
-	static public function runWith<T>(context:Context, lambda:NodeLambda<T>):T {
-		final scheduler  = new EventLoopScheduler();
-		final dispatcher = new TrampolineDispatcher(scheduler);
-		final scope = new CoroTask(context.clone().with(dispatcher), CoroTask.CoroScopeStrategy);
-		scope.runNodeLambda(lambda);
-
-		while (scope.isActive()) {
-			scheduler.run();
-		}
-
-		switch (scope.getError()) {
-			case null:
-				return scope.get();
-			case error:
-				throw error;
-		}
-	}
-
-	#end
 }
