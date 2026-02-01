@@ -1,5 +1,6 @@
 package hxcoro.schedulers;
 
+import haxe.ds.Option;
 import cpp.luv.Work;
 import haxe.coro.dispatchers.Dispatcher;
 import haxe.atomic.AtomicInt;
@@ -114,6 +115,16 @@ private class LuvTimerEvent implements ISchedulerHandle implements IDispatchObje
 	}
 }
 
+inline function consumeDeque<T>(deque:AsyncDeque<T>, f:T->Void) {
+	do {
+		final event = deque.pop(false);
+		if (event == null) {
+			break;
+		}
+		f(event);
+	} while (true);
+}
+
 /**
 	A scheduler for a libuv loop.
 **/
@@ -125,10 +136,10 @@ class LuvScheduler implements IScheduler {
 	/**
 		Creates a new `LuvScheduler` instance.
 	**/
-	public function new(loop:LuvLoop, eventQueue:AsyncDeque<LuvTimerEvent>, closeQueue:AsyncDeque<LuvTimerEvent>) {
-		this.loop       = loop;
-		this.eventQueue = eventQueue;
-		this.closeQueue = closeQueue;
+	public function new(loop:LuvLoop) {
+		this.loop  = loop;
+		eventQueue = new AsyncDeque(loop, loopEvents);
+		closeQueue = new AsyncDeque(loop, loopCloses);
 	}
 
 	@:inheritDoc
@@ -142,42 +153,6 @@ class LuvScheduler implements IScheduler {
 	public function now() {
 		return haxe.Timer.milliseconds(); // TODO: where?
 	}
-}
-
-class LuvDispatcher extends Dispatcher
-{
-	final loop:LuvLoop;
-	final s : LuvScheduler;
-	final workQueue:AsyncDeque<()->Void>;
-	final eventQueue:AsyncDeque<LuvTimerEvent>;
-	final closeQueue:AsyncDeque<LuvTimerEvent>;
-
-	function get_scheduler():IScheduler {
-		return s;
-	}
-
-	public function new(loop) {
-		this.loop = loop;
-
-		workQueue  = new AsyncDeque(loop, loopWork);
-		eventQueue = new AsyncDeque(loop, loopEvents);
-		closeQueue = new AsyncDeque(loop, loopCloses);
-		s          = new LuvScheduler(loop, eventQueue, closeQueue);
-	}
-
-	public function dispatch(obj:IDispatchObject) {
-		workQueue.add(obj.onDispatch);
-	}
-
-	inline function consumeDeque<T>(deque:AsyncDeque<T>, f:T->Void) {
-		do {
-			final event = deque.pop(false);
-			if (event == null) {
-				break;
-			}
-			f(event);
-		} while (true);
-	}
 
 	function loopEvents() {
 		consumeDeque(eventQueue, event -> event.start(loop));
@@ -187,17 +162,55 @@ class LuvDispatcher extends Dispatcher
 		consumeDeque(closeQueue, event -> event.stop());
 	}
 
+	public function shutDown() {
+		eventQueue.close();
+		closeQueue.close();
+		loopCloses();
+	}
+}
+
+class LuvDispatcher extends Dispatcher
+{
+	final loop:LuvLoop;
+	final workQueue:AsyncDeque<()->Void>;
+	final s:IScheduler;
+	// Only set if we create it
+	final luvScheduler:Option<LuvScheduler>;
+
+	function get_scheduler():IScheduler {
+		return s;
+	}
+
+	public function new(loop:LuvLoop, ?scheduler:IScheduler) {
+		this.loop = loop;
+
+		workQueue  = new AsyncDeque(loop, loopWork);
+		if (scheduler == null) {
+			final scheduler = new LuvScheduler(loop);
+			s = scheduler;
+			luvScheduler = Some(scheduler);
+		} else {
+			s = scheduler;
+			luvScheduler = None;
+		}
+	}
+
+	public function dispatch(obj:IDispatchObject) {
+		workQueue.add(obj.onDispatch);
+	}
+
 	function loopWork() {
 		consumeDeque(workQueue, event -> {
 			Work.queue(loop, event);
 		});
 	}
 
-	public function shutdown() {
+	public function shutDown() {
 		workQueue.close();
-		eventQueue.close();
-		closeQueue.close();
-		loopCloses();
-		cpp.luv.Luv.stopLoop(loop);
+		switch (luvScheduler) {
+			case Some(s):
+				s.shutDown();
+			case None:
+		}
 	}
 }
