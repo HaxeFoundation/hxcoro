@@ -143,28 +143,49 @@ class CoroRun {
 		}
 	}
 
-	#elseif (jvm || cpp || hl)
+	#else
 
+	/**
+		Executes `lambda` in context `context`, blocking until it returns or throws.
+
+		If there exists a `Dispatcher` element in the context, it is ignored. This
+		function always installs its own instance of `Dispatcher` into the context
+		and uses it to drive execution. The exact dispatcher implementation being
+		used depends on the target.
+
+		Refer to `runInLoop` or `with(dispatcher).run()` for using custom execution
+		models.
+	**/
 	static public function runWith<T>(context:Context, lambda:NodeLambda<T>):T {
+		#if (jvm || cpp || hl)
 		final scheduler = new hxcoro.schedulers.ThreadAwareScheduler();
 		final pool = new hxcoro.thread.FixedThreadPool(10);
 		final dispatcher = new hxcoro.dispatchers.ThreadPoolDispatcher(scheduler, pool);
-		final task = runInLoop(context.clone().with(dispatcher), scheduler, lambda);
-		pool.shutDown(true);
-		return resolveTask(task);
-	}
-
-	#else
-
-	static public function runWith<T>(context:Context, lambda:NodeLambda<T>):T {
+		#else
 		final scheduler  = new EventLoopScheduler();
 		final dispatcher = new TrampolineDispatcher(scheduler);
+		#end
+
 		final task = runInLoop(context.clone().with(dispatcher), scheduler, lambda);
+
+		#if (jvm || cpp || hl)
+		pool.shutDown(true);
+		#end
+
 		return resolveTask(task);
 	}
 
 	#end
 
+	/**
+		Executes `lambda` in context `context` by running `loop` until a value is
+		returned or an exception is thrown.
+
+		It is the responsibility of the user to ensure that the `Dispatcher` element
+		in the context and `loop` interact in a manner that leads to termination. For
+		example, this function does not verify that the dispatcher's scheduler handles
+		events in such a way that the loop processes them.
+	**/
 	static public function runInLoop<T>(context:Context, loop:ILoop, lambda:NodeLambda<T>):CoroTask<T> {
 		final task = new CoroTask(context, CoroTask.CoroScopeStrategy);
 		task.runNodeLambda(lambda);
