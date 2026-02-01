@@ -139,7 +139,6 @@ class CoroRun {
 		#end
 		while (scope.isActive()) {
 			scheduler.run();
-			pool.ping();
 			#if hxcoro_mt_debug
 			if (Timer.milliseconds() >= timeoutTime) {
 				switch (cancelLevel) {

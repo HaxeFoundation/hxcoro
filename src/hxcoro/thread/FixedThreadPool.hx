@@ -19,12 +19,6 @@ private class WorkerActivity {
 	public var availableWorkers:Int;
 
 	/**
-		This is set when an event comes in and the mutex cannot be acquired for signalling.
-		In this case the `ping` function can signal later because somebody has to.
-	**/
-	public var hadMissedEventPing:Bool;
-
-	/**
 		Conversely, this is set when the mutex could be acquired and deals with a special case
 		where we signal the condition variable before the worker thread waits on it. In particular,
 		this can happen with a thread pool of size 1.
@@ -34,7 +28,6 @@ private class WorkerActivity {
 	public function new(activeWorkers:Int) {
 		this.activeWorkers = activeWorkers;
 		this.availableWorkers = activeWorkers;
-		hadMissedEventPing = false;
 		hadEvent = false;
 	}
 }
@@ -95,18 +88,6 @@ class FixedThreadPool implements IThreadPool {
 			activity.hadEvent = true;
 			cond.signal();
 			cond.release();
-		} else {
-			// If we lose the race, set this flag so we can be sure that somebody
-			// gets notified in the `ping` function.
-			activity.hadMissedEventPing = true;
-		}
-	}
-
-	public function ping() {
-		if (activity.hadMissedEventPing && cond.tryAcquire()) {
-			activity.hadMissedEventPing = false;
-			cond.signal();
-			cond.release();
 		}
 	}
 
@@ -137,7 +118,6 @@ class FixedThreadPool implements IThreadPool {
 	public function dump() {
 		Sys.println("FixedThreadPool");
 		Sys.println('\tisShutDown: $isShutDown');
-		Sys.println('\thadMissedEventPing: ${activity.hadMissedEventPing}');
 		var totalDispatches = 0i64;
 		var totalLoops = 0i64;
 		for (worker in pool) {
@@ -289,6 +269,12 @@ private class Worker {
 						cond.release();
 						continue;
 					}
+				}
+				if (activity.activeWorkers == 1) {
+					// Always keep one thread alive until we can find a better solution to the
+					// run/loop synchronization problem.
+					cond.release();
+					continue;
 				}
 				// These modifications are fine because we hold onto the cond mutex.
 				--activity.activeWorkers;
