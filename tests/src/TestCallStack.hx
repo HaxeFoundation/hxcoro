@@ -73,7 +73,7 @@ class TestCallStack extends utest.Test {
 		}
 
 		try {
-			CoroRun.runScoped(scope -> {
+			CoroRun.run(scope -> {
 				scope.async(scope -> {
 					scope.async(_ -> {
 						callstack.FooBarBaz.foo();
