@@ -24,7 +24,7 @@ function has(what:Array<String>, has:Array<String>, hasNot:Array<String>, ?p:hax
 class TestCoroutineScope extends utest.Test {
 	function test_scope_returning_value_suspending() {
 		final expected = 'Hello, World';
-		final actual   = CoroRun.runScoped(_ -> {
+		final actual   = CoroRun.run(_ -> {
 			return scope(_ -> {
 				yield();
 
@@ -36,8 +36,8 @@ class TestCoroutineScope extends utest.Test {
 	}
 
 	function test_scope_throwing_suspending() {
-		CoroRun.runScoped(_ -> {
-			AssertAsync.raises(() -> CoroRun.runScoped(_ -> {
+		CoroRun.run(_ -> {
+			AssertAsync.raises(() -> CoroRun.run(_ -> {
 				yield();
 
 				throw new FooException();
@@ -85,7 +85,7 @@ class TestCoroutineScope extends utest.Test {
 			mutex.release();
 		}
 		Assert.raises(() ->
-			CoroRun.runScoped(node -> {
+			CoroRun.run(node -> {
 				scope(_ -> {
 					push("before yield");
 					yield();
@@ -106,7 +106,7 @@ class TestCoroutineScope extends utest.Test {
 			acc.push(v);
 			mutex.release();
 		}
-		CoroRun.runScoped(node -> {
+		CoroRun.run(node -> {
 			try {
 				scope(_ -> {
 					push("before yield");
@@ -132,7 +132,7 @@ class TestCoroutineScope extends utest.Test {
 			acc.push(v);
 			mutex.release();
 		}
-		Assert.raises(() -> CoroRun.runScoped(node -> {
+		Assert.raises(() -> CoroRun.run(node -> {
 			node.async(_ -> {
 				scope(_ -> {
 					push("before yield");
@@ -192,7 +192,7 @@ class TestCoroutineScope extends utest.Test {
 			mutex.release();
 		}
 
-		Assert.raises(() -> CoroRun.runScoped(node -> {
+		Assert.raises(() -> CoroRun.run(node -> {
 			node.async(_ -> {
 				scope(_ -> {
 					push("before yield 2");
@@ -226,7 +226,7 @@ class TestCoroutineScope extends utest.Test {
 			mutex.release();
 		}
 
-		Assert.raises(() -> CoroRun.runScoped(node -> {
+		Assert.raises(() -> CoroRun.run(node -> {
 			node.async(_ -> {
 				scope(_ -> {
 					push("before yield 1");

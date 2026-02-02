@@ -14,7 +14,7 @@ class Issue32 extends utest.Test {
 			final actual = [];
 			final mutex = new Mutex();
 
-			CoroRun.runScoped(node -> {
+			CoroRun.run(node -> {
 				try {
 					timeout(10000, node -> {
 						node.async(_ -> {

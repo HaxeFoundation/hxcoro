@@ -122,7 +122,7 @@ class TestHoisting extends utest.Test {
         final actual   = [];
 		final mutex    = new Mutex();
 
-        CoroRun.runScoped(node -> {
+        CoroRun.run(node -> {
             for (x in expected) {
                 node.async(_ -> {
 					mutex.acquire();
