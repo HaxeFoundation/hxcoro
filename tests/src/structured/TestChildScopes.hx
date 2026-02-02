@@ -9,7 +9,7 @@ class TestChildScopes extends utest.Test {
 
 		final scheduler  = new VirtualTimeScheduler();
 		final dispatcher = new TrampolineDispatcher(scheduler);
-		final task       = CoroRun.with(dispatcher).create(node -> {
+		final task       = CoroRun.with(dispatcher).createTask(node -> {
 			node.async(_ -> {
 				delay(1000);
 
@@ -33,7 +33,7 @@ class TestChildScopes extends utest.Test {
 
 		final scheduler  = new VirtualTimeScheduler();
 		final dispatcher = new TrampolineDispatcher(scheduler);
-		final task       = CoroRun.with(dispatcher).create(node -> {
+		final task       = CoroRun.with(dispatcher).createTask(node -> {
 			node.async(node -> {
 				node.async(node -> {
 					node.async(_ -> {
@@ -60,7 +60,7 @@ class TestChildScopes extends utest.Test {
 		final result     = [];
 		final scheduler  = new VirtualTimeScheduler();
 		final dispatcher = new TrampolineDispatcher(scheduler);
-		final task       = CoroRun.with(dispatcher).create(node -> {
+		final task       = CoroRun.with(dispatcher).createTask(node -> {
 			node.async(_ -> {
 				delay(500);
 
@@ -95,7 +95,7 @@ class TestChildScopes extends utest.Test {
 		final result     = [];
 		final scheduler  = new VirtualTimeScheduler();
 		final dispatcher = new TrampolineDispatcher(scheduler);
-		final task       = CoroRun.with(dispatcher).create(node -> {
+		final task       = CoroRun.with(dispatcher).createTask(node -> {
 			node.async(node -> {
 				node.async(_ -> {
 					delay(500);
@@ -132,7 +132,7 @@ class TestChildScopes extends utest.Test {
 		final expected   = 'Hello, World';
 		final scheduler  = new VirtualTimeScheduler();
 		final dispatcher = new TrampolineDispatcher(scheduler);
-		final task       = CoroRun.with(dispatcher).create(node -> {
+		final task       = CoroRun.with(dispatcher).createTask(node -> {
 			final child = node.async(_ -> {
 				delay(1000);
 
@@ -153,7 +153,7 @@ class TestChildScopes extends utest.Test {
 		final expected   = 'Hello, World';
 		final scheduler  = new VirtualTimeScheduler();
 		final dispatcher = new TrampolineDispatcher(scheduler);
-		final task       = CoroRun.with(dispatcher).create(node -> {
+		final task       = CoroRun.with(dispatcher).createTask(node -> {
 			final child = node.async(node -> {
 				return
 					node
@@ -181,7 +181,7 @@ class TestChildScopes extends utest.Test {
 
 		final scheduler  = new VirtualTimeScheduler();
 		final dispatcher = new TrampolineDispatcher(scheduler);
-		final task       = CoroRun.with(dispatcher).create(node -> {
+		final task       = CoroRun.with(dispatcher).createTask(node -> {
 			node.async(_ -> {
 				delay(500);
 
@@ -212,7 +212,7 @@ class TestChildScopes extends utest.Test {
 		final expected   = 'Hello, World!';
 		final scheduler  = new VirtualTimeScheduler();
 		final dispatcher = new TrampolineDispatcher(scheduler);
-		final task       = CoroRun.with(dispatcher).create(node -> {
+		final task       = CoroRun.with(dispatcher).createTask(node -> {
 			final child = node.async(_ -> {
 				yield();
 

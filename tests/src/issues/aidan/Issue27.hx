@@ -70,7 +70,7 @@ class Issue27 extends utest.Test {
 	}
 
 	function testEntrypoint() {
-		CoroRun.with(newTrampoline(), new DebugName("first name")).run(scope -> {
+		CoroRun.with(newTrampoline(), new DebugName("first name")).runTask(scope -> {
 			Assert.equals("first name", logDebug());
 			modifyDebug("second name");
 			Assert.equals("second name", logDebug());
@@ -80,7 +80,7 @@ class Issue27 extends utest.Test {
 			.with(newTrampoline())
 			.with(new DebugName("wrong name"))
 			.with(new DebugName("first name"))
-			.run(scope -> {
+			.runTask(scope -> {
 				Assert.equals("first name", logDebug());
 				modifyDebug("second name");
 				Assert.equals("second name", logDebug());

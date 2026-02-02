@@ -1,0 +1,66 @@
+package hxcoro.run;
+
+import haxe.Timer;
+import haxe.coro.context.Context;
+import hxcoro.exceptions.TimeoutException;
+import hxcoro.schedulers.ILoop;
+import hxcoro.task.CoroTask;
+import hxcoro.task.ICoroTask;
+import hxcoro.task.NodeLambda;
+
+class LoopRun {
+	/**
+		Executes `lambda` in context `context` by running `loop` until a value is
+		returned or an exception is thrown.
+
+		It is the responsibility of the user to ensure that the `Dispatcher` element
+		in the context and `loop` interact in a manner that leads to termination. For
+		example, this function does not verify that the dispatcher's scheduler handles
+		events in such a way that the loop processes them.
+	**/
+	static public function runTask<T>(loop:ILoop, context:Context, lambda:NodeLambda<T>):ICoroTask<T> {
+		final task = new CoroTask(context, CoroTask.CoroScopeStrategy);
+		task.runNodeLambda(lambda);
+		awaitTaskCompletion(loop, task);
+		return task;
+	}
+
+	/**
+		Runs `loop` until `task` is no longer active.
+
+		Execution makes no assumption about the state of the loop itself, it
+		only checks for the task's completion.
+	**/
+	static function awaitTaskCompletion<T>(loop:ILoop, task:ICoroTask<T>) {
+		#if (target.threaded && hxcoro_mt_debug)
+		var timeoutTime = Timer.milliseconds() + 10000;
+		var cancelLevel = 0;
+		#end
+
+		if (task is IStartableCoroTask) {
+			(cast task : IStartableCoroTask<T>).start();
+		}
+
+		while (task.isActive()) {
+			loop.loop(NoWait);
+			#if (target.threaded && hxcoro_mt_debug)
+			if (cancelLevel == 0 && Timer.milliseconds() >= timeoutTime) {
+				cancelLevel = 1;
+				task.cancel(new TimeoutException());
+			}
+			#end
+		}
+	}
+
+	/**
+		Runs `loop` until `task` is no longer active, then returns its value
+		or throws its error as an exception.
+
+		Execution makes no assumption about the state of the loop itself, it
+		only checks for the task's completion.
+	**/
+	static public function awaitTask<T>(loop:ILoop, task:ICoroTask<T>):T {
+		awaitTaskCompletion(loop, task);
+		return ContextRun.resolveTask(task);
+	}
+}
