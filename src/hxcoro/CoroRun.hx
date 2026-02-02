@@ -138,7 +138,7 @@ class CoroRun {
 		final scope = new CoroTask(context.clone().with(dispatcher), CoroTask.CoroScopeStrategy);
 		scope.onCompletion((_, _) -> {
 			scheduler.shutDown();
-			// pool.shutDown();
+			// pool.shutDown(true);
 			cpp.luv.Luv.stopLoop(loop);
 		});
 		scope.runNodeLambda(lambda);
