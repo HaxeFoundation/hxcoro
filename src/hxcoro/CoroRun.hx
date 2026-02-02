@@ -1,5 +1,6 @@
 package hxcoro;
 
+import haxe.Exception;
 import haxe.Timer;
 import haxe.coro.Coroutine;
 import haxe.coro.context.Context;
@@ -42,7 +43,8 @@ abstract RunnableContext(ElementTree) {
 		if (!(dispatcher.scheduler is ILoop)) {
 			throw 'Cannot run because ${dispatcher.scheduler} is not an instance of ILoop';
 		}
-		return resolveTask(CoroRun.runInLoop(context, cast dispatcher.scheduler, lambda));
+		function onCompletion(_, _) {}
+		return resolveTask(CoroRun.runInLoop(context, cast dispatcher.scheduler, onCompletion, lambda));
 	}
 
 	@:from static function fromAdjustableContext(context:AdjustableContext) {
@@ -161,17 +163,16 @@ class CoroRun {
 		final scheduler = new hxcoro.schedulers.ThreadAwareScheduler();
 		final pool = new hxcoro.thread.FixedThreadPool(10);
 		final dispatcher = new hxcoro.dispatchers.ThreadPoolDispatcher(scheduler, pool);
+		function onCompletion(_, _) {
+			pool.shutDown(true);
+		}
 		#else
 		final scheduler  = new EventLoopScheduler();
 		final dispatcher = new TrampolineDispatcher(scheduler);
+		function onCompletion(_, _) {}
 		#end
 
-		final task = runInLoop(context.clone().with(dispatcher), scheduler, lambda);
-
-		#if (jvm || cpp || hl)
-		pool.shutDown(true);
-		#end
-
+		final task = runInLoop(context.clone().with(dispatcher), scheduler, onCompletion, lambda);
 		return resolveTask(task);
 	}
 
@@ -186,16 +187,16 @@ class CoroRun {
 		example, this function does not verify that the dispatcher's scheduler handles
 		events in such a way that the loop processes them.
 	**/
-	static public function runInLoop<T>(context:Context, loop:ILoop, lambda:NodeLambda<T>):CoroTask<T> {
+	static public function runInLoop<T>(context:Context, loop:ILoop, onCompletion:(T, Exception) -> Void, lambda:NodeLambda<T>):CoroTask<T> {
 		final task = new CoroTask(context, CoroTask.CoroScopeStrategy);
+		task.onCompletion(onCompletion);
 		task.runNodeLambda(lambda);
 
 		#if (target.threaded && hxcoro_mt_debug)
 		var timeoutTime = Timer.milliseconds() + 10000;
 		var cancelLevel = 0;
 		#end
-		while (task.isActive()) {
-			loop.run();
+		while (loop.loop(NoWait) != 0 || task.isActive()) {
 			#if (target.threaded && hxcoro_mt_debug)
 			if (Timer.milliseconds() >= timeoutTime) {
 				switch (cancelLevel) {
