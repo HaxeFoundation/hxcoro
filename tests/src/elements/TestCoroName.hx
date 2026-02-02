@@ -11,7 +11,7 @@ class TestCoroName extends utest.Test {
 	}
 
 	function test() {
-		CoroRun.runScoped(scope -> {
+		CoroRun.run(scope -> {
 			scope.with(new CoroName("first name")).async(_ -> {
 				Assert.equals("first name", logDebug());
 			});
@@ -19,7 +19,7 @@ class TestCoroName extends utest.Test {
 	}
 
 	function testScope() {
-		CoroRun.runScoped(node -> {
+		CoroRun.run(node -> {
 			node.with(new CoroName("first name")).async(_ -> {
 				scope(_ -> {
 					Assert.equals("first name", logDebug());

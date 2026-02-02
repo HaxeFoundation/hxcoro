@@ -51,10 +51,15 @@ class CoroRun {
 		return defaultContext.clone().with(...elements);
 	}
 
-	static public function run<T>(lambda:Coroutine<() -> T>):T {
-		return runScoped(_ -> lambda());
+	overload extern static public inline function run<T>(lambda:Coroutine<() -> T>):T {
+		return runWith(defaultContext, _ -> lambda());
 	}
 
+	overload extern static public inline function run<T>(lambda:NodeLambda<T>):T {
+		return runWith(defaultContext, lambda);
+	}
+
+	@:deprecated("Use `CoroRun.run` instead")
 	static public function runScoped<T>(lambda:NodeLambda<T>):T {
 		return runWith(defaultContext, lambda);
 	}

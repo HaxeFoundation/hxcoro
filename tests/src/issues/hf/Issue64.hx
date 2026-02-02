@@ -8,7 +8,7 @@ class Issue64 extends utest.Test {
 		final cause = new CancellationException();
 		final cancellations = [];
 		final mutex = new Mutex();
-		CoroRun.runScoped(node -> {
+		CoroRun.run(node -> {
 			for (i in 0...5) {
 				for (k in 0...5) {
 					node.async(node -> {
