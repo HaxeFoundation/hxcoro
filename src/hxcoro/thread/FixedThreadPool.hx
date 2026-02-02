@@ -9,6 +9,7 @@ import sys.thread.Condition;
 import sys.thread.Semaphore;
 import sys.thread.Tls;
 import sys.thread.Thread;
+import hxcoro.concurrent.AtomicState;
 import hxcoro.concurrent.BackOff;
 import haxe.coro.dispatchers.IDispatchObject;
 
@@ -32,6 +33,12 @@ private class WorkerActivity {
 	}
 }
 
+private enum abstract ShutdownState(Int) to Int {
+	final Active;
+	final ShuttingDown;
+	final ShutDown;
+}
+
 /**
 	Thread pool with a constant amount of threads.
 	Threads in the pool will exist until the pool is explicitly shut down.
@@ -46,9 +53,10 @@ class FixedThreadPool implements IThreadPool {
 	/**
 		@see `IThreadPool.isShutDown`
 	**/
-	public var isShutDown(get,null):Bool;
-	function get_isShutDown():Bool return isShutDown;
+	public var isShutDown(get,never):Bool;
+	function get_isShutDown():Bool return shutdownState.load() != Active;
 
+	final shutdownState:AtomicState<ShutdownState>;
 	final cond:Condition;
 	final pool:Array<Worker>;
 	final activity:WorkerActivity;
@@ -61,6 +69,7 @@ class FixedThreadPool implements IThreadPool {
 		if(threadsCount < 1)
 			throw new ThreadPoolException('FixedThreadPool needs threadsCount to be at least 1.');
 		this.threadsCount = threadsCount;
+		shutdownState = new AtomicState(Active);
 		cond = new Condition();
 		queueTls = new Tls();
 		final queues = Vector.fromArrayCopy([for (_ in 0...threadsCount + 1) new WorkStealingQueue()]);
@@ -95,10 +104,9 @@ class FixedThreadPool implements IThreadPool {
 		@see `IThreadPool.shutdown`
 	**/
 	public function shutDown(block:Bool = false):Void {
-		if(isShutDown) {
+		if (shutdownState.compareExchange(Active, ShuttingDown) != Active) {
 			return;
 		}
-		isShutDown = true;
 
 		final shutdownSemaphore = new Semaphore(0);
 
@@ -109,10 +117,16 @@ class FixedThreadPool implements IThreadPool {
 		cond.broadcast();
 		cond.release();
 		if (block) {
+			final ownQueue = queueTls.value;
 			for (worker in pool) {
-				shutdownSemaphore.acquire();
+				// We could come here from a worker thread, in which case we can't wait for its
+				// semaphore release.
+				if (ownQueue != worker.queue) {
+					shutdownSemaphore.acquire();
+				}
 			}
 		}
+		shutdownState.store(ShutDown);
 	}
 
 	public function dump() {
