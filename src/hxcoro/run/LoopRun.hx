@@ -30,16 +30,15 @@ class LoopRun {
 
 		Execution makes no assumption about the state of the loop itself, it
 		only checks for the task's completion.
+
+		This function does not start the task, so it should only be called with tasks
+		that are already running.
 	**/
 	static function awaitTaskCompletion<T>(loop:ILoop, task:ICoroTask<T>) {
 		#if (target.threaded && hxcoro_mt_debug)
 		var timeoutTime = Timer.milliseconds() + 10000;
 		var cancelLevel = 0;
 		#end
-
-		if (task is IStartableCoroTask) {
-			(cast task : IStartableCoroTask<T>).start();
-		}
 
 		while (task.isActive()) {
 			loop.loop(NoWait);
@@ -58,8 +57,13 @@ class LoopRun {
 
 		Execution makes no assumption about the state of the loop itself, it
 		only checks for the task's completion.
+
+		This function also starts the task.
 	**/
 	static public function awaitTask<T>(loop:ILoop, task:ICoroTask<T>):T {
+		if (task is IStartableCoroTask) {
+			(cast task : IStartableCoroTask<T>).start();
+		}
 		awaitTaskCompletion(loop, task);
 		return ContextRun.resolveTask(task);
 	}
