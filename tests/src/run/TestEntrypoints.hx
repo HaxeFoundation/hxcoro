@@ -14,7 +14,15 @@ import hxcoro.schedulers.ILoop;
 import haxe.coro.context.Context;
 import hxcoro.dispatchers.TrampolineDispatcher;
 
+// This is silly, should just have a thread-safe stack.
+final mutex = new Mutex();
 final messages = [];
+
+function push(message:String) {
+	mutex.acquire();
+	messages.push(message);
+	mutex.release();
+}
 
 @:coroutine function helloAndGoodbyeAfter(id:String) {
 	messages.push('$id says hello');
@@ -27,10 +35,17 @@ function assertLastMessage(expected:String, ?p:PosInfos) {
 }
 
 function assertAwaitLastMessage(expected:String, ?p:PosInfos) {
-	while (messages.length == 0) {
-		BackOff.backOff();
+	while (true) {
+		if (!mutex.tryAcquire()) {
+			continue;
+		}
+		if (messages.length > 0) {
+			Assert.equals(expected, messages.pop(), p);
+			mutex.release();
+			return;
+		}
+		mutex.release();
 	}
-	assertLastMessage(expected, p);
 }
 
 function assertNoCurrentMessage(?p:PosInfos) {
