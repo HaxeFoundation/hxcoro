@@ -1,5 +1,6 @@
 package run;
 
+import hxcoro.concurrent.BackOff;
 import hxcoro.schedulers.VirtualTimeScheduler;
 #if target.threaded
 import hxcoro.schedulers.ThreadAwareScheduler;
@@ -25,6 +26,13 @@ function assertLastMessage(expected:String, ?p:PosInfos) {
 	Assert.equals(expected, messages.pop(), p);
 }
 
+function assertAwaitLastMessage(expected:String, ?p:PosInfos) {
+	while (messages.length == 0) {
+		BackOff.backOff();
+	}
+	assertLastMessage(expected, p);
+}
+
 function assertNoCurrentMessage(?p:PosInfos) {
 	if (messages.length > 0) {
 		Assert.fail('Unexpected message: ${messages.pop()}', p);
@@ -40,9 +48,9 @@ class TestEntrypoints extends utest.Test {
 		assertLastMessage("Launched Task 1 says hello");
 		assertNoCurrentMessage();
 
-		loop.loop(Default);
+		loop.loop(Once);
 
-		assertLastMessage("Launched Task 1 says goodbye");
+		assertAwaitLastMessage("Launched Task 1 says goodbye");
 		assertNoCurrentMessage();
 	}
 
@@ -78,7 +86,7 @@ class TestEntrypoints extends utest.Test {
 		// But with this we finally get it.
 		loop.loop(Once);
 
-		assertLastMessage("Created Task 2 says goodbye");
+		assertAwaitLastMessage("Created Task 2 says goodbye");
 		assertNoCurrentMessage();
 	}
 
@@ -101,21 +109,16 @@ class TestEntrypoints extends utest.Test {
 		runSuite(context, scheduler);
 	}
 
-	/**
-		Loop termination doesn't react to threads it doesn't know yet, so this needs a
-		different approach. I think the ThreadPool has to become aware of the loop,
-		otherwise this is always going to cause problems.
-	**/
-	// #if target.threaded
+	#if target.threaded
 
-	// public function testThreadPool() {
-	// 	final scheduler = new ThreadAwareScheduler();
-	// 	final pool = new FixedThreadPool(1);
-	// 	final dispatcher = new ThreadPoolDispatcher(scheduler, pool);
-	// 	final context = CoroRun.with(dispatcher);
-	// 	runSuite(context, scheduler);
-	// 	pool.shutDown();
-	// }
+	public function testThreadPool() {
+		final scheduler = new ThreadAwareScheduler();
+		final pool = new FixedThreadPool(1);
+		final dispatcher = new ThreadPoolDispatcher(scheduler, pool);
+		final context = CoroRun.with(dispatcher);
+		runSuite(context, scheduler);
+		pool.shutDown();
+	}
 
-	// #end
+	#end
 }
