@@ -47,22 +47,18 @@ class ScheduledEvent implements ISchedulerHandle implements IDispatchObject {
 		}
 	}
 
-	public function close() {
-		cont = null;
-	}
-
-	public function isRemovable() {
-		if (cont != null) {
-			return false;
-		}
-		if (childEvents == null) {
-			return true;
-		}
-		for (child in childEvents) {
-			if (!child.isRemovable()) {
-				return false;
+	public function iterateEvents(f:IDispatchObject->Void) {
+		final childEvents = childEvents;
+		this.childEvents = null;
+		f(this);
+		if (childEvents != null) {
+			for (childEvent in childEvents) {
+				f(childEvent);
 			}
 		}
-		return true;
+	}
+
+	public function close() {
+		cont = null;
 	}
 }

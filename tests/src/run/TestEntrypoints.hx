@@ -48,7 +48,7 @@ class TestEntrypoints extends utest.Test {
 		assertLastMessage("Launched Task 1 says hello");
 		assertNoCurrentMessage();
 
-		loop.loop(Once);
+		loop.loop();
 
 		assertAwaitLastMessage("Launched Task 1 says goodbye");
 		assertNoCurrentMessage();
@@ -74,7 +74,7 @@ class TestEntrypoints extends utest.Test {
 		assertNoCurrentMessage();
 
 		// Created Task 2 is still missing, but it was never started so running the loop at this point doesn't do anything.
-		loop.loop(NoWait);
+		loop.loop();
 
 		assertNoCurrentMessage();
 
@@ -84,7 +84,7 @@ class TestEntrypoints extends utest.Test {
 		assertLastMessage("Created Task 2 says hello");
 
 		// But with this we finally get it.
-		loop.loop(Once);
+		loop.loop();
 
 		assertAwaitLastMessage("Created Task 2 says goodbye");
 		assertNoCurrentMessage();
@@ -120,7 +120,7 @@ class TestEntrypoints extends utest.Test {
 		final context = CoroRun.with(dispatcher);
 		runSuite(context, scheduler);
 		pool.shutDown();
-		scheduler.loop(Default);
+		scheduler.loop();
 	}
 
 	#end

@@ -45,7 +45,7 @@ class TestBoundedChannel extends utest.Test {
 		});
 		task.start();
 		while (task.isActive()) {
-			scheduler.run();
+			scheduler.loop();
 			scheduler.advanceBy(1);
 		}
 		final expected = [for (i in 0...size + 1) i];
@@ -231,7 +231,7 @@ class TestBoundedChannel extends utest.Test {
 		});
 		task.start();
 		while (task.isActive()) {
-			scheduler.run();
+			scheduler.loop();
 			scheduler.advanceBy(1);
 		}
 		Assert.same([None, Some(1), None, Some(2), Some(3), None], task.get());
@@ -291,7 +291,7 @@ class TestBoundedChannel extends utest.Test {
 	// 		});
 	// 		task.start();
 	// 		while (task.isActive()) {
-	// 			scheduler.run();
+	// 			scheduler.loop();
 	// 			scheduler.advanceBy(1);
 	// 		}
 	// 		Assert.same([for (i in 0...size) i], task.get());

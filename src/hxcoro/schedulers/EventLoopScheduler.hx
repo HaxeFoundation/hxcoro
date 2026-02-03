@@ -1,6 +1,5 @@
 package hxcoro.schedulers;
 
-import hxcoro.schedulers.ILoop;
 import haxe.coro.IContinuation;
 import haxe.Timer;
 import haxe.Int64;
@@ -41,46 +40,22 @@ class HeapScheduler implements IScheduler {
 }
 
 class EventLoopScheduler extends HeapScheduler implements ILoop {
-	public function loop(loopMode:LoopMode) {
-		var didDispatch = false;
-
+	public function loop() {
+		final currentTime = now();
 		while (true) {
-			final currentTime = now();
-			var hasMoreEvents = false;
-			while (true) {
-				futureMutex.acquire();
-				var minimum = heap.minimum();
-				if (minimum == null) {
-					break;
-				}
-				if (minimum.isRemovable()) {
-					heap.extract();
-					futureMutex.release();
-					continue;
-				}
-				if (minimum.runTime > currentTime) {
-					hasMoreEvents = true;
-					break;
-				}
-
-				final toRun = heap.extract();
-				futureMutex.release();
-
-				didDispatch = true;
-				toRun.dispatch();
+			futureMutex.acquire();
+			var minimum = heap.minimum();
+			if (minimum == null || minimum.runTime > currentTime) {
+				break;
 			}
 
+			final toRun = heap.extract();
 			futureMutex.release();
 
-			switch (loopMode) {
-				case Default if (hasMoreEvents):
-					continue;
-				case Once if (!didDispatch):
-					continue;
-				case _:
-					return hasMoreEvents ? 1 : 0;
-			}
+			toRun.dispatch();
 		}
+
+		futureMutex.release();
 	}
 
 	public function toString() {

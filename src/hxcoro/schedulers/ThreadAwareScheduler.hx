@@ -1,6 +1,5 @@
 package hxcoro.schedulers;
 
-import hxcoro.schedulers.ILoop;
 import haxe.coro.IContinuation;
 import haxe.Exception;
 import sys.thread.Thread;
@@ -156,7 +155,7 @@ class ThreadAwareScheduler implements IScheduler implements ILoop {
 		}
 	}
 
-	function loopOnce() {
+	public function loop() {
 		final currentTime = now();
 
 		// First we consume the coordination deque so we know all queues.
@@ -167,14 +166,7 @@ class ThreadAwareScheduler implements IScheduler implements ILoop {
 		// Next we dispatch all expired and current events in the heap.
 		while (true) {
 			var minimum = heap.minimum();
-			if (minimum == null) {
-				break;
-			}
-			if (minimum.isRemovable()) {
-				heap.extract();
-				continue;
-			}
-			if (minimum.runTime > currentTime) {
+			if (minimum == null || minimum.runTime > currentTime) {
 				break;
 			}
 
@@ -200,30 +192,13 @@ class ThreadAwareScheduler implements IScheduler implements ILoop {
 			}
 			current = current.next;
 		}
-		final event = rootEvent.next;
-		rootEvent.next = null;
-		return event;
-	}
-
-	public function loop(loopMode:LoopMode) {
-		var didDispatch = false;
+		var event = rootEvent;
 		while (true) {
-			var event = loopOnce();
-			didDispatch = didDispatch || event != null;
-			while (event != null) {
-				event.dispatch();
-				event = event.next;
+			event = event.next;
+			if (event == null) {
+				break;
 			}
-			final hasActiveQueues = firstQueue != null && (firstQueue != queueTls.value || firstQueue.next != null);
-			final hasMoreEvents = heap.minimum() != null || hasActiveQueues;
-			switch (loopMode) {
-				case Default if (hasMoreEvents):
-					continue;
-				case Once if (!didDispatch):
-					continue;
-				case _:
-					return hasMoreEvents ? 1 : 0;
-			}
+			event.dispatch();
 		}
 	}
 

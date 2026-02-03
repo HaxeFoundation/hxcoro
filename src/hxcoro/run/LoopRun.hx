@@ -41,7 +41,7 @@ class LoopRun {
 		#end
 
 		while (task.isActive()) {
-			loop.loop(NoWait);
+			loop.loop();
 			#if (target.threaded && hxcoro_mt_debug)
 			if (cancelLevel == 0 && Timer.milliseconds() >= timeoutTime) {
 				cancelLevel = 1;
