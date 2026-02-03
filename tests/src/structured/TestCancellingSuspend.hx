@@ -3,7 +3,6 @@ package structured;
 import hxcoro.dispatchers.TrampolineDispatcher;
 import haxe.coro.ICancellableContinuation;
 import hxcoro.schedulers.VirtualTimeScheduler;
-import haxe.coro.cancellation.CancellationToken;
 import haxe.exceptions.ArgumentException;
 import haxe.exceptions.CancellationException;
 

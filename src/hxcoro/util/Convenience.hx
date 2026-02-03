@@ -108,7 +108,7 @@ class Convenience {
 	}
 
 	static public inline function isCancellationRequested(ct:ICancellationToken) {
-		return ct.cancellationException != null;
+		return ct?.cancellationException != null;
 	}
 
 	static public inline function dispatchFunction(dispatcher:Dispatcher, f:()->Void) {

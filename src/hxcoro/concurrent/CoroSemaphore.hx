@@ -114,7 +114,7 @@ class CoroSemaphore {
 			}
 			final cont = deque.pop();
 			final ct = cont.context.get(CancellationToken);
-			if (ct.isCancellationRequested()) {
+			if (ct?.isCancellationRequested()) {
 				// Ignore, back to the loop.
 				continue;
 			}
