@@ -25,9 +25,9 @@ function push(message:String) {
 }
 
 @:coroutine function helloAndGoodbyeAfter(id:String) {
-	messages.push('$id says hello');
+	push('$id says hello');
 	yield();
-	messages.push('$id says goodbye');
+	push('$id says goodbye');
 }
 
 function assertLastMessage(expected:String, ?p:PosInfos) {
@@ -39,8 +39,9 @@ function assertAwaitLastMessage(expected:String, ?p:PosInfos) {
 		if (!mutex.tryAcquire()) {
 			continue;
 		}
-		if (messages.length > 0) {
-			Assert.equals(expected, messages.pop(), p);
+		final message = messages.pop();
+		if (message != null) {
+			Assert.equals(expected, message, p);
 			mutex.release();
 			return;
 		}
