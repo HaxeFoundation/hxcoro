@@ -91,7 +91,7 @@ class NumberProducer {
 
 class Issue124 extends utest.Test {
 	function test() {
-		final result = CoroRun.runScoped(node -> {
+		final result = CoroRun.run(node -> {
 			final numbers = node.produceNumbers();
 			final squares = node.square(numbers);
 			final result = [for (i in 1...10) {
@@ -104,7 +104,7 @@ class Issue124 extends utest.Test {
 	}
 
 	function testPrime() {
-		final result = CoroRun.runScoped(node -> {
+		final result = CoroRun.run(node -> {
 			var cur = node.numbersFrom(2);
 			final result = [
 				for (_ in 0...10) {

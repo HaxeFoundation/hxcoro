@@ -1,6 +1,6 @@
 package hxcoro.concurrent;
 
-#if (hl || jvm)
+#if (hl || jvm || cpp || eval)
 typedef AtomicObject<T:{}> = haxe.atomic.AtomicObject<T>;
 #else
 import haxe.coro.Mutex;
@@ -15,7 +15,7 @@ private class AtomicObjectImpl<T:{}> {
 		mutex = new Mutex();
 		this.object = object;
 	}
-	
+
 	public function compareExchange(expected : T, replacement : T) {
 		mutex.acquire();
 

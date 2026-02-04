@@ -77,7 +77,7 @@ private enum TlsQueueEvent {
 	Remove(queue:TlsQueue);
 }
 
-class ThreadAwareScheduler implements IScheduler {
+class ThreadAwareScheduler implements IScheduler implements ILoop {
 	final heap:MinimumHeap;
 	final queueTls:Tls<Null<TlsQueue>>;
 	final queueDeque:Deque<TlsQueueEvent>;
@@ -155,7 +155,7 @@ class ThreadAwareScheduler implements IScheduler {
 		}
 	}
 
-	public function run() {
+	public function loop() {
 		final currentTime = now();
 
 		// First we consume the coordination deque so we know all queues.

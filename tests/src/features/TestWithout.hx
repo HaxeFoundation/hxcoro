@@ -6,7 +6,7 @@ class TestWithout extends utest.Test {
 	function test() {
 		var outerElement = null;
 		var innerElement = new CoroName("foo");
-		CoroRun.runScoped(node -> {
+		CoroRun.run(node -> {
 			node.with(new CoroName("foo")).async(node -> {
 				outerElement = node.context.get(CoroName);
 				node.without(CoroName).async(node -> {

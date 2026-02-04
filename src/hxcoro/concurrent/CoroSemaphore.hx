@@ -1,48 +1,61 @@
 package hxcoro.concurrent;
 
 import hxcoro.concurrent.exceptions.SemaphoreFullException;
-import haxe.coro.Mutex;
 import haxe.exceptions.ArgumentException;
-import hxcoro.task.CoroTask;
 import hxcoro.ds.PagedDeque;
 import haxe.coro.IContinuation;
 import haxe.coro.cancellation.CancellationToken;
 
 class CoroSemaphore {
 	final maxFree:Int;
-	final dequeMutex:Mutex;
-	var deque:Null<PagedDeque<IContinuation<Any>>>;
+	var deque:PagedDeque<IContinuation<Any>>;
 	var free:AtomicInt;
 
-	public function new(free:Int) {
-		if (free < 1) {
-			throw new ArgumentException("free", "Maximum free count must be greater than 1");
+	public function new(free:Int, ?maxFree:Int) {
+		if (free < 0) {
+			throw new ArgumentException("free", "Value of free must be >= 0");
+		}
+		if (maxFree == null) {
+			if (free == 0) {
+				throw new ArgumentException("maxFree", "If free is 0, maxFree must be set");
+			}
+			this.maxFree = free;
+		} else if (maxFree < 1) {
+			throw new ArgumentException("maxFree", "Maximum free count must be greater than 1");
+		} else if (free > maxFree) {
+			throw new ArgumentException("free", "Value of free must be <= maxFree");
+		} else {
+			this.maxFree = maxFree;
 		}
 
-		maxFree = free;
-		dequeMutex = new Mutex();
 		this.free = new AtomicInt(free);
+		deque = new PagedDeque();
 	}
 
 	@:coroutine public function acquire() {
 		// CAS loop until we update the free atomic or it reports full.
 		while (true) {
 			final old = free.load();
-			if (0 == old) {
-				break;
+			if (old < 0) {
+				// Someone has the "mutex", let's wait
+				BackOff.backOff();
+				continue;
 			}
-
 			if (free.compareExchange(old, old - 1) == old) {
-				return;
+				if (old == 0) {
+					// The value is -1 now, so we have the mutex and can suspend.
+					break;
+				} else {
+					// Normal acquire
+					return;
+				}
 			}
 		}
+		// If we get here, free is == -1
 		suspendCancellable(cont -> {
-			dequeMutex.acquire();
-			if (deque == null) {
-				deque = new PagedDeque();
-			}
 			deque.push(cont);
-			dequeMutex.release();
+			// Unlock
+			free.store(0);
 		});
 	}
 
@@ -59,47 +72,56 @@ class CoroSemaphore {
 	}
 
 	public function release() {
-		// CAS loop until we update the free atomic or it reports full.
+		var old = free.load();
 		while (true) {
-			final old = free.load();
 			if (maxFree == old) {
 				throw new SemaphoreFullException();
 			}
-
-			if (free.compareExchange(old, old + 1) == old) {
-				break;
+			if (old < 0) {
+				// Someone has the "mutex", let's wait
+				BackOff.backOff();
+				old = free.load();
+				continue;
+			}
+			if (old == 0) {
+				// This is the case where we might have to inspect the deque, so we go to -1.
+				final next = free.compareExchange(old, -1);
+				if (next == old) {
+					// We successfully locked the mutex, leave this loop.
+					break;
+				} else {
+					old = next;
+					BackOff.backOff();
+					continue;
+				}
+			}
+			final next = free.compareExchange(old, old + 1);
+			if (next == old) {
+				// Normal release and nobody waits in the deque, we're done.
+				return;
+			} else {
+				// Update failure means waiting.
+				old = next;
+				BackOff.backOff();
 			}
 		}
-
-		dequeMutex.acquire();
-		if (deque == null) {
-			dequeMutex.release();
-			return;
-		}
+		// If we get here, free == -1.
 		while (true) {
 			if (deque.isEmpty()) {
-				// nobody else wants it right now, return
-				dequeMutex.release();
+				// Empty deque also means there's room for 1.
+				free.store(1);
 				return;
 			}
-			// a continuation waits for this mutex, wake it up now
 			final cont = deque.pop();
 			final ct = cont.context.get(CancellationToken);
-			if (ct.isCancellationRequested()) {
-				// ignore, back to the loop
-			} else {
-				// continue normally
-				while (true) {
-					// we need to CAS-decrement the free value here as if we acquired it normally
-					final old = free.load();
-					if (free.compareExchange(old, old - 1) == old) {
-						break;
-					}
-				}
-				dequeMutex.release();
-				cont.callAsync();
-				return;
+			if (ct?.isCancellationRequested()) {
+				// Ignore, back to the loop.
+				continue;
 			}
+			// There's a continuation to execute, so free is 0 again.
+			free.store(0);
+			cont.callAsync();
+			break;
 		}
 	}
 }

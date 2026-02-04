@@ -8,7 +8,7 @@ import haxe.exceptions.ArgumentException;
 import haxe.coro.schedulers.IScheduler;
 import haxe.coro.schedulers.ISchedulerHandle;
 
-class EventLoopScheduler implements IScheduler {
+class HeapScheduler implements IScheduler {
 	final futureMutex : Mutex;
 	final heap : MinimumHeap;
 
@@ -37,7 +37,10 @@ class EventLoopScheduler implements IScheduler {
 		return Timer.milliseconds();
 	}
 
-	public function run() {
+}
+
+class EventLoopScheduler extends HeapScheduler implements ILoop {
+	public function loop() {
 		final currentTime = now();
 		while (true) {
 			futureMutex.acquire();

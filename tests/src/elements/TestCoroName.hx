@@ -1,6 +1,8 @@
 package elements;
 
+import hxcoro.dispatchers.TrampolineDispatcher;
 import hxcoro.elements.CoroName;
+import hxcoro.schedulers.EventLoopScheduler;
 
 class TestCoroName extends utest.Test {
 	@:coroutine
@@ -11,7 +13,7 @@ class TestCoroName extends utest.Test {
 	}
 
 	function test() {
-		CoroRun.runScoped(scope -> {
+		CoroRun.run(scope -> {
 			scope.with(new CoroName("first name")).async(_ -> {
 				Assert.equals("first name", logDebug());
 			});
@@ -19,7 +21,7 @@ class TestCoroName extends utest.Test {
 	}
 
 	function testScope() {
-		CoroRun.runScoped(node -> {
+		CoroRun.run(node -> {
 			node.with(new CoroName("first name")).async(_ -> {
 				scope(_ -> {
 					Assert.equals("first name", logDebug());
@@ -28,8 +30,12 @@ class TestCoroName extends utest.Test {
 		});
 	}
 
+	function newTrampoline() {
+		return new TrampolineDispatcher(new EventLoopScheduler());
+	}
+
 	function testChildrenNames() {
-		final result = CoroRun.with(new CoroName("Parent")).run(node -> {
+		final result = CoroRun.with(newTrampoline(), new CoroName("Parent")).runTask(node -> {
 			final children = [for (i in 0...10) node.with(new CoroName('Name: $i')).async(node -> node.context.get(CoroName).name)];
 			[for (child in children) child.await()];
 		});
@@ -38,11 +44,11 @@ class TestCoroName extends utest.Test {
 	}
 
 	function testEntrypoint() {
-		CoroRun.with(new CoroName("first name")).run(scope -> {
+		CoroRun.with(newTrampoline(), new CoroName("first name")).runTask(scope -> {
 			Assert.equals("first name", logDebug());
 		});
 
-		CoroRun.with(new CoroName("wrong name")).with(new CoroName("first name")).run(scope -> {
+		CoroRun.with(newTrampoline(), new CoroName("wrong name")).with(new CoroName("first name")).runTask(scope -> {
 			Assert.equals("first name", logDebug());
 		});
 	}
