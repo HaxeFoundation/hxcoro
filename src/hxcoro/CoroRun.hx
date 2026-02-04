@@ -103,6 +103,6 @@ class CoroRun {
 
 		final task = scheduler.runTask(context.with(dispatcher), lambda);
 		onCompletion();
-		return ContextRun.resolveTask(task);
+		return @:privateAccess ContextRun.resolveTask(task);
 	}
 }

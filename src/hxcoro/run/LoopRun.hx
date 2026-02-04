@@ -8,6 +8,11 @@ import hxcoro.task.CoroTask;
 import hxcoro.task.ICoroTask;
 import hxcoro.task.NodeLambda;
 
+/**
+	This class provides static extensions for `ILoop` to work with `Task` instances.
+
+	The intended usage is to add `using hxcoro.run.LooptRun`.
+**/
 class LoopRun {
 	/**
 		Executes `lambda` in context `context` by running `loop` until a value is
@@ -65,6 +70,6 @@ class LoopRun {
 			(cast task : IStartableCoroTask<T>).start();
 		}
 		awaitTaskCompletion(loop, task);
-		return ContextRun.resolveTask(task);
+		return @:privateAccess ContextRun.resolveTask(task);
 	}
 }

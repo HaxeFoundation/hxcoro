@@ -8,12 +8,19 @@ import hxcoro.task.ICoroTask;
 import hxcoro.task.NodeLambda;
 import hxcoro.task.StartableCoroTask;
 
+/**
+	This class provides static extensions for `Context` to work with `Task` instances.
+
+	The intended usage is to add `using hxcoro.run.ContextRun`.
+**/
 class ContextRun {
 	/**
 		Resolves `task` by either returning its value or throwing
-		its error as an exception.
+		its error as an exception. This function does not check the
+		actual state of the task and should only be called on tasks
+		that are known to no longer be active.
 	**/
-	static public function resolveTask<T>(task:ICoroTask<T>) {
+	static function resolveTask<T>(task:ICoroTask<T>) {
 		switch (task.getError()) {
 			case null:
 				return task.get();
