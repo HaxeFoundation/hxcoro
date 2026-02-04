@@ -26,13 +26,9 @@ private class Trampoline {
 			return tls.value;
 		}
 		final thread = sys.thread.Thread.current();
-		final onExit = thread.onExit;
-		thread.onExit = function() {
+		thread.onExit(function() {
 			tls.value = null;
-			if (onExit != null) {
-				onExit();
-			}
-		}
+		});
 		final trampoline = new Trampoline();
 		tls.value = trampoline;
 		return trampoline;
