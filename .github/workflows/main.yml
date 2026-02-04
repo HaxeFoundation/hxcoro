@@ -10,8 +10,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [eval]
-        target: [eval, js, hl, cpp, jvm, php, python, neko]
+        os: [macos-latest, ubuntu-latest, windows-latest]
+        target: [eval]
         exclude:
           # php is not available by default for macos runners, probably not worth bothering
           - os: macos-latest
