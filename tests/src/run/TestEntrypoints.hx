@@ -140,4 +140,48 @@ class TestEntrypoints extends utest.Test {
 	}
 
 	#end
+
+	#if (cpp && hxcpp_luv_io)
+
+	public function testLuvTrampoline() {
+		final loop = cpp.luv.Luv.allocLoop();
+		final scheduler = new hxcoro.schedulers.LuvScheduler(loop);
+		final dispatcher = new TrampolineDispatcher(scheduler);
+		final context = CoroRun.with(dispatcher);
+		runSuite(context, scheduler);
+		scheduler.shutDown();
+		cpp.luv.Luv.stopLoop(loop);
+		cpp.luv.Luv.shutdownLoop(loop);
+		cpp.luv.Luv.freeLoop(loop);
+	}
+
+
+	public function testLuvThreadPool() {
+		final loop = cpp.luv.Luv.allocLoop();
+		final scheduler = new hxcoro.schedulers.LuvScheduler(loop);
+		final pool = new hxcoro.thread.FixedThreadPool(1);
+		final dispatcher = new ThreadPoolDispatcher(scheduler, pool);
+		final context = CoroRun.with(dispatcher);
+		runSuite(context, scheduler);
+		scheduler.shutDown();
+		pool.shutDown(true);
+		cpp.luv.Luv.stopLoop(loop);
+		cpp.luv.Luv.shutdownLoop(loop);
+		cpp.luv.Luv.freeLoop(loop);
+	}
+
+	// public function testLuvLuv() {
+	// 	final loop = cpp.luv.Luv.allocLoop();
+	// 	final scheduler = new hxcoro.schedulers.LuvScheduler(loop);
+	// 	final dispatcher = new hxcoro.dispatchers.LuvDispatcher(loop, scheduler);
+	// 	final context = CoroRun.with(dispatcher);
+	// 	runSuite(context, scheduler);
+	// 	dispatcher.shutDown();
+	// 	scheduler.shutDown();
+	// 	cpp.luv.Luv.stopLoop(loop);
+	// 	cpp.luv.Luv.shutdownLoop(loop);
+	// 	cpp.luv.Luv.freeLoop(loop);
+	// }
+
+	#end
 }
