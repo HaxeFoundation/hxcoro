@@ -45,6 +45,8 @@ class Setup {
 
 	#end
 
+	#if target.threaded
+
 	static public function createThreadPool(numThreads:Int) {
 		final scheduler = new hxcoro.schedulers.ThreadAwareScheduler();
 		final pool = new hxcoro.thread.FixedThreadPool(numThreads);
@@ -54,6 +56,8 @@ class Setup {
 		}
 		return new Setup(scheduler, dispatcher, onCompletion);
 	}
+
+	#end
 
 	static public function createDefault() {
 		#if (cpp && hxcpp_luv_io)
