@@ -151,7 +151,7 @@ class TestEntrypoints extends utest.Test {
 			cpp.luv.Luv.shutdownLoop(loop);
 			cpp.luv.Luv.freeLoop(loop);
 		}
-		return new Setup(scheduler, dispatcher, finalize);
+		return new LoopSetup(scheduler, dispatcher, finalize);
 	}
 
 	public function testLuvTrampoline() {

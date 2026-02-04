@@ -8,12 +8,10 @@ import hxcoro.schedulers.ILoop;
 class Setup {
 	static public final defaultContext = Context.empty.with(new StackTraceManager());
 
-	public final loop:ILoop;
 	public final dispatcher:Dispatcher;
 	final finalize:Null<() -> Void>;
 
-	public function new(loop:ILoop, dispatcher:Dispatcher, ?finalize:() -> Void) {
-		this.loop = loop;
+	public function new(dispatcher:Dispatcher, ?finalize:() -> Void) {
 		this.dispatcher = dispatcher;
 		this.finalize = finalize;
 	}
@@ -37,7 +35,7 @@ class Setup {
 
 	/**
 		Closes this setup, running the finalization code. Does not affect this setup's
-		`loop` and `dispatcher` directly.
+		`dispatcher` directly.
 	**/
 	public function close() {
 		if (finalize != null) {
@@ -48,13 +46,13 @@ class Setup {
 	static public function createEventLoopTrampoline() {
 		final scheduler = new hxcoro.schedulers.EventLoopScheduler();
 		final dispatcher = new hxcoro.dispatchers.TrampolineDispatcher(scheduler);
-		return new Setup(scheduler, dispatcher);
+		return new LoopSetup(scheduler, dispatcher);
 	}
 
 	static public function createVirtualTrampoline() {
 		final scheduler = new hxcoro.schedulers.VirtualTimeScheduler();
 		final dispatcher = new hxcoro.dispatchers.TrampolineDispatcher(scheduler);
-		return new Setup(scheduler, dispatcher);
+		return new LoopSetup(scheduler, dispatcher);
 	}
 
 	#if (cpp && hxcpp_luv_io)
@@ -69,7 +67,7 @@ class Setup {
 			cpp.luv.Luv.shutdownLoop(loop);
 			cpp.luv.Luv.freeLoop(loop);
 		}
-		return new Setup(scheduler, dispatcher, finalize);
+		return new LoopSetup(scheduler, dispatcher, finalize);
 	}
 
 	#end
@@ -83,7 +81,7 @@ class Setup {
 		function finalize() {
 			pool.shutDown(true);
 		}
-		return new Setup(scheduler, dispatcher, finalize);
+		return new LoopSetup(scheduler, dispatcher, finalize);
 	}
 
 	#end
@@ -96,5 +94,14 @@ class Setup {
 		#else
 		return createEventLoopTrampoline();
 		#end
+	}
+}
+
+class LoopSetup extends Setup {
+	public final loop:ILoop;
+
+	public function new(loop:ILoop, dispatcher:Dispatcher, ?finalize:() -> Void) {
+		super(dispatcher, finalize);
+		this.loop = loop;
 	}
 }

@@ -40,7 +40,7 @@ class CoroRun {
 	static function promiseImpl<T>(lambda:NodeLambda<T>) {
 		final scheduler = new hxcoro.schedulers.HaxeTimerScheduler();
 		final dispatcher = new hxcoro.dispatchers.TrampolineDispatcher(scheduler);
-		final task = new Setup(scheduler, dispatcher).createContext().launchTask(lambda);
+		final task = new Setup(dispatcher).createContext().launchTask(lambda);
 
 		return new js.lib.Promise((resolve, reject) -> {
 			task.onCompletion((result, error) -> {
