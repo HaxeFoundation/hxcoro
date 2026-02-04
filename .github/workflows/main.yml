@@ -38,6 +38,7 @@ jobs:
           haxelib newrepo
           ${{ matrix.target == 'jvm' }} && haxelib install hxjava || true
           ${{ matrix.target == 'cpp' }} && haxelib git hxcpp https://github.com/HaxeFoundation/hxcpp.git && haxe --cwd .haxelib/hxcpp/git/tools/hxcpp compile.hxml || true
+          ${{ matrix.target == 'cpp' }} && haxelib git hxcpp_luv_io https://github.com/Aidan63/hxcpp_luv_io || true
           haxelib git utest https://github.com/haxe-utest/utest.git
           haxelib dev hxcoro .
           haxelib list
