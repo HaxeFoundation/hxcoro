@@ -7,7 +7,7 @@ import hxcoro.CoroRun;
 import hxcoro.Coro.*;
 
 class Issue37 extends utest.Test {
-	#if false // everyone hates this
+	#if !neko // neko can't count milliseconds
 	function testCancelling() {
 		final numIterations = 2;
 		final numTasks = 100;
@@ -48,8 +48,6 @@ class Issue37 extends utest.Test {
 						}
 					});
 				}
-
-				node.awaitChildren();
 			});
 			actual.push(aggregateValue.load());
 		}
@@ -91,8 +89,6 @@ class Issue37 extends utest.Test {
 						}
 					});
 				}
-
-				node.awaitChildren();
 			});
 			actual.push(aggregateValue.load());
 		}
@@ -114,7 +110,6 @@ class Issue37 extends utest.Test {
 				for (_ in 0...numTasks) {
 					node.async(_ -> {
 						delay(1);
-
 						channel.writer.write(1);
 
 						if (++count == numTasks) {
@@ -139,8 +134,6 @@ class Issue37 extends utest.Test {
 						}
 					});
 				}
-
-				node.awaitChildren();
 			});
 			actual.push(aggregateValue.load());
 		}
