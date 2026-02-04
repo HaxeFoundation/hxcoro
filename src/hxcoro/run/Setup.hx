@@ -1,31 +1,60 @@
 package hxcoro.run;
 
+import haxe.coro.BaseContinuation;
+import haxe.coro.context.Context;
 import haxe.coro.dispatchers.Dispatcher;
 import hxcoro.schedulers.ILoop;
 
 class Setup {
+	static public final defaultContext = Context.empty.with(new StackTraceManager());
+
 	public final loop:ILoop;
 	public final dispatcher:Dispatcher;
-	public final onCompletion:() -> Void;
+	final finalize:Null<() -> Void>;
 
-	public function new(loop:ILoop, dispatcher:Dispatcher, onCompletion:() -> Void) {
+	public function new(loop:ILoop, dispatcher:Dispatcher, ?finalize:() -> Void) {
 		this.loop = loop;
 		this.dispatcher = dispatcher;
-		this.onCompletion = onCompletion;
+		this.finalize = finalize;
+	}
+
+	/**
+		Returns a new context containing this setup's `Dispatcher` instance as an
+		element, and the default context's `StackTraceManager` if no such element
+		exists in `context`.
+	**/
+	public function adaptContext(context:Context) {
+		return (defaultContext + context).with(dispatcher);
+	}
+
+	/**
+		Returns a new context containing this setup's `Dispatcher` instance as an
+		element, and the default context's `StackTraceManager`.
+	**/
+	public function createContext() {
+		return defaultContext.with(dispatcher);
+	}
+
+	/**
+		Closes this setup, running the finalization code. Does not affect this setup's
+		`loop` and `dispatcher` directly.
+	**/
+	public function close() {
+		if (finalize != null) {
+			finalize();
+		}
 	}
 
 	static public function createEventLoopTrampoline() {
 		final scheduler = new hxcoro.schedulers.EventLoopScheduler();
 		final dispatcher = new hxcoro.dispatchers.TrampolineDispatcher(scheduler);
-		function onCompletion() {}
-		return new Setup(scheduler, dispatcher, onCompletion);
+		return new Setup(scheduler, dispatcher);
 	}
 
 	static public function createVirtualTrampoline() {
 		final scheduler = new hxcoro.schedulers.VirtualTimeScheduler();
 		final dispatcher = new hxcoro.dispatchers.TrampolineDispatcher(scheduler);
-		function onCompletion() {}
-		return new Setup(scheduler, dispatcher, onCompletion);
+		return new Setup(scheduler, dispatcher);
 	}
 
 	#if (cpp && hxcpp_luv_io)
@@ -34,13 +63,13 @@ class Setup {
 		final loop = cpp.luv.Luv.allocLoop();
 		final scheduler = new hxcoro.schedulers.LuvScheduler(loop);
 		final dispatcher = new hxcoro.dispatchers.LuvDispatcher(loop, scheduler);
-		function onCompletion() {
+		function finalize() {
 			dispatcher.shutDown();
 			cpp.luv.Luv.stopLoop(loop);
 			cpp.luv.Luv.shutdownLoop(loop);
 			cpp.luv.Luv.freeLoop(loop);
 		}
-		return new Setup(scheduler, dispatcher, onCompletion);
+		return new Setup(scheduler, dispatcher, finalize);
 	}
 
 	#end
@@ -51,10 +80,10 @@ class Setup {
 		final scheduler = new hxcoro.schedulers.ThreadAwareScheduler();
 		final pool = new hxcoro.thread.FixedThreadPool(numThreads);
 		final dispatcher = new hxcoro.dispatchers.ThreadPoolDispatcher(scheduler, pool);
-		function onCompletion() {
+		function finalize() {
 			pool.shutDown(true);
 		}
-		return new Setup(scheduler, dispatcher, onCompletion);
+		return new Setup(scheduler, dispatcher, finalize);
 	}
 
 	#end
