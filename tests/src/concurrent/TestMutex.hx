@@ -27,7 +27,7 @@ class TestMutex extends utest.Test {
 			final now = scheduler.now();
 			lines.push('$now: $s');
 		}
-		final task = CoroRun.with(dispatcher).with(dispatcher).create(node -> {
+		final task = CoroRun.with(dispatcher).with(dispatcher).createTask(node -> {
 			final m = new CoroMutex();
 
 			node.async(_ -> {
@@ -84,7 +84,7 @@ class TestMutex extends utest.Test {
 		final numTasks = 500;
 		final numTasksHalved = Std.int(numTasks / 2);
 		var numTasksCompleted = 0;
-		final task = CoroRun.with(dispatcher).with(dispatcher).create(node -> {
+		final task = CoroRun.with(dispatcher).with(dispatcher).createTask(node -> {
 			final m = new CoroSemaphore(numTasksHalved);
 			for (_ in 0...numTasks) {
 				node.async(_ -> {
@@ -114,7 +114,7 @@ class TestMutex extends utest.Test {
 		var numTasksCompleted = 0;
 		var numEarlyAcquires = 0;
 		var numLateAcquires = 0;
-		final task = CoroRun.with(dispatcher).with(dispatcher).create(node -> {
+		final task = CoroRun.with(dispatcher).with(dispatcher).createTask(node -> {
 			final m = new CoroSemaphore(numTasksHalved);
 			for (i in 0...numTasks) {
 				node.async(_ -> {
@@ -160,7 +160,7 @@ class TestMutex extends utest.Test {
 			final now = scheduler.now();
 			lines.push('$now: $s');
 		}
-		final task = CoroRun.with(dispatcher).with(dispatcher).create(node -> {
+		final task = CoroRun.with(dispatcher).with(dispatcher).createTask(node -> {
 			final mutex1 = new CoroMutex();
 			final mutex2 = new CoroMutex();
 			final child1 = node.async(_ -> {
@@ -234,7 +234,7 @@ class TestMutex extends utest.Test {
 				var semaphore = new CoroSemaphore(semaphoreSize);
 				var semaphoreHolders = Channel.createBounded({ size : 1 });
 				var hangingMutex = new CoroMutex();
-				final task = CoroRun.with(dispatcher).with(dispatcher).create(node -> {
+				final task = CoroRun.with(dispatcher).with(dispatcher).createTask(node -> {
 					hangingMutex.acquire();
 					var numCompletedTasks = 0;
 					for (_ in 0...numTasks) {
@@ -269,5 +269,55 @@ class TestMutex extends utest.Test {
 				Assert.equals(numTasks, task.get());
 			}
 		}
+	}
+
+	function testAcquireConcurrency() {
+		final numTasks = 1000;
+
+		CoroRun.run(node -> {
+			final sem = new CoroSemaphore(numTasks);
+			for (_ in 0...numTasks) {
+				node.async(node -> {
+					sem.acquire();
+				});
+			}
+		});
+		// termination is test result
+		Assert.pass();
+	}
+
+	function testReleaseConcurrency() {
+		final numTasks = 1000;
+
+		CoroRun.run(node -> {
+			final sem = new CoroSemaphore(0, numTasks);
+			for (_ in 0...numTasks) {
+				node.async(node -> {
+					sem.release();
+				});
+			}
+		});
+		// termination is test result
+		Assert.pass();
+	}
+
+	function testReleaseAcquireConcurrency() {
+		final numTasks = 1000;
+
+		CoroRun.run(node -> {
+			final sem = new CoroSemaphore(0, numTasks);
+			for (_ in 0...numTasks) {
+				node.async(node -> {
+					sem.release();
+				});
+			}
+			for (_ in 0...numTasks) {
+				node.async(node -> {
+					sem.acquire();
+				});
+			}
+		});
+		// termination is test result
+		Assert.pass();
 	}
 }

@@ -10,7 +10,7 @@ class Issue160 extends utest.Test {
 	}
 
 	function test() {
-		CoroRun.runScoped(_ -> {
+		CoroRun.run(_ -> {
 			foo(Bar);
 		});
 

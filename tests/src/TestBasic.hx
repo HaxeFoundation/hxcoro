@@ -53,7 +53,7 @@ class TestBasic extends utest.Test {
 	function testDelay() {
 		final scheduler  = new VirtualTimeScheduler();
 		final dispatcher = new TrampolineDispatcher(scheduler);
-		final task       = CoroRun.with(dispatcher).with(dispatcher).create(_ -> {
+		final task       = CoroRun.with(dispatcher).with(dispatcher).createTask(_ -> {
 			delay(500);
 		});
 

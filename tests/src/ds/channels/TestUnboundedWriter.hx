@@ -90,7 +90,7 @@ class TestUnboundedWriter extends utest.Test {
 		final scheduler   = new VirtualTimeScheduler();
 		final dispatcher  = new TrampolineDispatcher(scheduler);
 		final actual      = [];
-		final task        = CoroRun.with(dispatcher).create(node -> {
+		final task        = CoroRun.with(dispatcher).createTask(node -> {
 			actual.push(writer.waitForWrite());
 
 			buffer.push(0);
@@ -114,7 +114,7 @@ class TestUnboundedWriter extends utest.Test {
 		final scheduler   = new VirtualTimeScheduler();
 		final dispatcher  = new TrampolineDispatcher(scheduler);
 		final actual      = [];
-		final task        = CoroRun.with(dispatcher).create(node -> {
+		final task        = CoroRun.with(dispatcher).createTask(node -> {
 			actual.push(writer.waitForWrite());
 		});
 
@@ -135,7 +135,7 @@ class TestUnboundedWriter extends utest.Test {
 		final scheduler   = new VirtualTimeScheduler();
 		final dispatcher  = new TrampolineDispatcher(scheduler);
 		final actual      = [];
-		final task        = CoroRun.with(dispatcher).create(node -> {
+		final task        = CoroRun.with(dispatcher).createTask(node -> {
 			actual.push(writer.waitForWrite());
 		});
 
@@ -154,7 +154,7 @@ class TestUnboundedWriter extends utest.Test {
 		final writer     = new UnboundedWriter(buffer, new PagedDeque(), new Out(), new Mutex());
 		final scheduler  = new VirtualTimeScheduler();
 		final dispatcher = new TrampolineDispatcher(scheduler);
-		final task       = CoroRun.with(dispatcher).create(node -> {
+		final task       = CoroRun.with(dispatcher).createTask(node -> {
 			writer.write(1);
 			writer.write(2);
 			writer.write(3);
@@ -183,7 +183,7 @@ class TestUnboundedWriter extends utest.Test {
 		final scheduler   = new VirtualTimeScheduler();
 		final dispatcher  = new TrampolineDispatcher(scheduler);
 		final expected    = [];
-		final task        = CoroRun.with(dispatcher).create(node -> {
+		final task        = CoroRun.with(dispatcher).createTask(node -> {
 			writer.write(1);
 		});
 
@@ -207,7 +207,7 @@ class TestUnboundedWriter extends utest.Test {
 		final writer     = new UnboundedWriter(buffer, new PagedDeque(), new Out(), new Mutex());
 		final scheduler  = new VirtualTimeScheduler();
 		final dispatcher = new TrampolineDispatcher(scheduler);
-		final task       = CoroRun.with(dispatcher).create(node -> {
+		final task       = CoroRun.with(dispatcher).createTask(node -> {
 			writer.write(1);
 		});
 
@@ -227,7 +227,7 @@ class TestUnboundedWriter extends utest.Test {
 		final writer      = new UnboundedWriter(buffer, readWaiters, new Out(), new Mutex());
 		final scheduler   = new VirtualTimeScheduler();
 		final dispatcher  = new TrampolineDispatcher(scheduler);
-		final task        = CoroRun.with(dispatcher).create(node -> {
+		final task        = CoroRun.with(dispatcher).createTask(node -> {
 			writer.write(0);
 		});
 
@@ -259,7 +259,7 @@ class TestUnboundedWriter extends utest.Test {
 		final scheduler   = new VirtualTimeScheduler();
 		final dispatcher  = new TrampolineDispatcher(scheduler);
 		final actual      = [];
-		final task        = CoroRun.with(dispatcher).create(node -> {
+		final task        = CoroRun.with(dispatcher).createTask(node -> {
 			yield();
 		});
 

@@ -77,7 +77,7 @@ private enum TlsQueueEvent {
 	Remove(queue:TlsQueue);
 }
 
-class ThreadAwareScheduler implements IScheduler {
+class ThreadAwareScheduler implements IScheduler implements ILoop {
 	final heap:MinimumHeap;
 	final queueTls:Tls<Null<TlsQueue>>;
 	final queueDeque:Deque<TlsQueueEvent>;
@@ -99,11 +99,12 @@ class ThreadAwareScheduler implements IScheduler {
 
 		final newQueue = new CircularQueue(4);
 		final currentThread = Thread.current();
-		var onAbort = currentThread.onAbort;
-		currentThread.onAbort = function(e:Exception) {
+		var onExit = currentThread.onExit;
+		currentThread.onExit = function() {
 			queueDeque.add(Remove(newQueue));
-			if (onAbort != null) {
-				onAbort(e);
+			queueTls.value = null;
+			if (onExit != null) {
+				onExit();
 			}
 		}
 		queueTls.value = newQueue;
@@ -154,7 +155,7 @@ class ThreadAwareScheduler implements IScheduler {
 		}
 	}
 
-	public function run() {
+	public function loop() {
 		final currentTime = now();
 
 		// First we consume the coordination deque so we know all queues.

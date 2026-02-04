@@ -9,6 +9,7 @@ import sys.thread.Condition;
 import sys.thread.Semaphore;
 import sys.thread.Tls;
 import sys.thread.Thread;
+import hxcoro.concurrent.AtomicState;
 import hxcoro.concurrent.BackOff;
 import haxe.coro.dispatchers.IDispatchObject;
 
@@ -17,12 +18,6 @@ typedef DispatchQueue = WorkStealingQueue<IDispatchObject>;
 private class WorkerActivity {
 	public var activeWorkers:Int;
 	public var availableWorkers:Int;
-
-	/**
-		This is set when an event comes in and the mutex cannot be acquired for signalling.
-		In this case the `ping` function can signal later because somebody has to.
-	**/
-	public var hadMissedEventPing:Bool;
 
 	/**
 		Conversely, this is set when the mutex could be acquired and deals with a special case
@@ -34,9 +29,14 @@ private class WorkerActivity {
 	public function new(activeWorkers:Int) {
 		this.activeWorkers = activeWorkers;
 		this.availableWorkers = activeWorkers;
-		hadMissedEventPing = false;
 		hadEvent = false;
 	}
+}
+
+private enum abstract ShutdownState(Int) to Int {
+	final Active;
+	final ShuttingDown;
+	final ShutDown;
 }
 
 /**
@@ -53,9 +53,10 @@ class FixedThreadPool implements IThreadPool {
 	/**
 		@see `IThreadPool.isShutDown`
 	**/
-	public var isShutDown(get,null):Bool;
-	function get_isShutDown():Bool return isShutDown;
+	public var isShutDown(get,never):Bool;
+	function get_isShutDown():Bool return shutdownState.load() != Active;
 
+	final shutdownState:AtomicState<ShutdownState>;
 	final cond:Condition;
 	final pool:Array<Worker>;
 	final activity:WorkerActivity;
@@ -68,6 +69,7 @@ class FixedThreadPool implements IThreadPool {
 		if(threadsCount < 1)
 			throw new ThreadPoolException('FixedThreadPool needs threadsCount to be at least 1.');
 		this.threadsCount = threadsCount;
+		shutdownState = new AtomicState(Active);
 		cond = new Condition();
 		queueTls = new Tls();
 		final queues = Vector.fromArrayCopy([for (_ in 0...threadsCount + 1) new WorkStealingQueue()]);
@@ -95,18 +97,6 @@ class FixedThreadPool implements IThreadPool {
 			activity.hadEvent = true;
 			cond.signal();
 			cond.release();
-		} else {
-			// If we lose the race, set this flag so we can be sure that somebody
-			// gets notified in the `ping` function.
-			activity.hadMissedEventPing = true;
-		}
-	}
-
-	public function ping() {
-		if (activity.hadMissedEventPing && cond.tryAcquire()) {
-			activity.hadMissedEventPing = false;
-			cond.signal();
-			cond.release();
 		}
 	}
 
@@ -114,10 +104,9 @@ class FixedThreadPool implements IThreadPool {
 		@see `IThreadPool.shutdown`
 	**/
 	public function shutDown(block:Bool = false):Void {
-		if(isShutDown) {
+		if (shutdownState.compareExchange(Active, ShuttingDown) != Active) {
 			return;
 		}
-		isShutDown = true;
 
 		final shutdownSemaphore = new Semaphore(0);
 
@@ -128,16 +117,21 @@ class FixedThreadPool implements IThreadPool {
 		cond.broadcast();
 		cond.release();
 		if (block) {
+			final ownQueue = queueTls.value;
 			for (worker in pool) {
-				shutdownSemaphore.acquire();
+				// We could come here from a worker thread, in which case we can't wait for its
+				// semaphore release.
+				if (ownQueue != worker.queue) {
+					shutdownSemaphore.acquire();
+				}
 			}
 		}
+		shutdownState.store(ShutDown);
 	}
 
 	public function dump() {
 		Sys.println("FixedThreadPool");
 		Sys.println('\tisShutDown: $isShutDown');
-		Sys.println('\thadMissedEventPing: ${activity.hadMissedEventPing}');
 		var totalDispatches = 0i64;
 		var totalLoops = 0i64;
 		for (worker in pool) {
@@ -290,6 +284,13 @@ private class Worker {
 						continue;
 					}
 				}
+				if (activity.activeWorkers == 1) {
+					// Always keep one thread alive until we can find a better solution to the
+					// run/loop synchronization problem.
+					cond.release();
+					BackOff.backOff();
+					continue;
+				}
 				// These modifications are fine because we hold onto the cond mutex.
 				--activity.activeWorkers;
 				state = Waiting;
@@ -308,10 +309,12 @@ private class Worker {
 		try {
 			loop();
 		} catch (e:Dynamic) {
+			queueTls.value = null;
 			start();
 			throw e;
 		}
 		state = Terminated;
+		queueTls.value = null;
 		shutdownSemaphore.release();
 	}
 }

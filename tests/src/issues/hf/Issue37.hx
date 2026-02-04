@@ -15,7 +15,7 @@ class Issue37 extends utest.Test {
 		final actual = [];
 		for (_ in 0...numIterations) {
 			var aggregateValue = new AtomicInt(0);
-			CoroRun.runScoped(node -> {
+			CoroRun.run(node -> {
 				final channel = Channel.createBounded({size: 10});
 
 				// set up writers
@@ -61,7 +61,7 @@ class Issue37 extends utest.Test {
 		final actual = [];
 		for (_ in 0...numIterations) {
 			var aggregateValue = new AtomicInt(0);
-			CoroRun.runScoped(node -> {
+			CoroRun.run(node -> {
 				final channel = Channel.createBounded({size: 10});
 
 				// set up writers
@@ -102,7 +102,7 @@ class Issue37 extends utest.Test {
 		final actual = [];
 		for (_ in 0...numIterations) {
 			var aggregateValue = new AtomicInt(0);
-			CoroRun.runScoped(node -> {
+			CoroRun.run(node -> {
 				final channel = Channel.createBounded({size: 10});
 
 				// set up writers

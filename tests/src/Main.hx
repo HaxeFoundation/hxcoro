@@ -27,12 +27,13 @@ function main() {
 		runner.addCase(eachCase);
 	}
 	runner.addCases("issues");
-	runner.addCases("ds");
 	runner.addCases("concurrent");
-	runner.addCases("components");
-	runner.addCases("structured");
+	runner.addCases("ds");
+	runner.addCases("elements");
 	runner.addCases("features");
+	runner.addCases("run");
 	runner.addCases("schedulers");
+	runner.addCases("structured");
 
     utest.ui.Report.create(runner);
     runner.run();

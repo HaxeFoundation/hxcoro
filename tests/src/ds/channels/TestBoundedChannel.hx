@@ -23,7 +23,7 @@ class TestBoundedChannel extends utest.Test {
 		final channel = Channel.createBounded({ size : 3 });
 		final scheduler = new VirtualTimeScheduler();
 		final dispatcher = new TrampolineDispatcher(scheduler);
-		final task = CoroRun.with(dispatcher).create(node -> {
+		final task = CoroRun.with(dispatcher).createTask(node -> {
 			final output = [];
 			final writer = node.async(_ -> {
 				var i = size;
@@ -45,7 +45,7 @@ class TestBoundedChannel extends utest.Test {
 		});
 		task.start();
 		while (task.isActive()) {
-			scheduler.run();
+			scheduler.loop();
 			scheduler.advanceBy(1);
 		}
 		final expected = [for (i in 0...size + 1) i];
@@ -58,7 +58,7 @@ class TestBoundedChannel extends utest.Test {
 		final channel   = Channel.createBounded({ size : 2 });
 		final scheduler = new VirtualTimeScheduler();
 		final dispatcher = new TrampolineDispatcher(scheduler);
-		final task      = CoroRun.with(dispatcher).create(node -> {
+		final task      = CoroRun.with(dispatcher).createTask(node -> {
 			channel.write('Hello');
 			channel.write('World');
 
@@ -79,7 +79,7 @@ class TestBoundedChannel extends utest.Test {
 		final channel   = Channel.createBounded({ size : 1 });
 		final scheduler = new VirtualTimeScheduler();
 		final dispatcher = new TrampolineDispatcher(scheduler);
-		final task      = CoroRun.with(dispatcher).create(node -> {
+		final task      = CoroRun.with(dispatcher).createTask(node -> {
 			channel.write('dummy');
 
 			node.async(_ -> {
@@ -111,7 +111,7 @@ class TestBoundedChannel extends utest.Test {
 		final channel    = Channel.createBounded({ size : 1 });
 		final scheduler  = new VirtualTimeScheduler();
 		final dispatcher = new TrampolineDispatcher(scheduler);
-		final task       = CoroRun.with(dispatcher).create(node -> {
+		final task       = CoroRun.with(dispatcher).createTask(node -> {
 			channel.write('dummy');
 
 			node.async(_ -> {
@@ -157,7 +157,7 @@ class TestBoundedChannel extends utest.Test {
 		final channel    = Channel.createBounded({ size : 1 });
 		final scheduler  = new VirtualTimeScheduler();
 		final dispatcher = new TrampolineDispatcher(scheduler);
-		final task       = CoroRun.with(dispatcher).create(node -> {
+		final task       = CoroRun.with(dispatcher).createTask(node -> {
 			node.async(_ -> {
 				try {
 					timeout(100, _ -> {
@@ -197,7 +197,7 @@ class TestBoundedChannel extends utest.Test {
 		final channel = Channel.createBounded({ size : 1 });
 		final scheduler = new VirtualTimeScheduler();
 		final dispatcher = new TrampolineDispatcher(scheduler);
-		final task = CoroRun.with(dispatcher).create(node -> {
+		final task = CoroRun.with(dispatcher).createTask(node -> {
 			final output = [];
 			node.async(node -> {
 				var out = new Out();
@@ -231,7 +231,7 @@ class TestBoundedChannel extends utest.Test {
 		});
 		task.start();
 		while (task.isActive()) {
-			scheduler.run();
+			scheduler.loop();
 			scheduler.advanceBy(1);
 		}
 		Assert.same([None, Some(1), None, Some(2), Some(3), None], task.get());
@@ -243,7 +243,7 @@ class TestBoundedChannel extends utest.Test {
 		final actual   = [];
 		final mutex    = new Mutex();
 
-		CoroRun.runScoped(node -> {
+		CoroRun.run(node -> {
 			timeout(30000, node -> {
 				node.async(_ -> {
 					for (v in expected) {
@@ -281,7 +281,7 @@ class TestBoundedChannel extends utest.Test {
 	// 		todoHoisting = 0;
 	// 		final channel = Channel.createBounded(bufferSize);
 	// 		final scheduler = new VirtualTimeScheduler();
-	// 		final task = CoroRun.with(scheduler, dispatcher).create(node -> {
+	// 		final task = CoroRun.with(scheduler, dispatcher).createTask(node -> {
 	// 			for (i in 0...size) {
 	// 				node.async(_ -> channel.write(todoHoisting++));
 	// 			}
@@ -291,7 +291,7 @@ class TestBoundedChannel extends utest.Test {
 	// 		});
 	// 		task.start();
 	// 		while (task.isActive()) {
-	// 			scheduler.run();
+	// 			scheduler.loop();
 	// 			scheduler.advanceBy(1);
 	// 		}
 	// 		Assert.same([for (i in 0...size) i], task.get());

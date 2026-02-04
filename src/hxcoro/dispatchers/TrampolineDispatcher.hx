@@ -22,8 +22,20 @@ private class Trampoline {
 			l.value = null;
 			l;
 		}
-
-		return tls.value ??= new Trampoline();
+		if (tls.value != null) {
+			return tls.value;
+		}
+		final thread = sys.thread.Thread.current();
+		final onExit = thread.onExit;
+		thread.onExit = function() {
+			tls.value = null;
+			if (onExit != null) {
+				onExit();
+			}
+		}
+		final trampoline = new Trampoline();
+		tls.value = trampoline;
+		return trampoline;
 #else
 		static var trampoline : Null<Trampoline> = null;
 
