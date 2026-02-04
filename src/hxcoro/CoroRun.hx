@@ -102,6 +102,19 @@ class CoroRun {
 			cpp.luv.Luv.freeLoop(loop);
 		}
 
+		#elseif interp
+
+		final loop = eval.luv.Loop.init().resolve();
+		final pool = new hxcoro.thread.FixedThreadPool(1);
+		final scheduler = new hxcoro.schedulers.LuvScheduler(loop);
+		final dispatcher = new hxcoro.dispatchers.ThreadPoolDispatcher(scheduler, pool);
+		function onCompletion() {
+			scheduler.shutdown();
+			pool.shutDown();
+			loop.stop();
+			loop.close();
+		}
+
 		#elseif (jvm || cpp || hl)
 
 		final scheduler = new hxcoro.schedulers.ThreadAwareScheduler();

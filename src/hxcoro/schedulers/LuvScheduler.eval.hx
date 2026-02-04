@@ -1,53 +1,29 @@
 package hxcoro.schedulers;
 
-import haxe.coro.dispatchers.Dispatcher;
-import hxcoro.concurrent.AtomicState;
 import eval.luv.Async;
-import haxe.atomic.AtomicInt;
-import sys.thread.Deque;
+import eval.luv.Loop;
+import eval.luv.Timer;
 import haxe.Int64;
+import haxe.atomic.AtomicInt;
 import haxe.coro.IContinuation;
+import haxe.coro.dispatchers.Dispatcher;
+import haxe.coro.dispatchers.IDispatchObject;
 import haxe.coro.schedulers.IScheduler;
 import haxe.coro.schedulers.ISchedulerHandle;
-import haxe.coro.dispatchers.IDispatchObject;
-import eval.luv.Timer;
-import eval.luv.Loop;
-
-enum abstract AsyncDequeState(Int) to Int {
-	final Open;
-	final Sending;
-	final Closed;
-}
+import sys.thread.Deque;
 
 class AsyncDeque<T> {
 	final deque:Deque<T>;
 	var async:Null<Async>;
-	var state:AtomicState<AsyncDequeState>;
 
 	public function new(loop:Loop, f:Async -> Void) {
 		this.deque = new Deque<T>();
 		this.async = Async.init(loop, f).resolve();
-		state = new AtomicState(Open);
 	}
 
 	public function add(x:T) {
-		while (true) {
-			switch (state.compareExchange(Open, Sending)) {
-				case Open:
-					deque.add(x);
-					async.send();
-					state.store(Open);
-					break;
-				case Sending:
-					// loop
-				case Closed:
-					// If we're already closed we must be in LuvScheduler.shutdown. We
-					// can't use async anymore, but we can still add to the deque so the
-					// shutdown can drain it.
-					deque.add(x);
-					return;
-			}
-		}
+		deque.add(x);
+		async.send();
 	}
 
 	public function pop(block:Bool) {
@@ -142,8 +118,8 @@ private class LuvTimerEvent implements ISchedulerHandle implements IDispatchObje
 /**
 	A scheduler for a libuv loop.
 **/
-class LuvScheduler implements IScheduler {
-	final loop:Loop;
+class LuvScheduler implements IScheduler implements ILoop {
+	final uvLoop:Loop;
 	final eventQueue:AsyncDeque<LuvTimerEvent>;
 	final closeQueue:AsyncDeque<LuvTimerEvent>;
 
@@ -151,12 +127,11 @@ class LuvScheduler implements IScheduler {
 		Creates a new `LuvScheduler` instance.
 	**/
 	public function new(loop:Loop) {
-		this.loop = loop;
+		uvLoop = loop;
 		eventQueue = new AsyncDeque(loop, loopEvents);
 		closeQueue = new AsyncDeque(loop, loopCloses);
 	}
 
-	@:inheritDoc
 	public function schedule(ms:Int64, cont:IContinuation<Any>) {
 		final event = new LuvTimerEvent(closeQueue, ms, cont);
 		eventQueue.add(event);
@@ -165,7 +140,11 @@ class LuvScheduler implements IScheduler {
 
 	@:inheritDoc
 	public function now() {
-		return loop.now().toInt64();
+		return uvLoop.now().toInt64();
+	}
+
+	public function loop() {
+		uvLoop.run(NOWAIT);
 	}
 
 	inline function consumeDeque<T>(deque:AsyncDeque<T>, f:T->Void) {
@@ -179,7 +158,7 @@ class LuvScheduler implements IScheduler {
 	}
 
 	function loopEvents(_:Async) {
-		consumeDeque(eventQueue, event -> event.start(loop));
+		consumeDeque(eventQueue, event -> event.start(uvLoop));
 	}
 
 	function loopCloses(_:Async) {
@@ -187,8 +166,9 @@ class LuvScheduler implements IScheduler {
 	}
 
 	public function shutdown() {
+		loopEvents(null);
+		loopCloses(null);
 		eventQueue.close();
 		closeQueue.close();
-		loopCloses(null);
 	}
 }
