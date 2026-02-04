@@ -1,5 +1,7 @@
 package issues.aidan;
 
+import hxcoro.schedulers.EventLoopScheduler;
+import hxcoro.dispatchers.TrampolineDispatcher;
 import haxe.ValueException;
 import haxe.coro.schedulers.IScheduler;
 import hxcoro.schedulers.VirtualTimeScheduler;
@@ -51,9 +53,13 @@ class Issue27 extends utest.Test {
 		});
 	}
 
+	function newTrampoline() {
+		return new TrampolineDispatcher(new EventLoopScheduler());
+	}
+
 	function testScope() {
 		CoroRun.run(node -> {
-			node.with(new DebugName("first name")).async(_ -> {
+			node.with(newTrampoline(), new DebugName("first name")).async(_ -> {
 				scope(_ -> {
 					Assert.equals("first name", logDebug());
 					modifyDebug("second name");
@@ -64,16 +70,17 @@ class Issue27 extends utest.Test {
 	}
 
 	function testEntrypoint() {
-		CoroRun.with(new DebugName("first name")).run(scope -> {
+		CoroRun.with(newTrampoline(), new DebugName("first name")).runTask(scope -> {
 			Assert.equals("first name", logDebug());
 			modifyDebug("second name");
 			Assert.equals("second name", logDebug());
 		});
 
 		CoroRun
+			.with(newTrampoline())
 			.with(new DebugName("wrong name"))
 			.with(new DebugName("first name"))
-			.run(scope -> {
+			.runTask(scope -> {
 				Assert.equals("first name", logDebug());
 				modifyDebug("second name");
 				Assert.equals("second name", logDebug());

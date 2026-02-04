@@ -49,7 +49,7 @@ class TestCoroutineScope extends utest.Test {
 		final actual     = [];
 		final scheduler  = new VirtualTimeScheduler();
 		final dispatcher = new TrampolineDispatcher(scheduler);
-		final task       = CoroRun.with(dispatcher).create(_ -> {
+		final task       = CoroRun.with(dispatcher).createTask(_ -> {
 			scope(node -> {
 				node.async(_ -> {
 					delay(500);
@@ -157,7 +157,7 @@ class TestCoroutineScope extends utest.Test {
 		}
 		final scheduler = new VirtualTimeScheduler();
 		final dispatcher = new TrampolineDispatcher(scheduler);
-		final task      = CoroRun.with(dispatcher).create(node -> {
+		final task      = CoroRun.with(dispatcher).createTask(node -> {
 			final child = node.async(_ -> {
 				try {
 					scope(node -> {

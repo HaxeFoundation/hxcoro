@@ -11,7 +11,7 @@ class Issue130 extends utest.Test {
 		final actual     = [];
 		final scheduler  = new VirtualTimeScheduler();
 		final dispatcher = new TrampolineDispatcher(scheduler);
-		final task       = CoroRun.with(dispatcher).create(node -> {
+		final task       = CoroRun.with(dispatcher).createTask(node -> {
 			for (i in 0...count) {
 				node.async(_ -> {
 					final randomDelay = 100 + Std.random(400);

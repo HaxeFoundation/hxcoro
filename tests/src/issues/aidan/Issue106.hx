@@ -12,7 +12,7 @@ class Issue106 extends utest.Test {
 		final dispatcher  = new TrampolineDispatcher(scheduler);
 		final numChildren = 1000;
 
-		final task = CoroRun.with(dispatcher).create(node -> {
+		final task = CoroRun.with(dispatcher).createTask(node -> {
 			var k = 0;
 			for (_ in 0...numChildren) {
 				node.async(_ -> {
