@@ -1,5 +1,6 @@
 package run;
 
+import hxcoro.run.Setup;
 import hxcoro.concurrent.BackOff;
 import hxcoro.schedulers.VirtualTimeScheduler;
 #if target.threaded
@@ -112,17 +113,15 @@ class TestEntrypoints extends utest.Test {
 	}
 
 	public function testEventTrampoline() {
-		final scheduler = new EventLoopScheduler();
-		final dispatcher = new TrampolineDispatcher(scheduler);
-		final context = CoroRun.with(dispatcher);
-		runSuite(context, scheduler);
+		final setup = Setup.createEventLoopTrampoline();
+		final context = CoroRun.with(setup.dispatcher);
+		runSuite(context, setup.loop);
 	}
 
 	public function testVirtualTrampoline() {
-		final scheduler = new VirtualTimeScheduler();
-		final dispatcher = new TrampolineDispatcher(scheduler);
-		final context = CoroRun.with(dispatcher);
-		runSuite(context, scheduler);
+		final setup = Setup.createVirtualTrampoline();
+		final context = CoroRun.with(setup.dispatcher);
+		runSuite(context, setup.loop);
 	}
 
 	// Need neko nightly for condition variables
@@ -130,13 +129,10 @@ class TestEntrypoints extends utest.Test {
 	#if (target.threaded && !neko && !python)
 
 	public function testThreadPool() {
-		final scheduler = new ThreadAwareScheduler();
-		final pool = new FixedThreadPool(1);
-		final dispatcher = new ThreadPoolDispatcher(scheduler, pool);
-		final context = CoroRun.with(dispatcher);
-		runSuite(context, scheduler);
-		pool.shutDown();
-		scheduler.loop();
+		final setup = Setup.createThreadPool(10);
+		final context = CoroRun.with(setup.dispatcher);
+		runSuite(context, setup.loop);
+		setup.onCompletion();
 	}
 
 	#end
