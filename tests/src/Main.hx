@@ -31,6 +31,7 @@ function main() {
 	runner.addCases("ds");
 	runner.addCases("elements");
 	runner.addCases("features");
+	runner.addCases("run");
 	runner.addCases("schedulers");
 	runner.addCases("structured");
 

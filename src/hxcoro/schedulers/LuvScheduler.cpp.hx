@@ -1,17 +1,18 @@
 package hxcoro.schedulers;
 
-import haxe.ds.Option;
-import cpp.luv.Work;
-import haxe.coro.dispatchers.Dispatcher;
-import haxe.atomic.AtomicInt;
-import sys.thread.Deque;
-import haxe.Int64;
-import haxe.coro.IContinuation;
-import haxe.coro.schedulers.IScheduler;
-import haxe.coro.dispatchers.IDispatchObject;
-import haxe.coro.schedulers.ISchedulerHandle;
-
 import cpp.luv.Luv;
+import cpp.luv.Work;
+import haxe.Int64;
+import haxe.atomic.AtomicInt;
+import haxe.coro.IContinuation;
+import haxe.coro.dispatchers.Dispatcher;
+import haxe.coro.dispatchers.IDispatchObject;
+import haxe.coro.schedulers.IScheduler;
+import haxe.coro.schedulers.ISchedulerHandle;
+import haxe.ds.Option;
+import hxcoro.schedulers.ILoop;
+import sys.thread.Deque;
+
 using cpp.luv.Async;
 using cpp.luv.Timer;
 
@@ -128,18 +129,18 @@ inline function consumeDeque<T>(deque:AsyncDeque<T>, f:T->Void) {
 /**
 	A scheduler for a libuv loop.
 **/
-class LuvScheduler implements IScheduler {
-	final loop:LuvLoop;
+class LuvScheduler implements IScheduler implements ILoop {
+	final uvLoop:LuvLoop;
 	final eventQueue:AsyncDeque<LuvTimerEvent>;
 	final closeQueue:AsyncDeque<LuvTimerEvent>;
 
 	/**
 		Creates a new `LuvScheduler` instance.
 	**/
-	public function new(loop:LuvLoop) {
-		this.loop  = loop;
-		eventQueue = new AsyncDeque(loop, loopEvents);
-		closeQueue = new AsyncDeque(loop, loopCloses);
+	public function new(uvLoop:LuvLoop) {
+		this.uvLoop = uvLoop;
+		eventQueue = new AsyncDeque(uvLoop, loopEvents);
+		closeQueue = new AsyncDeque(uvLoop, loopCloses);
 	}
 
 	@:inheritDoc
@@ -155,11 +156,15 @@ class LuvScheduler implements IScheduler {
 	}
 
 	function loopEvents() {
-		consumeDeque(eventQueue, event -> event.start(loop));
+		consumeDeque(eventQueue, event -> event.start(uvLoop));
 	}
 
 	function loopCloses() {
 		consumeDeque(closeQueue, event -> event.stop());
+	}
+
+	public function loop() {
+		cpp.luv.Luv.runLoop(uvLoop, NoWait);
 	}
 
 	public function shutDown() {

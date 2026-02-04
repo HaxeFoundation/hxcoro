@@ -1,10 +1,9 @@
 package hxcoro.schedulers;
 
-import hxcoro.dispatchers.SelfDispatcher;
 import haxe.Int64;
 import haxe.exceptions.ArgumentException;
 
-class VirtualTimeScheduler extends EventLoopScheduler {
+class VirtualTimeScheduler extends EventLoopScheduler.HeapScheduler implements ILoop {
 	var currentTime : Int64;
 
 	public function new() {
@@ -22,7 +21,7 @@ class VirtualTimeScheduler extends EventLoopScheduler {
 			throw new ArgumentException("Time must be greater or equal to zero");
 		}
 
-		virtualRun(currentTime + ms);
+		return virtualRun(currentTime + ms);
 	}
 
 	public function advanceTo(ms:Int) {
@@ -33,13 +32,17 @@ class VirtualTimeScheduler extends EventLoopScheduler {
 			throw new ArgumentException("Cannot travel back in time");
 		}
 
-		virtualRun(ms);
+		return virtualRun(ms);
 	}
 
 	function virtualRun(endTime : Int64) {
+		var hasMoreEvents = false;
 		while (true) {
 			var minimum = heap.minimum();
-			if (minimum == null || minimum.runTime > endTime) {
+			if (minimum == null) {
+				break;
+			} else if (minimum.runTime > endTime) {
+				hasMoreEvents = true;
 				break;
 			}
 
@@ -49,5 +52,10 @@ class VirtualTimeScheduler extends EventLoopScheduler {
 		}
 
 		currentTime = endTime;
+		return hasMoreEvents;
+	}
+
+	public function loop() {
+		while (advanceBy(1)) {}
 	}
 }

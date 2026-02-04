@@ -5,7 +5,7 @@ import haxe.exceptions.CancellationException;
 
 class Issue47 extends utest.Test {
 	function testTaskActiveAfterCancellation() {
-		CoroRun.runScoped(node -> {
+		CoroRun.run(node -> {
 			var cancelCause = null;
 			final task = node.async(node -> {
 				try {
@@ -26,7 +26,7 @@ class Issue47 extends utest.Test {
 	}
 
 	function testCancellableTaskFromCancelledTask() {
-		CoroRun.runScoped(node -> {
+		CoroRun.run(node -> {
 			var cancelCause = null;
 			final task = node.async(node -> {
 				try {
@@ -51,7 +51,7 @@ class Issue47 extends utest.Test {
 	}
 
 	function testNonCancellableTaskFromCancelledTask() {
-		CoroRun.runScoped(node -> {
+		CoroRun.run(node -> {
 			var cancelCause = null;
 			final task = node.async(node -> {
 				try {
@@ -75,7 +75,7 @@ class Issue47 extends utest.Test {
 	}
 
 	function testLazyNonCancellableTaskFromCancelledTask() {
-		CoroRun.runScoped(node -> {
+		CoroRun.run(node -> {
 			var cancelCause = null;
 			final task = node.async(node -> {
 				try {
@@ -110,7 +110,7 @@ class Issue47 extends utest.Test {
 			actual.push(s);
 		}
 		Assert.raises(() -> {
-			CoroRun.runScoped(node -> {
+			CoroRun.run(node -> {
 				node.async(node -> {
 					try {
 						delay(10000);

@@ -10,6 +10,7 @@ import haxe.exceptions.CancellationException;
 import haxe.coro.IContinuation;
 import haxe.coro.ICancellableContinuation;
 import haxe.coro.context.Context;
+import haxe.coro.cancellation.ICancellationToken;
 import haxe.coro.cancellation.ICancellationHandle;
 import haxe.coro.cancellation.CancellationToken;
 import haxe.coro.cancellation.ICancellationCallback;
@@ -26,7 +27,9 @@ class CancellingContinuation<T> extends SuspensionResult<T> implements ICancella
 
 	final cont : IContinuation<T>;
 
-	final handle : ICancellationHandle;
+	final handle : Null<ICancellationHandle>;
+
+	final cancellationToken : ICancellationToken;
 
 	public var context (get, never) : Context;
 
@@ -37,7 +40,7 @@ class CancellingContinuation<T> extends SuspensionResult<T> implements ICancella
 	public var onCancellationRequested (default, set) : CancellationException->Void;
 
 	function set_onCancellationRequested(f : CancellationException->Void) {
-		return switch (cont.context.get(CancellationToken).cancellationException) {
+		return switch (cancellationToken?.cancellationException) {
 			case null:
 				if (null != onCancellationRequested) {
 					throw new Exception("Callback already registered");
@@ -55,7 +58,10 @@ class CancellingContinuation<T> extends SuspensionResult<T> implements ICancella
 		super(Pending);
 		this.resumeState  = new AtomicInt(Active);
 		this.cont   = cont;
-		this.handle = this.cont.context.get(CancellationToken).onCancellationRequested(this);
+		cancellationToken = cont.context.get(CancellationToken);
+		if (cancellationToken != null) {
+			this.handle = cancellationToken.onCancellationRequested(this);
+		}
 	}
 
 	/**

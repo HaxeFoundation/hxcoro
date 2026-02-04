@@ -1,39 +1,15 @@
 package hxcoro;
 
-import haxe.Timer;
 import haxe.coro.Coroutine;
 import haxe.coro.context.Context;
 import haxe.coro.context.IElement;
-import hxcoro.schedulers.HaxeTimerScheduler;
-import hxcoro.task.CoroTask;
-import hxcoro.task.ICoroTask;
-import hxcoro.task.NodeLambda;
-import hxcoro.task.StartableCoroTask;
-import hxcoro.schedulers.EventLoopScheduler;
 import hxcoro.dispatchers.TrampolineDispatcher;
-import hxcoro.exceptions.TimeoutException;
+import hxcoro.schedulers.EventLoopScheduler;
+import hxcoro.schedulers.HaxeTimerScheduler;
+import hxcoro.task.NodeLambda;
 
-abstract RunnableContext(ElementTree) {
-	inline function new(tree:ElementTree) {
-		this = tree;
-	}
-
-	public function create<T>(lambda:NodeLambda<T>):IStartableCoroTask<T> {
-		return new StartableCoroTask(new Context(this), lambda, CoroTask.CoroScopeStrategy);
-	}
-
-	public function run<T>(lambda:NodeLambda<T>):T {
-		return CoroRun.runWith(new Context(this), lambda);
-	}
-
-	@:from static function fromAdjustableContext(context:AdjustableContext) {
-		return new RunnableContext(cast context);
-	}
-
-	public function with(...elements:IElement<Any>):RunnableContext {
-		return new AdjustableContext(this.copy()).with(...elements);
-	}
-}
+using hxcoro.run.ContextRun;
+using hxcoro.run.LoopRun;
 
 class CoroRun {
 	static var defaultContext(get, null):Context;
@@ -47,14 +23,19 @@ class CoroRun {
 		return defaultContext;
 	}
 
-	public static function with(...elements:IElement<Any>):RunnableContext {
+	public static function with(...elements:IElement<Any>):Context {
 		return defaultContext.clone().with(...elements);
 	}
 
-	static public function run<T>(lambda:Coroutine<() -> T>):T {
-		return runScoped(_ -> lambda());
+	overload extern static public inline function run<T>(lambda:Coroutine<() -> T>):T {
+		return runWith(defaultContext, _ -> lambda());
 	}
 
+	overload extern static public inline function run<T>(lambda:NodeLambda<T>):T {
+		return runWith(defaultContext, lambda);
+	}
+
+	@:deprecated("Use `CoroRun.run` instead")
 	static public function runScoped<T>(lambda:NodeLambda<T>):T {
 		return runWith(defaultContext, lambda);
 	}
@@ -72,8 +53,7 @@ class CoroRun {
 	static function promiseImpl<T>(lambda:NodeLambda<T>) {
 		final scheduler = new HaxeTimerScheduler();
 		final dispatcher = new TrampolineDispatcher(scheduler);
-		final task = new CoroTask(defaultContext.clone().with(dispatcher), CoroTask.CoroScopeStrategy);
-		task.runNodeLambda(lambda);
+		final task = defaultContext.with(dispatcher).launchTask(lambda);
 
 		return new js.lib.Promise((resolve, reject) -> {
 			task.onCompletion((result, error) -> {
@@ -99,131 +79,52 @@ class CoroRun {
 
 	#end
 
-	#if (false && (eval && !macro))
-
-	static public function runWith<T>(context:Context, lambda:NodeLambda<T>):T {
-		final loop = eval.luv.Loop.init().resolve();
-		final pool = new hxcoro.thread.FixedThreadPool(1);
-		final scheduler = new hxcoro.schedulers.LuvScheduler(loop);
-		final dispatcher = new hxcoro.dispatchers.ThreadPoolDispatcher(scheduler, pool);
-
-		final scope = new CoroTask(context.clone().with(dispatcher), CoroTask.CoroScopeStrategy);
-		scope.onCompletion((_, _) -> scheduler.shutdown());
-		scope.runNodeLambda(lambda);
-
-		while (loop.run(NOWAIT)) { }
-
-		pool.shutdown();
-		loop.close();
-
-		switch (scope.getError()) {
-			case null:
-				return scope.get();
-			case error:
-				throw error;
-		}
-	}
-
-	#elseif (cpp && hxcpp_luv_io)
+	#if (cpp && hxcpp_luv_io)
 
 	static public function runWith<T>(context:Context, lambda:NodeLambda<T>):T {
 		final loop = cpp.luv.Luv.allocLoop();
 		final scheduler = new hxcoro.schedulers.LuvScheduler(loop);
-		// final dispatcher = new hxcoro.schedulers.LuvScheduler.LuvDispatcher(loop);
-		// Seems to work but doesn't terminate
-		// final pool = new hxcoro.thread.FixedThreadPool(1);
-		// final dispatcher = new hxcoro.dispatchers.ThreadPoolDispatcher(scheduler, pool);
-		final dispatcher = new hxcoro.dispatchers.TrampolineDispatcher(scheduler);
+		final pool = new hxcoro.thread.FixedThreadPool(1);
+		final dispatcher = new hxcoro.dispatchers.ThreadPoolDispatcher(scheduler, pool);
 
-		final scope = new CoroTask(context.clone().with(dispatcher), CoroTask.CoroScopeStrategy);
-		scope.onCompletion((_, _) -> {
-			scheduler.shutDown();
-			// pool.shutDown(true);
-			cpp.luv.Luv.stopLoop(loop);
-		});
-		scope.runNodeLambda(lambda);
+		final task = scheduler.runTask(context.with(dispatcher), lambda);
 
-		cpp.luv.Luv.runLoop(loop, Default);
+		scheduler.shutDown();
+		pool.shutDown(true);
+		cpp.luv.Luv.stopLoop(loop);
 		cpp.luv.Luv.shutdownLoop(loop);
 		cpp.luv.Luv.freeLoop(loop);
 
-		switch (scope.getError()) {
-			case null:
-				return scope.get();
-			case error:
-				throw error;
-		}
-	}
-
-	#elseif (jvm || cpp || hl)
-
-	static public function runWith<T>(context:Context, lambda:NodeLambda<T>):T {
-		final scheduler = new hxcoro.schedulers.ThreadAwareScheduler();
-		final pool = new hxcoro.thread.FixedThreadPool(10);
-		final dispatcher = new hxcoro.dispatchers.ThreadPoolDispatcher(scheduler, pool);
-		final scope = new CoroTask(context.clone().with(dispatcher), CoroTask.CoroScopeStrategy);
-		scope.runNodeLambda(lambda);
-
-		#if hxcoro_mt_debug
-		var timeoutTime = Timer.milliseconds() + 10000;
-		var cancelLevel = 0;
-		#end
-		while (scope.isActive()) {
-			scheduler.run();
-			#if hxcoro_mt_debug
-			if (Timer.milliseconds() >= timeoutTime) {
-				switch (cancelLevel) {
-					case 0:
-						cancelLevel = 1;
-						scope.dump();
-						scope.iterateChildren(child -> {
-							if (child.isActive()) {
-								Sys.println("Active child: " + child);
-								if (child is CoroTask) {
-									(cast child : CoroTask<Any>).dump();
-								}
-							}
-						});
-						pool.dump();
-						scheduler.dump();
-						scope.cancel(new TimeoutException());
-						// Give the task a second to wind down, otherwise break out of here
-						timeoutTime += 1000;
-					case 1:
-						break;
-				}
-			}
-			#end
-		}
-
-		pool.shutDown(true);
-
-		switch (scope.getError()) {
-			case null:
-				return scope.get();
-			case error:
-				throw error;
-		}
+		return @:privateAccess ContextRun.resolveTask(task);
 	}
 
 	#else
 
+	/**
+		Executes `lambda` in context `context`, blocking until it returns or throws.
+
+		If there exists a `Dispatcher` element in the context, it is ignored. This
+		function always installs its own instance of `Dispatcher` into the context
+		and uses it to drive execution. The exact dispatcher implementation being
+		used depends on the target.
+	**/
 	static public function runWith<T>(context:Context, lambda:NodeLambda<T>):T {
+		#if (jvm || cpp || hl)
+		final scheduler = new hxcoro.schedulers.ThreadAwareScheduler();
+		final pool = new hxcoro.thread.FixedThreadPool(10);
+		final dispatcher = new hxcoro.dispatchers.ThreadPoolDispatcher(scheduler, pool);
+		function onCompletion() {
+			pool.shutDown(true);
+		}
+		#else
 		final scheduler  = new EventLoopScheduler();
 		final dispatcher = new TrampolineDispatcher(scheduler);
-		final scope = new CoroTask(context.clone().with(dispatcher), CoroTask.CoroScopeStrategy);
-		scope.runNodeLambda(lambda);
+		function onCompletion() {}
+		#end
 
-		while (scope.isActive()) {
-			scheduler.run();
-		}
-
-		switch (scope.getError()) {
-			case null:
-				return scope.get();
-			case error:
-				throw error;
-		}
+		final task = scheduler.runTask(context.with(dispatcher), lambda);
+		onCompletion();
+		return @:privateAccess ContextRun.resolveTask(task);
 	}
 
 	#end
