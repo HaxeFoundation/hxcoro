@@ -70,6 +70,22 @@ class Setup {
 		return new LoopSetup(scheduler, dispatcher, finalize);
 	}
 
+	#elseif interp
+
+	static public function createLuv() {
+		final loop = eval.luv.Loop.init().resolve();
+		final pool = new hxcoro.thread.FixedThreadPool(1);
+		final scheduler = new hxcoro.schedulers.LuvScheduler(loop);
+		final dispatcher = new hxcoro.dispatchers.ThreadPoolDispatcher(scheduler, pool);
+		function finalize() {
+			scheduler.shutdown();
+			pool.shutDown();
+			loop.stop();
+			loop.close();
+		}
+		return new LoopSetup(scheduler, dispatcher, finalize);
+	}
+
 	#end
 
 	#if target.threaded
@@ -87,7 +103,7 @@ class Setup {
 	#end
 
 	static public function createDefault() {
-		#if (cpp && hxcpp_luv_io)
+		#if (cpp && hxcpp_luv_io || interp)
 		return createLuv();
 		#elseif (jvm || cpp || hl)
 		return createThreadPool(10);
