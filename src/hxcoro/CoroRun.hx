@@ -79,27 +79,6 @@ class CoroRun {
 
 	#end
 
-	#if (cpp && hxcpp_luv_io)
-
-	static public function runWith<T>(context:Context, lambda:NodeLambda<T>):T {
-		final loop = cpp.luv.Luv.allocLoop();
-		final scheduler = new hxcoro.schedulers.LuvScheduler(loop);
-		final pool = new hxcoro.thread.FixedThreadPool(1);
-		final dispatcher = new hxcoro.dispatchers.ThreadPoolDispatcher(scheduler, pool);
-
-		final task = scheduler.runTask(context.with(dispatcher), lambda);
-
-		scheduler.shutDown();
-		pool.shutDown(true);
-		cpp.luv.Luv.stopLoop(loop);
-		cpp.luv.Luv.shutdownLoop(loop);
-		cpp.luv.Luv.freeLoop(loop);
-
-		return @:privateAccess ContextRun.resolveTask(task);
-	}
-
-	#else
-
 	/**
 		Executes `lambda` in context `context`, blocking until it returns or throws.
 
@@ -109,23 +88,39 @@ class CoroRun {
 		used depends on the target.
 	**/
 	static public function runWith<T>(context:Context, lambda:NodeLambda<T>):T {
-		#if (jvm || cpp || hl)
+		#if (cpp && hxcpp_luv_io)
+
+		final loop = cpp.luv.Luv.allocLoop();
+		final scheduler = new hxcoro.schedulers.LuvScheduler(loop);
+		final pool = new hxcoro.thread.FixedThreadPool(10);
+		final dispatcher = new hxcoro.dispatchers.ThreadPoolDispatcher(scheduler, pool);
+		function onCompletion() {
+			scheduler.shutDown();
+			pool.shutDown(true);
+			cpp.luv.Luv.stopLoop(loop);
+			cpp.luv.Luv.shutdownLoop(loop);
+			cpp.luv.Luv.freeLoop(loop);
+		}
+
+		#elseif (jvm || cpp || hl)
+
 		final scheduler = new hxcoro.schedulers.ThreadAwareScheduler();
 		final pool = new hxcoro.thread.FixedThreadPool(10);
 		final dispatcher = new hxcoro.dispatchers.ThreadPoolDispatcher(scheduler, pool);
 		function onCompletion() {
 			pool.shutDown(true);
 		}
+
 		#else
+
 		final scheduler  = new EventLoopScheduler();
 		final dispatcher = new TrampolineDispatcher(scheduler);
 		function onCompletion() {}
+
 		#end
 
 		final task = scheduler.runTask(context.with(dispatcher), lambda);
 		onCompletion();
 		return @:privateAccess ContextRun.resolveTask(task);
 	}
-
-	#end
 }
