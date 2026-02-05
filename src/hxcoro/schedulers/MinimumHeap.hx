@@ -3,7 +3,7 @@ package hxcoro.schedulers;
 import haxe.ds.Vector;
 
 class MinimumHeap {
-	var storage:Vector<ScheduledEvent>;
+	var storage:Vector<Null<ScheduledEvent>>;
 	var length:Int;
 
 	public function new() {

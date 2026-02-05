@@ -44,7 +44,7 @@ class TaskException extends Exception {}
 abstract class AbstractTask implements ICancellationToken {
 	static final atomicId = new AtomicInt(1); // start with 1 so we can use 0 for "no task" situations
 
-	final parent:AbstractTask;
+	final parent:Null<AbstractTask>;
 
 	final cancellationManager:TaskCancellationManager;
 	final error:AtomicObject<Null<Exception>>;
@@ -259,7 +259,7 @@ abstract class AbstractTask implements ICancellationToken {
 				case Completed:
 					childSucceeds(child);
 				case Cancelled:
-					final childError = child.getError();
+					@:nullSafety(Off) final childError:Exception = child.getError();
 					if (childError is CancellationException) {
 						childCancels(child, cast childError);
 					} else {

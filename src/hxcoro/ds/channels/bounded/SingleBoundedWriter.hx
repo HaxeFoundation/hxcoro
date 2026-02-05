@@ -15,9 +15,9 @@ final class SingleBoundedWriter<T> implements IChannelWriter<T> {
 
 	final buffer : ConcurrentCircularBuffer<T>;
 
-	final writeWaiter : AtomicObject<IContinuation<Bool>>;
+	final writeWaiter : AtomicObject<Null<IContinuation<Bool>>>;
 
-	final readWaiter : AtomicObject<IContinuation<Bool>>;
+	final readWaiter : AtomicObject<Null<IContinuation<Bool>>>;
 
 	final behaviour : FullBehaviour<T>;
 

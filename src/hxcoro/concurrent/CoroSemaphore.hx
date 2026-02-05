@@ -112,9 +112,9 @@ class CoroSemaphore {
 				free.store(1);
 				return;
 			}
-			final cont = deque.pop();
+			@:nullSafety(Off) final cont:IContinuation<Any> = deque.pop();
 			final ct = cont.context.get(CancellationToken);
-			if (ct?.isCancellationRequested()) {
+			if (ct != null && ct.isCancellationRequested()) {
 				// Ignore, back to the loop.
 				continue;
 			}

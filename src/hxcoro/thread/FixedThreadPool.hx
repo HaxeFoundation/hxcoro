@@ -192,14 +192,13 @@ private class Worker {
 	public var state(default, null):WorkerState;
 	public var numDispatched(default, null):Int;
 	public var numLooped(default, null):Int;
-	var thread:Thread;
 
 	var shutdownSemaphore:Null<Semaphore>;
 	final cond:Condition;
 	final queues:Vector<DispatchQueue>;
 	final ownQueueIndex:Int;
 	final activity:WorkerActivity;
-	final queueTls:Tls<DispatchQueue>;
+	final queueTls:Tls<Null<DispatchQueue>>;
 
 	public function new(cond:Condition, queueTls:Tls<DispatchQueue>, queues:Vector<DispatchQueue>, ownQueueIndex:Int, activity:WorkerActivity) {
 		this.cond = cond;
@@ -217,7 +216,7 @@ private class Worker {
 	}
 
 	public function start() {
-		thread = Thread.create(threadEntry);
+		Thread.create(threadEntry);
 	}
 
 	public function shutDown(shutdownSemaphore:Semaphore) {
@@ -315,6 +314,6 @@ private class Worker {
 		}
 		state = Terminated;
 		queueTls.value = null;
-		shutdownSemaphore.release();
+		shutdownSemaphore?.release();
 	}
 }
