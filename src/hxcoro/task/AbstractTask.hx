@@ -95,7 +95,7 @@ abstract class AbstractTask implements ICancellationToken {
 			case _:
 				setInternalException('Invalid initial state $initialState');
 		}
-		if (parent?.isCancelling()) {
+		if (parent != null && parent.isCancelling()) {
 			cancel();
 		}
 	}

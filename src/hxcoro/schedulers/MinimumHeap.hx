@@ -66,6 +66,7 @@ class MinimumHeap {
 		storage[length] = null;
 	}
 
+	@:nullSafety(Off)
 	public function insert(event:ScheduledEvent) {
 		ensureCapacity();
 		storage[length++] = event;
@@ -114,6 +115,7 @@ class MinimumHeap {
 		storage[snd] = temp;
 	}
 
+	@:nullSafety(Off)
 	function heapify(index:Int) {
 		while (true) {
 			final l = left(index);

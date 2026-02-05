@@ -82,7 +82,7 @@ class ThreadAwareScheduler implements IScheduler implements ILoop {
 	final queueTls:Tls<Null<TlsQueue>>;
 	final queueDeque:Deque<TlsQueueEvent>;
 	final rootEvent:ScheduledEvent;
-	var firstQueue:TlsQueue;
+	var firstQueue:Null<TlsQueue>;
 
 	public function new() {
 		heap = new MinimumHeap();
@@ -91,7 +91,7 @@ class ThreadAwareScheduler implements IScheduler implements ILoop {
 		rootEvent = new ScheduledEvent(null, 0);
 	}
 
-	function getTlsQueue() {
+	function getTlsQueue():TlsQueue {
 		var threadQueue = queueTls.value;
 		if (threadQueue != null) {
 			return threadQueue;
@@ -176,7 +176,11 @@ class ThreadAwareScheduler implements IScheduler implements ILoop {
 		while (current != null) {
 			// Copy current slice data to our outQueue and iterate it.
 			var event:Null<ScheduledEvent>;
-			while ((event = current.pop()) != null) {
+			while (true) {
+				event = current.pop();
+				if (event == null) {
+					break;
+				}
 				if (event.runTime > currentTime) {
 					// Future events are added to the heap.
 					heap.insert(event);
@@ -188,7 +192,7 @@ class ThreadAwareScheduler implements IScheduler implements ILoop {
 			}
 			current = current.next;
 		}
-		var event = rootEvent;
+		var event:Null<ScheduledEvent> = rootEvent;
 		while (true) {
 			event = event.next;
 			if (event == null) {
