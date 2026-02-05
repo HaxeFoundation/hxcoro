@@ -28,7 +28,7 @@ private final class WaitContinuation<T> implements IContinuation<Bool> {
 		this.buffer = buffer;
 	}
 
-	public function resume(result:Bool, error:Exception) {
+	public function resume(result:Null<Bool>, error:Null<Exception>) {
 		final result = if (false == result) {
 			buffer.wasEmpty();
 		} else {

@@ -67,7 +67,7 @@ class CancellingContinuation<T> extends SuspensionResult<T> implements ICancella
 	/**
 		Returning `true` means that we did update the state, so result and error are set.
 	**/
-	function updateState(result:T, error:Exception) {
+	function updateState(result:Null<T>, error:Null<Exception>) {
 		return switch (resumeState.compareExchange(Active, Completing)) {
 			case Active:
 				// We're first, set for resolve
@@ -98,7 +98,7 @@ class CancellingContinuation<T> extends SuspensionResult<T> implements ICancella
 
 	public function resume(result:T, error:Exception) {
 		if (updateState(result, error)) {
-			handle.close();
+			handle?.close();
 		}
 	}
 

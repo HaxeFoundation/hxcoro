@@ -31,7 +31,7 @@ private class TestContinuation<T> implements IContinuation<Bool> {
 		this.value  = value;
 	}
 
-	public function resume(_:Bool, _:Exception) {
+	public function resume(_:Null<Bool>, _:Null<Exception>) {
 		actual.push(value);
 	}
 }

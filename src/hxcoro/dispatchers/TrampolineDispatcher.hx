@@ -15,10 +15,10 @@ private class Trampoline {
 		queue   = null;
 	}
 
-	public static function get() {
+	public static function get():Trampoline {
 #if target.threaded
  		static final tls = {
-			final l = new sys.thread.Tls<Trampoline>();
+			final l = new sys.thread.Tls<Null<Trampoline>>();
 			l.value = null;
 			l;
 		}

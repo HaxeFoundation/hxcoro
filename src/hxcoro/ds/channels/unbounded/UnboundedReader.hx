@@ -31,11 +31,11 @@ private final class WaitContinuation<T> implements IContinuation<Bool> {
 		this.lock   = lock;
 	}
 
-	public function resume(result:Bool, error:Exception) {
+	public function resume(result:Null<Bool>, error:Null<Exception>) {
 		final result = lock.with(() -> {
 			return if (false == result) {
 				closed.set(false);
-	
+
 				buffer.isEmpty();
 			} else {
 				true;
