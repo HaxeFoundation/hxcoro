@@ -1,9 +1,9 @@
 package hxcoro;
 
+import haxe.exceptions.CancellationException;
 import hxcoro.continuations.RacingContinuation;
 import hxcoro.continuations.CancellingContinuation;
 import haxe.coro.IContinuation;
-import haxe.coro.ICancellableContinuation;
 import haxe.coro.SuspensionResult;
 import haxe.coro.dispatchers.Dispatcher;
 import haxe.exceptions.ArgumentException;
@@ -11,6 +11,8 @@ import hxcoro.task.NodeLambda;
 import hxcoro.task.CoroTask;
 import hxcoro.exceptions.TimeoutException;
 import hxcoro.continuations.TimeoutContinuation;
+
+private typedef SuspendCancellableFunc<T> = IContinuation<T> -> Null<(CancellationException -> Void)>;
 
 class Coro {
 	@:coroutine @:coroutine.transformed
@@ -23,21 +25,23 @@ class Coro {
 
 	/**
 	 * Suspends a coroutine which will be automatically resumed with a `haxe.exceptions.CancellationException` when cancelled.
-	 * The `ICancellableContinuation` passed to the function allows registering a callback which is invoked on cancellation
-	 * allowing the easy cleanup of resources.
+	 * If `func` returns a callback, it is registered to be invoked on cancellation allowing the easy cleanup of resources.
 	 */
-	@:coroutine @:coroutine.transformed public static function suspendCancellable<T>(completion:IContinuation<T>, func:ICancellableContinuation<T>->Void):SuspensionResult<T> {
+	@:coroutine @:coroutine.transformed public static function suspendCancellable<T>(completion:IContinuation<T>, func:SuspendCancellableFunc<T>):SuspensionResult<T> {
 		var safe = new CancellingContinuation(completion);
-		func(safe);
+		final onCancellationRequested = func(safe);
+		if (onCancellationRequested != null) {
+			safe.onCancellationRequested = onCancellationRequested;
+		}
 		safe.resolve();
 		return safe;
 	}
 
-	static function delayImpl<T>(ms:Int, cont:ICancellableContinuation<T>) {
+	static function delayImpl<T>(ms:Int, cont:IContinuation<T>) {
 		final dispatcher = cont.context.get(Dispatcher);
 		final handle = dispatcher.scheduler.schedule(ms, cont);
 
-		cont.onCancellationRequested = _ -> {
+		return _ -> {
 			handle.close();
 		}
 	}

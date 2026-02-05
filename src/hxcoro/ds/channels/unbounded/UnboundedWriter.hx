@@ -93,6 +93,7 @@ final class UnboundedWriter<T> implements IChannelWriter<T> {
 	@:coroutine function checkCancellation() {
 		return Coro.suspendCancellable(cont -> {
 			cont.succeedAsync(null);
+			null;
 		});
 	}
 }

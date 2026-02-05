@@ -8,7 +8,6 @@ import haxe.coro.dispatchers.Dispatcher;
 import haxe.Exception;
 import haxe.exceptions.CancellationException;
 import haxe.coro.IContinuation;
-import haxe.coro.ICancellableContinuation;
 import haxe.coro.context.Context;
 import haxe.coro.cancellation.ICancellationToken;
 import haxe.coro.cancellation.ICancellationHandle;
@@ -22,7 +21,7 @@ private enum abstract State(Int) to Int {
 	final Completed;
 }
 
-class CancellingContinuation<T> extends SuspensionResult<T> implements ICancellableContinuation<T> implements ICancellationCallback implements IDispatchObject {
+class CancellingContinuation<T> extends SuspensionResult<T> implements IContinuation<T> implements ICancellationCallback implements IDispatchObject {
 	final resumeState : AtomicInt;
 
 	final cont : IContinuation<T>;
