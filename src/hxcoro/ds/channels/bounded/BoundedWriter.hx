@@ -142,7 +142,7 @@ final class BoundedWriter<T> implements IChannelWriter<T> {
 
 						state.store(Open);
 
-						cont.onCancellationRequested = _ -> {
+						_ -> {
 							switch state.lock() {
 								case Closed, Locked:
 									throw new InvalidChannelStateException();
