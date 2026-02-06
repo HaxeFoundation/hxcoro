@@ -1,5 +1,8 @@
 package run;
 
+import haxe.coro.schedulers.IScheduler;
+import haxe.coro.dispatchers.Dispatcher;
+import hxcoro.run.Setup;
 import hxcoro.concurrent.BackOff;
 import hxcoro.schedulers.VirtualTimeScheduler;
 #if target.threaded
@@ -112,17 +115,15 @@ class TestEntrypoints extends utest.Test {
 	}
 
 	public function testEventTrampoline() {
-		final scheduler = new EventLoopScheduler();
-		final dispatcher = new TrampolineDispatcher(scheduler);
-		final context = CoroRun.with(dispatcher);
-		runSuite(context, scheduler);
+		final setup = Setup.createEventLoopTrampoline();
+		final context = setup.createContext();
+		runSuite(context, setup.loop);
 	}
 
 	public function testVirtualTrampoline() {
-		final scheduler = new VirtualTimeScheduler();
-		final dispatcher = new TrampolineDispatcher(scheduler);
-		final context = CoroRun.with(dispatcher);
-		runSuite(context, scheduler);
+		final setup = Setup.createVirtualTrampoline();
+		final context = setup.createContext();
+		runSuite(context, setup.loop);
 	}
 
 	// Need neko nightly for condition variables
@@ -130,44 +131,44 @@ class TestEntrypoints extends utest.Test {
 	#if (target.threaded && !neko && !python)
 
 	public function testThreadPool() {
-		final scheduler = new ThreadAwareScheduler();
-		final pool = new FixedThreadPool(1);
-		final dispatcher = new ThreadPoolDispatcher(scheduler, pool);
-		final context = CoroRun.with(dispatcher);
-		runSuite(context, scheduler);
-		pool.shutDown();
-		scheduler.loop();
+		final setup = Setup.createThreadPool(10);
+		final context = setup.createContext();
+		runSuite(context, setup.loop);
+		setup.close();
 	}
 
 	#end
 
 	#if (cpp && hxcpp_luv_io)
 
-	public function testLuvTrampoline() {
+	function setupLuv(createDispatcher:(cpp.luv.Luv.LuvLoop, IScheduler) -> Dispatcher) {
 		final loop = cpp.luv.Luv.allocLoop();
 		final scheduler = new hxcoro.schedulers.LuvScheduler(loop);
-		final dispatcher = new TrampolineDispatcher(scheduler);
-		final context = CoroRun.with(dispatcher);
-		runSuite(context, scheduler);
-		scheduler.shutDown();
-		cpp.luv.Luv.stopLoop(loop);
-		cpp.luv.Luv.shutdownLoop(loop);
-		cpp.luv.Luv.freeLoop(loop);
+		final dispatcher = createDispatcher(loop, scheduler);
+		function finalize() {
+			scheduler.shutDown();
+			cpp.luv.Luv.stopLoop(loop);
+			cpp.luv.Luv.shutdownLoop(loop);
+			cpp.luv.Luv.freeLoop(loop);
+		}
+		return new LoopSetup(scheduler, dispatcher, finalize);
+	}
+
+	public function testLuvTrampoline() {
+		final setup = setupLuv((uvLoop, loop) -> new TrampolineDispatcher(loop));
+		final context = setup.createContext();
+		runSuite(context, setup.loop);
+		setup.close();
 	}
 
 
 	public function testLuvThreadPool() {
-		final loop = cpp.luv.Luv.allocLoop();
-		final scheduler = new hxcoro.schedulers.LuvScheduler(loop);
 		final pool = new hxcoro.thread.FixedThreadPool(1);
-		final dispatcher = new ThreadPoolDispatcher(scheduler, pool);
-		final context = CoroRun.with(dispatcher);
-		runSuite(context, scheduler);
-		scheduler.shutDown();
-		pool.shutDown(true);
-		cpp.luv.Luv.stopLoop(loop);
-		cpp.luv.Luv.shutdownLoop(loop);
-		cpp.luv.Luv.freeLoop(loop);
+		final setup = setupLuv((uvLoop, loop) -> new ThreadPoolDispatcher(loop, pool));
+		final context = setup.createContext();
+		runSuite(context, setup.loop);
+		setup.close();
+		pool.shutDown();
 	}
 
 	// public function testLuvLuv() {
