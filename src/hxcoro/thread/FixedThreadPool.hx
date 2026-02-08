@@ -198,7 +198,7 @@ private class Worker {
 	final queues:Vector<DispatchQueue>;
 	final ownQueueIndex:Int;
 	final activity:WorkerActivity;
-	final queueTls:Tls<Null<DispatchQueue>>;
+	final queueTls:Tls<DispatchQueue>;
 
 	public function new(cond:Condition, queueTls:Tls<DispatchQueue>, queues:Vector<DispatchQueue>, ownQueueIndex:Int, activity:WorkerActivity) {
 		this.cond = cond;

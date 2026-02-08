@@ -79,7 +79,7 @@ private enum TlsQueueEvent {
 
 class ThreadAwareScheduler implements IScheduler implements ILoop {
 	final heap:MinimumHeap;
-	final queueTls:Tls<Null<TlsQueue>>;
+	final queueTls:Tls<TlsQueue>;
 	final queueDeque:Deque<TlsQueueEvent>;
 	final rootEvent:ScheduledEvent;
 	var firstQueue:Null<TlsQueue>;
