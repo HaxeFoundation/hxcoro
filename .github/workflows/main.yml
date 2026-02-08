@@ -21,7 +21,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: krdlab/setup-haxe@v2
         with:
-          haxe-version: "latest"
+          haxe-version: "2026-02-05_coro-more-nullsafe_1567e29"
 
       - name: Setup hashlink
         if: matrix.target == 'hl'

@@ -32,7 +32,7 @@ private class TestContinuation<T> implements IContinuation<Bool> {
 		this.mapper     = mapper;
 	}
 
-	public function resume(result:Bool, _:Exception) {
+	public function resume(result:Null<Bool>, _:Null<Exception>) {
 		expected.push(mapper(result));
 	}
 }

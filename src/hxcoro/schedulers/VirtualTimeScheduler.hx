@@ -46,9 +46,9 @@ class VirtualTimeScheduler extends EventLoopScheduler.HeapScheduler implements I
 				break;
 			}
 
-			final toRun = heap.extract();
-			currentTime = toRun.runTime;
-			toRun.dispatch();
+			heap.extract();
+			currentTime = minimum.runTime;
+			minimum.dispatch();
 		}
 
 		currentTime = endTime;

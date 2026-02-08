@@ -49,10 +49,10 @@ class EventLoopScheduler extends HeapScheduler implements ILoop {
 				break;
 			}
 
-			final toRun = heap.extract();
+			heap.extract();
 			futureMutex.release();
 
-			toRun.dispatch();
+			minimum.dispatch();
 		}
 
 		futureMutex.release();

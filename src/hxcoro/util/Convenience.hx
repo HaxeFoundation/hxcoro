@@ -99,7 +99,7 @@ class Convenience {
 		Scheduled functions do not increase the call stack and might be executed in a different
 		thread if the current dispatcher allows that.
 	**/
-	static public inline function resumeAsync<T>(cont:IContinuation<T>, result:T, error:Exception) {
+	static public inline function resumeAsync<T>(cont:IContinuation<T>, result:Null<T>, error:Null<Exception>) {
 		cont.context.get(Dispatcher).dispatchContinuation(cont, result, error);
 	}
 
