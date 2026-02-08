@@ -103,7 +103,7 @@ class Setup {
 	#end
 
 	static public function createDefault() {
-		#if (cpp && hxcpp_luv_io || interp)
+		#if (issue_37_problems && cpp && hxcpp_luv_io || interp)
 		return createLuv();
 		#elseif (jvm || cpp || hl)
 		return createThreadPool(10);
