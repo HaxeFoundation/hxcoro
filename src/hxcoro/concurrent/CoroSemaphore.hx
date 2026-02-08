@@ -56,6 +56,7 @@ class CoroSemaphore {
 			deque.push(cont);
 			// Unlock
 			free.store(0);
+			null;
 		});
 	}
 

@@ -79,7 +79,7 @@ final class SingleBoundedWriter<T> implements IChannelWriter<T> {
 			suspendCancellable(cont -> {
 				writeWaiter.store(cont);
 
-				cont.onCancellationRequested = _ -> {
+				_ -> {
 					writeWaiter.store(null);
 				}
 			});

@@ -147,7 +147,7 @@ final class BoundedReader<T> implements IChannelReader<T> {
 
 					state.store(Open);
 
-					cont.onCancellationRequested = _ -> {
+					_ -> {
 						switch state.lock() {
 							case Closed, Locked:
 								throw new InvalidChannelStateException();

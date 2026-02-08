@@ -106,7 +106,7 @@ final class UnboundedReader<T> implements IChannelReader<T> {
 
 			lock.release();
 
-			cont.onCancellationRequested = _ -> {
+			_ -> {
 				lock.with(() -> readWaiters.remove(hostPage, obj));
 			}
 		});

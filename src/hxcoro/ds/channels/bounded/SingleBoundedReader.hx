@@ -102,7 +102,7 @@ final class SingleBoundedReader<T> implements IChannelReader<T> {
 			final obj       = new WaitContinuation(cont, buffer, closed);
 			final hostPage  = readWaiter.store(obj);
 
-			cont.onCancellationRequested = _ -> {
+			_ -> {
 				readWaiter.store(null);
 			}
 		});

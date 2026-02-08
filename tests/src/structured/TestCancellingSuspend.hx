@@ -1,7 +1,6 @@
 package structured;
 
 import hxcoro.dispatchers.TrampolineDispatcher;
-import haxe.coro.ICancellableContinuation;
 import hxcoro.schedulers.VirtualTimeScheduler;
 import haxe.exceptions.ArgumentException;
 import haxe.exceptions.CancellationException;
@@ -14,7 +13,7 @@ class TestCancellingSuspend extends utest.Test {
 		final task       = CoroRun.with(dispatcher).createTask(node -> {
 			timeout(100, _ -> {
 				suspendCancellable(cont -> {
-					cont.onCancellationRequested = _ -> {
+					_ -> {
 						actual.push(scheduler.now());
 					}
 				});
@@ -40,6 +39,7 @@ class TestCancellingSuspend extends utest.Test {
 					cont.context.scheduleFunction(0, () -> {
 						cont.resume(null, null);
 					});
+					null;
 				});
 			}, CancellationException);
 		});
@@ -62,6 +62,7 @@ class TestCancellingSuspend extends utest.Test {
 					cont.context.scheduleFunction(0, () -> {
 						cont.resume(null, new ArgumentException(''));
 					});
+					null;
 				});
 			}, CancellationException);
 		});
@@ -81,10 +82,10 @@ class TestCancellingSuspend extends utest.Test {
 		final dispatcher = new TrampolineDispatcher(scheduler);
 		final task       = CoroRun.with(dispatcher).createTask(node -> {
 			suspendCancellable(cont -> {
-				cont.onCancellationRequested = _ -> {
+				cont.resume(null, null);
+				_ -> {
 					Assert.fail('should not be invoked');
 				}
-				cont.resume(null, null);
 			});
 
 			delay(1000);
@@ -97,65 +98,6 @@ class TestCancellingSuspend extends utest.Test {
 		task.cancel();
 
 		scheduler.advanceBy(1);
-
-		Assert.isFalse(task.isActive());
-		Assert.isOfType(task.getError(), CancellationException);
-	}
-
-	function test_immediate_callback_execution() {
-		var stashed : ICancellableContinuation<Any> = null;
-
-		final scheduler  = new VirtualTimeScheduler();
-		final dispatcher = new TrampolineDispatcher(scheduler);
-		final task       = CoroRun.with(dispatcher).createTask(node -> {
-			suspendCancellable(cont -> {
-				stashed = cont;
-
-				cont.resume(null, null);
-			});
-
-			node.cancel();
-
-			final actual = [];
-
-			stashed.onCancellationRequested = _ -> {
-				actual.push('hello');
-			}
-
-			Assert.same([ 'hello' ], actual);
-		});
-
-		task.start();
-
-		scheduler.advanceBy(1);
-
-		Assert.isFalse(task.isActive());
-	}
-
-	function test_disallow_multiple_callback_assignments() {
-		final scheduler  = new VirtualTimeScheduler();
-		final dispatcher = new TrampolineDispatcher(scheduler);
-		final task       = CoroRun.with(dispatcher).createTask(node -> {
-			suspendCancellable(cont -> {
-				cont.onCancellationRequested = _ -> {
-					trace('foo');
-				}
-
-				Assert.raises(() -> {
-					cont.onCancellationRequested = _ -> {
-						trace('foo');
-					}
-				});
-
-				cont.resume(null, null);
-			});
-			delay(1);
-		});
-
-		task.start();
-		task.cancel();
-
-		scheduler.advanceBy(0);
 
 		Assert.isFalse(task.isActive());
 		Assert.isOfType(task.getError(), CancellationException);
