@@ -265,7 +265,11 @@ class ThreadAwareScheduler implements IScheduler implements ILoop {
 					return;
 				}
 				// Otherwise something else has come in, so we loop.
-				continue;
+				// TODO: This misses the case of the close failing because `wakeUp` gets called. In that
+				// case the continuing loop still won't do anything in `loopNoWait` and will then end up
+				// in the waiting code below. Maybe returning in this edge case is actually fine?
+				// continue;
+				return;
 			}
 			final minimum = heap.minimum();
 			if (minimum != null) {
