@@ -2,9 +2,6 @@ package hxcoro.run;
 
 import haxe.Timer;
 import haxe.coro.context.Context;
-import haxe.coro.dispatchers.Dispatcher;
-import hxcoro.continuations.FunctionContinuation;
-import hxcoro.exceptions.TimeoutException;
 import hxcoro.schedulers.ILoop;
 import hxcoro.task.CoroTask;
 import hxcoro.task.ICoroTask;
