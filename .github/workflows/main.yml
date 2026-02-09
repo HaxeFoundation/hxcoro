@@ -49,4 +49,4 @@ jobs:
         run: |
           ${{ matrix.target != 'cpp' }} && haxe --cwd tests -debug build-${{ matrix.target }}.hxml || true
           haxe --cwd tests build-${{ matrix.target }}.hxml --hxb bin/test.hxb
-          ${{ matrix.target != 'cpp' }} && haxe --cwd tests build-${{ matrix.target }}.hxml --hxb-lib bin/test.hxb || true
+          haxe --cwd tests build-${{ matrix.target }}.hxml --hxb-lib bin/test.hxb
