@@ -2,11 +2,11 @@ package hxcoro.dispatchers;
 
 import cpp.luv.Luv;
 import cpp.luv.Work;
-import haxe.coro.schedulers.IScheduler;
 import haxe.coro.dispatchers.Dispatcher;
 import haxe.coro.dispatchers.IDispatchObject;
-import hxcoro.schedulers.LuvScheduler;
+import haxe.coro.schedulers.IScheduler;
 import haxe.ds.Option;
+import hxcoro.schedulers.LuvScheduler;
 
 class LuvDispatcher extends Dispatcher
 {
@@ -45,11 +45,12 @@ class LuvDispatcher extends Dispatcher
 	}
 
 	public function shutDown() {
-		workQueue.close();
 		switch (luvScheduler) {
 			case Some(s):
 				s.shutDown();
 			case None:
 		}
+		loopWork();
+		workQueue.close();
 	}
 }

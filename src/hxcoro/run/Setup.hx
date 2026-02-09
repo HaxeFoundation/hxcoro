@@ -60,15 +60,11 @@ class Setup {
 	static public function createLuv() {
 		final loop = cpp.luv.Luv.allocLoop();
 		final scheduler = new hxcoro.schedulers.LuvScheduler(loop);
-		// final dispatcher = new hxcoro.dispatchers.LuvDispatcher(loop, scheduler);
-		final pool = new hxcoro.thread.FixedThreadPool(10);
-		final dispatcher = new hxcoro.dispatchers.ThreadPoolDispatcher(scheduler, pool);
+		final dispatcher = new hxcoro.dispatchers.LuvDispatcher(loop, scheduler);
 		function finalize() {
-			// dispatcher.shutDown();
-			scheduler.shutDown();
-			pool.shutDown();
+			dispatcher.shutDown();
 			cpp.luv.Luv.stopLoop(loop);
-			cpp.luv.Luv.shutdownLoop(loop);
+			// cpp.luv.Luv.shutdownLoop(loop);
 			cpp.luv.Luv.freeLoop(loop);
 		}
 		return new LoopSetup(scheduler, dispatcher, finalize);
