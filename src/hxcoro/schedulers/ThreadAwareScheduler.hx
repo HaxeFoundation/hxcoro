@@ -252,24 +252,18 @@ class ThreadAwareScheduler implements IScheduler implements ILoop {
 	}
 
 	public function loop() {
+		var wasWokenUp = false;
 		while(true) {
 			final expected = gate.currentState();
-			if (loopNoWait()) {
+			if (loopNoWait() || wasWokenUp) {
 				// If we did something we're fine.
 				return;
 			}
 			if (!gate.tryClose(expected)) {
-				// Failure to close when expected == 0 means we got woken up but there's
-				// nothing to do, which probably means we should leave.
-				if (expected == 0) {
-					return;
-				}
-				// Otherwise something else has come in, so we loop.
-				// TODO: This misses the case of the close failing because `wakeUp` gets called. In that
-				// case the continuing loop still won't do anything in `loopNoWait` and will then end up
-				// in the waiting code below. Maybe returning in this edge case is actually fine?
-				// continue;
-				return;
+				// Failure to close means something changed, which we treat as if we were woken up.
+				// This ensures that we exit after continuing the loop once.
+				wasWokenUp = true;
+				continue;
 			}
 			final minimum = heap.minimum();
 			if (minimum != null) {
@@ -280,6 +274,7 @@ class ThreadAwareScheduler implements IScheduler implements ILoop {
 				// Otherwise we wait until something happens.
 				gate.wait();
 			}
+			wasWokenUp = true;
 		}
 	}
 
