@@ -166,6 +166,10 @@ class LuvScheduler implements IScheduler implements ILoop {
 		cpp.luv.Luv.runLoop(uvLoop, NoWait);
 	}
 
+	public function wakeUp() {
+		// TODO: what does this do for luv?
+	}
+
 	public function shutDown() {
 		eventQueue.close();
 		closeQueue.close();

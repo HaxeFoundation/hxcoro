@@ -83,8 +83,8 @@ private class AtomicGate {
 	final semaphore:Semaphore;
 
 	public function new() {
-		int = new AtomicInt(0);
-		semaphore = new Semaphore(0);
+		int = new AtomicInt(1);
+		semaphore = new Semaphore(1);
 	}
 
 	public function tryOpen() {
@@ -260,8 +260,16 @@ class ThreadAwareScheduler implements IScheduler implements ILoop {
 					// Otherwise we wait until something happens.
 					gate.wait();
 				}
+			} else {
+				// Failure to close means we got woken up but there's nothing to do, which probably
+				// means we should leave.
+				return;
 			}
 		}
+	}
+
+	public function wakeUp() {
+		gate.tryOpen();
 	}
 
 	public function dump() {

@@ -144,7 +144,11 @@ class LuvScheduler implements IScheduler implements ILoop {
 	}
 
 	public function loop() {
-		uvLoop.run(NOWAIT);
+		uvLoop.run(ONCE);
+	}
+
+	public function wakeUp() {
+		// TODO: what does this do for luv?
 	}
 
 	inline function consumeDeque<T>(deque:AsyncDeque<T>, f:T->Void) {

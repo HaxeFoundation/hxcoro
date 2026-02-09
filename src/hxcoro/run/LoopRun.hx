@@ -43,7 +43,7 @@ class LoopRun {
 	**/
 	static function awaitTaskCompletion<T>(loop:ILoop, task:ICoroTask<T>) {
 		// TODO: awkward, need a better wake-up
-		task.onCompletion((_, _) -> task.context.get(Dispatcher).scheduler.schedule(0, new FunctionContinuation(task.context, (_, _) -> {})));
+		task.onCompletion((_, _) -> loop.wakeUp());
 
 		while (task.isActive()) {
 			loop.loop();

@@ -58,4 +58,6 @@ class VirtualTimeScheduler extends EventLoopScheduler.HeapScheduler implements I
 	public function loop() {
 		while (advanceBy(1)) {}
 	}
+
+	public function wakeUp() {}
 }

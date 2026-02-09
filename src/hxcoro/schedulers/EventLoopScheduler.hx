@@ -58,6 +58,8 @@ class EventLoopScheduler extends HeapScheduler implements ILoop {
 		futureMutex.release();
 	}
 
+	public function wakeUp() {}
+
 	public function toString() {
 		return '[EventLoopScheduler]';
 	}
