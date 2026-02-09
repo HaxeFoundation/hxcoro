@@ -112,6 +112,7 @@ class TestEntrypoints extends utest.Test {
 	function runSuite(context:Context, loop:ILoop) {
 		launchTask(context, loop);
 		createTasks(context, loop);
+		loop.loop();
 	}
 
 	public function testEventTrampoline() {
