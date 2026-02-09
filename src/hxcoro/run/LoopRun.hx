@@ -42,7 +42,6 @@ class LoopRun {
 		that are already running.
 	**/
 	static function awaitTaskCompletion<T>(loop:ILoop, task:ICoroTask<T>) {
-		// TODO: awkward, need a better wake-up
 		task.onCompletion((_, _) -> loop.wakeUp());
 
 		while (task.isActive()) {

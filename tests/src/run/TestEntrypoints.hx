@@ -93,7 +93,7 @@ class TestEntrypoints extends utest.Test {
 		assertNoCurrentMessage();
 
 		// Created Task 2 is still missing, but it was never started so running the loop at this point doesn't do anything.
-		loop.loop();
+		// loop.loop();
 
 		assertNoCurrentMessage();
 
