@@ -87,14 +87,21 @@ private class AtomicGate {
 		semaphore = new Semaphore(1);
 	}
 
+	public function currentState() {
+		return int.load();
+	}
+
 	public function tryOpen() {
-		if (int.compareExchange(0, 1) == 0) {
+		if (int.add(1) == 0) {
 			semaphore.release();
 		}
 	}
 
-	public function tryClose() {
-		if (int.compareExchange(1, 0) == 1) {
+	public function tryClose(expected:Int) {
+		if (expected == 0) {
+			return false;
+		}
+		if (int.compareExchange(expected, 0) == expected) {
 	 		// The "real" acquire to decrease the semaphore count to 0.
 			semaphore.acquire();
 			return true;
@@ -245,25 +252,29 @@ class ThreadAwareScheduler implements IScheduler implements ILoop {
 	}
 
 	public function loop() {
-		while(!loopNoWait()) {
-			if (gate.tryClose()) {
-				// Once we are closed, check again if something else has come up.
-				if (loopNoWait()) {
+		while(true) {
+			final expected = gate.currentState();
+			if (loopNoWait()) {
+				// If we did something we're fine.
+				return;
+			}
+			if (!gate.tryClose(expected)) {
+				// Failure to close when expected == 0 means we got woken up but there's
+				// nothing to do, which probably means we should leave.
+				if (expected == 0) {
 					return;
 				}
-				final minimum = heap.minimum();
-				if (minimum != null) {
-					// If there's a scheduled event, its due time is our max timeout time.
-					final timeout:Float = (Int64.toInt(minimum.runTime - now())) / 1000;
-					gate.waitTimeout(timeout);
-				} else {
-					// Otherwise we wait until something happens.
-					gate.wait();
-				}
+				// Otherwise something else has come in, so we loop.
+				continue;
+			}
+			final minimum = heap.minimum();
+			if (minimum != null) {
+				// If there's a scheduled event, its due time is our max timeout time.
+				final timeout:Float = (Int64.toInt(minimum.runTime - now())) / 1000;
+				gate.waitTimeout(timeout);
 			} else {
-				// Failure to close means we got woken up but there's nothing to do, which probably
-				// means we should leave.
-				return;
+				// Otherwise we wait until something happens.
+				gate.wait();
 			}
 		}
 	}
