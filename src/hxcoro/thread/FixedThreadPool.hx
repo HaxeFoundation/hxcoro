@@ -192,7 +192,6 @@ private class Worker {
 	public var state(default, null):WorkerState;
 	public var numDispatched(default, null):Int;
 	public var numLooped(default, null):Int;
-	var thread:Thread;
 
 	var shutdownSemaphore:Null<Semaphore>;
 	final cond:Condition;
@@ -217,7 +216,7 @@ private class Worker {
 	}
 
 	public function start() {
-		thread = Thread.create(threadEntry);
+		Thread.create(threadEntry);
 	}
 
 	public function shutDown(shutdownSemaphore:Semaphore) {
@@ -315,6 +314,6 @@ private class Worker {
 		}
 		state = Terminated;
 		queueTls.value = null;
-		shutdownSemaphore.release();
+		shutdownSemaphore?.release();
 	}
 }

@@ -6,3 +6,4 @@
 # -D UTEST-PATTERN=Issue93
 -D hxcoro_mt_debug
 -D use-vec-deque
+#--macro nullSafety("hxcoro")

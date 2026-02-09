@@ -13,7 +13,7 @@ class ScheduledEvent implements ISchedulerHandle implements IDispatchObject {
 	public var next:Null<ScheduledEvent>;
 
 	var cont:Null<IContinuation<Any>>;
-	var childEvents:Array<ScheduledEvent>;
+	var childEvents:Null<Array<ScheduledEvent>>;
 
 	public function new(cont, runTime) {
 		this.cont = cont;

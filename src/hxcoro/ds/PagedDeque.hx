@@ -31,7 +31,7 @@ abstract PagedDeque<T>(VecDeque<T>) {
 		if (isEmpty()) {
 			return false;
 		}
-		out.set(this.popFront());
+		@:nullSafety(Off) out.set(this.popFront());
 		return true;
 	}
 

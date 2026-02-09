@@ -29,7 +29,7 @@ private final class WaitContinuation<T> implements IContinuation<Bool> {
 		this.closed = closed;
 	}
 
-	public function resume(result:Bool, error:Exception) {
+	public function resume(result:Null<Bool>, error:Null<Exception>) {
 		if (false == result) {
 			closed.set(false);
 
@@ -43,9 +43,9 @@ private final class WaitContinuation<T> implements IContinuation<Bool> {
 final class SingleBoundedReader<T> implements IChannelReader<T> {
 	final buffer : ConcurrentCircularBuffer<T>;
 
-	final writeWaiter : AtomicObject<IContinuation<Bool>>;
+	final writeWaiter : AtomicObject<Null<IContinuation<Bool>>>;
 
-	final readWaiter : AtomicObject<IContinuation<Bool>>;
+	final readWaiter : AtomicObject<Null<IContinuation<Bool>>>;
 
 	final closed : Out<Bool>;
 
@@ -63,7 +63,7 @@ final class SingleBoundedReader<T> implements IChannelReader<T> {
 		return if (buffer.tryPop(readOut)) {
 
 			writeWaiter.exchange(null)?.succeedAsync(true);
-			
+
 			true;
 		} else {
 			false;

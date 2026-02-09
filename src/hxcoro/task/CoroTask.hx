@@ -41,7 +41,7 @@ class CoroTask<T> extends CoroBaseTask<T> implements IContinuation<T> {
 	public function runNodeLambda(lambda:NodeLambda<T>) {
 		start();
 		final result = lambda(this, this);
-		switch result.state {
+		@:nullSafety(Off) switch result.state {
 			case Pending:
 				return;
 			case Returned:
