@@ -2,6 +2,8 @@ package hxcoro.run;
 
 import haxe.Timer;
 import haxe.coro.context.Context;
+import haxe.coro.dispatchers.Dispatcher;
+import hxcoro.continuations.FunctionContinuation;
 import hxcoro.exceptions.TimeoutException;
 import hxcoro.schedulers.ILoop;
 import hxcoro.task.CoroTask;
@@ -44,6 +46,9 @@ class LoopRun {
 		var timeoutTime = Timer.milliseconds() + 10000;
 		var cancelLevel = 0;
 		#end
+
+		// TODO: awkward, need a better wake-up
+		task.onCompletion((_, _) -> task.context.get(Dispatcher).scheduler.schedule(0, new FunctionContinuation(task.context, (_, _) -> {})));
 
 		while (task.isActive()) {
 			loop.loop();

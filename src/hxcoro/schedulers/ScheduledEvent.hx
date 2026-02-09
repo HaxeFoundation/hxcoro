@@ -1,5 +1,6 @@
 package hxcoro.schedulers;
 
+import hxcoro.continuations.FunctionContinuation;
 import haxe.coro.dispatchers.Dispatcher;
 import haxe.coro.IContinuation;
 import haxe.coro.dispatchers.IDispatchObject;
@@ -59,6 +60,12 @@ class ScheduledEvent implements ISchedulerHandle implements IDispatchObject {
 	}
 
 	public function close() {
-		cont = null;
+		final cont = cont;
+		this.cont = null;
+		if (cont != null) {
+			final context = cont.context;
+			// TODO: is this needed?
+			context.get(Dispatcher).scheduler.schedule(0, new FunctionContinuation(context, (_,_) -> {}));
+		}
 	}
 }
