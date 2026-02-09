@@ -148,7 +148,7 @@ class LuvScheduler implements IScheduler implements ILoop {
 	}
 
 	public function wakeUp() {
-		// TODO: what does this do for luv?
+		@:privateAccess eventQueue.async.send();
 	}
 
 	inline function consumeDeque<T>(deque:AsyncDeque<T>, f:T->Void) {

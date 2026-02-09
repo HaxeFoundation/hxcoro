@@ -167,7 +167,7 @@ class LuvScheduler implements IScheduler implements ILoop {
 	}
 
 	public function wakeUp() {
-		// TODO: what does this do for luv?
+		@:privateAccess eventQueue.async.send();
 	}
 
 	public function shutDown() {
