@@ -87,29 +87,32 @@ private class AtomicGate {
 		semaphore = new Semaphore(0);
 	}
 
-	public function maybeWakeUp() {
+	public function tryOpen() {
 		if (int.compareExchange(0, 1) == 0) {
 			semaphore.release();
 		}
 	}
 
-	public function maybeWaitTimeout(timeout:Float) {
+	public function tryClose() {
 		if (int.compareExchange(1, 0) == 1) {
-			// The "real" acquire to decrease the semaphore count to 0.
+	 		// The "real" acquire to decrease the semaphore count to 0.
 			semaphore.acquire();
-			// The waiting acquire until we time out or something wakes us up.
-			if (semaphore.tryAcquire(timeout)) {
-				int.sub(1);
-			}
+			return true;
+		} else {
+			return false;
 		}
 	}
 
-	public function maybeWait() {
-		if (int.compareExchange(1, 0) == 1) {
-			semaphore.acquire();
-			semaphore.acquire();
-			int.sub(1);
+	public function waitTimeout(timeout:Float) {
+		if (semaphore.tryAcquire(timeout)) {
+			int.store(0);
 		}
+	}
+
+	@:native("waitOn")
+	public function wait() {
+		semaphore.acquire();
+		int.store(0);
 	}
 }
 
@@ -153,7 +156,7 @@ class ThreadAwareScheduler implements IScheduler implements ILoop {
 
 		final event = new ScheduledEvent(cont, now() + ms);
 		getTlsQueue().add(event);
-		gate.maybeWakeUp();
+		gate.tryOpen();
 		return event;
     }
 
@@ -243,14 +246,20 @@ class ThreadAwareScheduler implements IScheduler implements ILoop {
 
 	public function loop() {
 		while(!loopNoWait()) {
-			final minimum = heap.minimum();
-			if (minimum != null) {
-				// If there's a scheduled event, its due time is our max timeout time.
-				final timeout:Float = (Int64.toInt(minimum.runTime - now())) / 1000;
-				gate.maybeWaitTimeout(timeout);
-			} else {
-				// Otherwise we just wait until something happens.
-				gate.maybeWait();
+			if (gate.tryClose()) {
+				// Once we are closed, check again if something else has come up.
+				if (loopNoWait()) {
+					return;
+				}
+				final minimum = heap.minimum();
+				if (minimum != null) {
+					// If there's a scheduled event, its due time is our max timeout time.
+					final timeout:Float = (Int64.toInt(minimum.runTime - now())) / 1000;
+					gate.waitTimeout(timeout);
+				} else {
+					// Otherwise we wait until something happens.
+					gate.wait();
+				}
 			}
 		}
 	}

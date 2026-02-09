@@ -42,22 +42,11 @@ class LoopRun {
 		that are already running.
 	**/
 	static function awaitTaskCompletion<T>(loop:ILoop, task:ICoroTask<T>) {
-		#if (target.threaded && hxcoro_mt_debug)
-		var timeoutTime = Timer.milliseconds() + 10000;
-		var cancelLevel = 0;
-		#end
-
 		// TODO: awkward, need a better wake-up
 		task.onCompletion((_, _) -> task.context.get(Dispatcher).scheduler.schedule(0, new FunctionContinuation(task.context, (_, _) -> {})));
 
 		while (task.isActive()) {
 			loop.loop();
-			#if (target.threaded && hxcoro_mt_debug)
-			if (cancelLevel == 0 && Timer.milliseconds() >= timeoutTime) {
-				cancelLevel = 1;
-				task.cancel(new TimeoutException());
-			}
-			#end
 		}
 	}
 
