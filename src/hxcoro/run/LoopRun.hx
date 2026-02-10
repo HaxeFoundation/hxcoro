@@ -39,7 +39,7 @@ class LoopRun {
 		that are already running.
 	**/
 	static function awaitTaskCompletion<T>(loop:ILoop, task:ICoroTask<T>) {
-		#if target.threaded
+		#if (target.threaded && !neko) // need neko nightly
 		final semaphore = new sys.thread.Semaphore(0);
 		task.onCompletion((_, _) -> {
 			loop.wakeUp();
@@ -51,7 +51,7 @@ class LoopRun {
 			loop.loop();
 		}
 
-		#if target.threaded
+		#if (target.threaded && !neko)
 		semaphore.acquire();
 		#end
 	}

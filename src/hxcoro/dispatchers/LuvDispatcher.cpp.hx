@@ -8,7 +8,7 @@ import haxe.coro.schedulers.IScheduler;
 import haxe.ds.Option;
 import hxcoro.schedulers.LuvScheduler;
 
-class LuvDispatcher extends Dispatcher
+class LuvDispatcher extends Dispatcher implements IShutDown
 {
 	final loop:LuvLoop;
 	final workQueue:AsyncDeque<()->Void>;
