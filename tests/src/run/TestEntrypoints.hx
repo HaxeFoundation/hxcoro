@@ -127,9 +127,8 @@ class TestEntrypoints extends utest.Test {
 		runSuite(context, setup.loop);
 	}
 
-	// Need neko nightly for condition variables
 	// Python hates this for some other reason that needs investigation
-	#if (target.threaded && !neko && !python)
+	#if (target.threaded && !python)
 
 	public function testThreadPool() {
 		final setup = Setup.createThreadPool(10);
