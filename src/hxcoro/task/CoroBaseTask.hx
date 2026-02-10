@@ -18,6 +18,7 @@ import haxe.coro.context.Key;
 import haxe.coro.context.IElement;
 import haxe.coro.dispatchers.Dispatcher;
 import haxe.coro.cancellation.CancellationToken;
+import hxcoro.concurrent.ThreadSafeCallbacks;
 
 private class CoroTaskWith<T> implements ICoroNodeWith {
 	public var context(get, null):Context;
@@ -51,64 +52,13 @@ private class CoroTaskWith<T> implements ICoroNodeWith {
 		return task.without(...keys);
 	}
 }
-enum abstract AggregatorState(Int) to Int {
-	final Ready;
-	final Modifying;
-	final Finished;
-}
-
-class ThreadSafeAggregator<T> {
-	var array:Null<Array<T>>;
-	final func:T -> Void;
-	final state:AtomicState<AggregatorState>;
-
-	public function new(func:T -> Void) {
-		array = null;
-		this.func = func;
-		state = new AtomicState(Ready);
+class TaskContinuationManager extends ThreadSafeCallbacks<IContinuation<Any>, IContinuation<Any>, IContinuation<Any>> {
+	public function new(task:CoroBaseTask<Any>) {
+		super(handle -> handle.resume(task.get(), task.getError()));
 	}
 
-	// single threaded
-
-	public function run() {
-		while (true) {
-			switch (state.compareExchange(Ready, Finished)) {
-				case Ready:
-					break;
-				case Modifying:
-					BackOff.backOff();
-				case Finished:
-					// already done
-					return;
-			}
-		}
-		final array = array;
-		if (array == null) {
-			return;
-		}
-		this.array = null;
-		for (element in array) {
-			func(element);
-		}
-	}
-
-	// thread-safe
-
-	public function add(element:T) {
-		while (true) {
-			switch (state.compareExchange(Ready, Modifying)) {
-				case Ready:
-					break;
-				case Modifying:
-					BackOff.backOff();
-				case Finished:
-					func(element);
-					return;
-			}
-		}
-		array ??= [];
-		array.push(element);
-		state.store(Ready);
+	function createHandle(element:IContinuation<Any>) {
+		return element;
 	}
 }
 
@@ -124,7 +74,7 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 	public var context(get, null):Context;
 
 	final nodeStrategy:INodeStrategy;
-	final awaitingContinuations:ThreadSafeAggregator<IContinuation<T>>;
+	final awaitingContinuations:TaskContinuationManager;
 	final awaitingChildContinuation:AtomicObject<Null<IContinuation<Any>>>;
 	var result:Null<T>;
 
@@ -135,9 +85,7 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 		final parent = context.get(CoroBaseTask);
 		this.context = context.clone().with(this).set(CancellationToken, this);
 		this.nodeStrategy = nodeStrategy;
-		awaitingContinuations = new ThreadSafeAggregator<IContinuation<T>>(cont ->
-			cont.resume(result, error.load())
-		);
+		awaitingContinuations = new TaskContinuationManager(this);
 		awaitingChildContinuation = new AtomicObject(null);
 		super(parent, initialState);
 	}
