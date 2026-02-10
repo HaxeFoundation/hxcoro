@@ -1,13 +1,13 @@
 package hxcoro.task;
 
-import hxcoro.concurrent.AtomicObject;
-import hxcoro.concurrent.AtomicState;
-import hxcoro.concurrent.AtomicInt;
+import haxe.Exception;
 import haxe.coro.cancellation.ICancellationCallback;
 import haxe.coro.cancellation.ICancellationHandle;
 import haxe.coro.cancellation.ICancellationToken;
 import haxe.exceptions.CancellationException;
-import haxe.Exception;
+import hxcoro.concurrent.AtomicInt;
+import hxcoro.concurrent.AtomicObject;
+import hxcoro.concurrent.AtomicState;
 
 @:using(AbstractTask.TaskStateTools)
 enum abstract TaskState(Int) to Int {
@@ -155,7 +155,7 @@ abstract class AbstractTask implements ICancellationToken {
 	}
 
 	public function onCancellationRequested(callback:ICancellationCallback):ICancellationHandle {
-		return cancellationManager.addCallback(callback);
+		return cancellationManager.add(callback);
 	}
 
 	/**
