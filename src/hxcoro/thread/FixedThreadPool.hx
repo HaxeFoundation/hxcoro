@@ -4,14 +4,14 @@ package hxcoro.thread;
 #error "This class is not available on this target"
 #end
 
+import haxe.coro.dispatchers.IDispatchObject;
 import haxe.ds.Vector;
-import sys.thread.Condition;
-import sys.thread.Semaphore;
-import sys.thread.Tls;
-import sys.thread.Thread;
 import hxcoro.concurrent.AtomicState;
 import hxcoro.concurrent.BackOff;
-import haxe.coro.dispatchers.IDispatchObject;
+import sys.thread.Condition;
+import sys.thread.Semaphore;
+import sys.thread.Thread;
+import sys.thread.Tls;
 
 typedef DispatchQueue = WorkStealingQueue<IDispatchObject>;
 
@@ -57,9 +57,8 @@ class FixedThreadPool implements IThreadPool {
 	function get_isShutDown():Bool return shutdownState.load() != Active;
 
 	final shutdownState:AtomicState<ShutdownState>;
-	final cond:Condition;
+	final semaphore:Semaphore;
 	final pool:Array<Worker>;
-	final activity:WorkerActivity;
 	final queueTls:Tls<DispatchQueue>;
 
 	/**
@@ -70,12 +69,11 @@ class FixedThreadPool implements IThreadPool {
 			throw new ThreadPoolException('FixedThreadPool needs threadsCount to be at least 1.');
 		this.threadsCount = threadsCount;
 		shutdownState = new AtomicState(Active);
-		cond = new Condition();
+		semaphore = new Semaphore(0);
 		queueTls = new Tls();
 		final queues = Vector.fromArrayCopy([for (_ in 0...threadsCount + 1) new WorkStealingQueue()]);
 		queueTls.value = queues[0];
-		activity = new WorkerActivity(threadsCount);
-		pool = [for(i in 0...threadsCount) new Worker(cond, queueTls, queues, i + 1, activity)];
+		pool = [for(i in 0...threadsCount) new Worker(semaphore, queueTls, queues, i + 1)];
 		for (worker in pool) {
 			worker.start();
 		}
@@ -92,12 +90,7 @@ class FixedThreadPool implements IThreadPool {
 			throw new ThreadPoolException('Task to run must not be null.');
 		}
 		queueTls.value.add(obj);
-		if (cond.tryAcquire()) {
-			// If no one holds onto the condition, notify someone.
-			activity.hadEvent = true;
-			cond.signal();
-			cond.release();
-		}
+		semaphore.release();
 	}
 
 	/**
@@ -112,10 +105,8 @@ class FixedThreadPool implements IThreadPool {
 
 		for (worker in pool) {
 			worker.shutDown(shutdownSemaphore);
+			semaphore.release();
 		}
-		cond.acquire();
-		cond.broadcast();
-		cond.release();
 		if (block) {
 			final ownQueue = queueTls.value;
 			for (worker in pool) {
@@ -140,7 +131,6 @@ class FixedThreadPool implements IThreadPool {
 		}
 		Sys.println('\ttotal worker loops: $totalLoops');
 		Sys.println('\ttotal worker dispatches: $totalDispatches');
-		Sys.println('\tworkers (active/available/total): ${activity.activeWorkers}/${activity.availableWorkers}/${pool.length}');
 		Sys.print('\tqueue 0: ');
 		queueTls.value.dump();
 		for (worker in pool) {
@@ -194,17 +184,15 @@ private class Worker {
 	public var numLooped(default, null):Int;
 
 	var shutdownSemaphore:Null<Semaphore>;
-	final cond:Condition;
+	final semaphore:Semaphore;
 	final queues:Vector<DispatchQueue>;
 	final ownQueueIndex:Int;
-	final activity:WorkerActivity;
 	final queueTls:Tls<DispatchQueue>;
 
-	public function new(cond:Condition, queueTls:Tls<DispatchQueue>, queues:Vector<DispatchQueue>, ownQueueIndex:Int, activity:WorkerActivity) {
-		this.cond = cond;
+	public function new(semaphore:Semaphore, queueTls:Tls<DispatchQueue>, queues:Vector<DispatchQueue>, ownQueueIndex:Int) {
+		this.semaphore = semaphore;
 		this.queues = queues;
 		this.ownQueueIndex = ownQueueIndex;
-		this.activity = activity;
 		this.queueTls = queueTls;
 		numDispatched = 0;
 		numLooped = 0;
@@ -260,46 +248,18 @@ private class Worker {
 				inShutdown = false;
 			}
 
-			// If we did nothing, wait for the condition variable.
-			if (cond.tryAcquire()) {
-				// An event could have come in between the queue checking and the acquire. In this
-				// case, the condition might have been signalled to, but we would still go to sleep.
-				if (activity.hadEvent) {
-					activity.hadEvent = false;
-					cond.release();
+			if (shutdownSemaphore != null) {
+				if (inShutdown) {
+					semaphore.release();
+					break;
+				} else {
+					inShutdown = true;
 					continue;
 				}
-				if (shutdownSemaphore != null) {
-					if (inShutdown) {
-						--activity.activeWorkers;
-						--activity.availableWorkers;
-						cond.broadcast();
-						cond.release();
-						break;
-					} else {
-						inShutdown = true;
-						cond.broadcast();
-						cond.release();
-						continue;
-					}
-				}
-				if (activity.activeWorkers == 1) {
-					// Always keep one thread alive until we can find a better solution to the
-					// run/loop synchronization problem.
-					cond.release();
-					BackOff.backOff();
-					continue;
-				}
-				// These modifications are fine because we hold onto the cond mutex.
-				--activity.activeWorkers;
-				state = Waiting;
-				cond.wait();
-				state = CheckingQueues;
-				++activity.activeWorkers;
-				cond.release();
-			} else {
-				BackOff.backOff();
 			}
+			state = Waiting;
+			semaphore.acquire();
+			state = CheckingQueues;
 		}
 	}
 
