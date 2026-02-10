@@ -4,11 +4,11 @@ import cpp.luv.Luv;
 import haxe.Int64;
 import haxe.atomic.AtomicInt;
 import haxe.coro.IContinuation;
-import haxe.coro.Mutex;
 import haxe.coro.dispatchers.Dispatcher;
 import haxe.coro.dispatchers.IDispatchObject;
 import haxe.coro.schedulers.IScheduler;
 import haxe.coro.schedulers.ISchedulerHandle;
+
 import hxcoro.schedulers.ILoop;
 import sys.thread.Deque;
 
@@ -132,8 +132,6 @@ class LuvScheduler implements IScheduler implements ILoop {
 	final uvLoop:LuvLoop;
 	final eventQueue:AsyncDeque<LuvTimerEvent>;
 	final closeQueue:AsyncDeque<LuvTimerEvent>;
-	final shutdownMutex:Mutex;
-	var isShutDown:Bool;
 
 	/**
 		Creates a new `LuvScheduler` instance.
@@ -142,8 +140,6 @@ class LuvScheduler implements IScheduler implements ILoop {
 		this.uvLoop = uvLoop;
 		eventQueue = new AsyncDeque(uvLoop, loopEvents);
 		closeQueue = new AsyncDeque(uvLoop, loopCloses);
-		shutdownMutex = new Mutex();
-		isShutDown = false;
 	}
 
 	@:inheritDoc
@@ -171,23 +167,12 @@ class LuvScheduler implements IScheduler implements ILoop {
 	}
 
 	public function wakeUp() {
-		shutdownMutex.acquire();
-		if (!isShutDown) {
-			@:privateAccess eventQueue.async.send();
-		}
-		shutdownMutex.release();
+		@:privateAccess eventQueue.async.send();
 	}
 
 	public function shutDown() {
-		shutdownMutex.acquire();
-		if (isShutDown) {
-			shutdownMutex.release();
-			return;
-		}
-		isShutDown = true;
 		eventQueue.close();
 		closeQueue.close();
 		loopCloses();
-		shutdownMutex.release();
 	}
 }

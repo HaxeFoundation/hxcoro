@@ -149,7 +149,7 @@ class TestEntrypoints extends utest.Test {
 		function finalize() {
 			scheduler.shutDown();
 			cpp.luv.Luv.stopLoop(loop);
-			cpp.luv.Luv.shutdownLoop(loop);
+			// cpp.luv.Luv.shutdownLoop(loop);
 			cpp.luv.Luv.freeLoop(loop);
 		}
 		return new LoopSetup(scheduler, dispatcher, finalize);

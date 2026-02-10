@@ -39,11 +39,21 @@ class LoopRun {
 		that are already running.
 	**/
 	static function awaitTaskCompletion<T>(loop:ILoop, task:ICoroTask<T>) {
-		task.onCompletion((_, _) -> loop.wakeUp());
+		#if target.threaded
+		final semaphore = new sys.thread.Semaphore(0);
+		task.onCompletion((_, _) -> {
+			loop.wakeUp();
+			semaphore.release();
+		});
+		#end
 
 		while (task.isActive()) {
 			loop.loop();
 		}
+
+		#if target.threaded
+		semaphore.acquire();
+		#end
 	}
 
 	/**
