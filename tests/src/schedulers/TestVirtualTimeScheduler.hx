@@ -44,7 +44,7 @@ class TestVirtualTimeScheduler extends utest.Test {
 		final sut    = new VirtualTimeScheduler();
 
 		sut.scheduleFunction(0, () -> result.push(0));
-		sut.loop();
+		sut.loop(NoWait);
 
 		Assert.same([ 0 ], result);
 	}
@@ -106,11 +106,11 @@ class TestVirtualTimeScheduler extends utest.Test {
 				sut.scheduleFunction(0, () -> {
 					result.push(2);
 				});
-				sut.loop();
+				sut.loop(NoWait);
 			});
-			sut.loop();
+			sut.loop(NoWait);
 		});
-		sut.loop();
+		sut.loop(NoWait);
 
 		Assert.same([ 0, 1, 2 ], result);
 	}

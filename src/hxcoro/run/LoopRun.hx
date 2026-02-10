@@ -2,7 +2,6 @@ package hxcoro.run;
 
 import haxe.Timer;
 import haxe.coro.context.Context;
-import hxcoro.exceptions.TimeoutException;
 import hxcoro.schedulers.ILoop;
 import hxcoro.task.CoroTask;
 import hxcoro.task.ICoroTask;
@@ -40,9 +39,21 @@ class LoopRun {
 		that are already running.
 	**/
 	static function awaitTaskCompletion<T>(loop:ILoop, task:ICoroTask<T>) {
+		#if target.threaded
+		final semaphore = new sys.thread.Semaphore(0);
+		task.onCompletion((_, _) -> {
+			loop.wakeUp();
+			semaphore.release();
+		});
+		#end
+
 		while (task.isActive()) {
-			loop.loop();
+			loop.loop(Once);
 		}
+
+		#if target.threaded
+		semaphore.acquire();
+		#end
 	}
 
 	/**

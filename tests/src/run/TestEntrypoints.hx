@@ -67,7 +67,7 @@ class TestEntrypoints extends utest.Test {
 		assertLastMessage("Launched Task 1 says hello");
 		assertNoCurrentMessage();
 
-		loop.loop();
+		loop.loop(Once);
 
 		assertAwaitLastMessage("Launched Task 1 says goodbye");
 		assertNoCurrentMessage();
@@ -93,7 +93,7 @@ class TestEntrypoints extends utest.Test {
 		assertNoCurrentMessage();
 
 		// Created Task 2 is still missing, but it was never started so running the loop at this point doesn't do anything.
-		loop.loop();
+		loop.loop(NoWait);
 
 		assertNoCurrentMessage();
 
@@ -103,7 +103,7 @@ class TestEntrypoints extends utest.Test {
 		assertLastMessage("Created Task 2 says hello");
 
 		// But with this we finally get it.
-		loop.loop();
+		loop.loop(Once);
 
 		assertAwaitLastMessage("Created Task 2 says goodbye");
 		assertNoCurrentMessage();
@@ -112,6 +112,7 @@ class TestEntrypoints extends utest.Test {
 	function runSuite(context:Context, loop:ILoop) {
 		launchTask(context, loop);
 		createTasks(context, loop);
+		loop.loop(NoWait);
 	}
 
 	public function testEventTrampoline() {
@@ -140,21 +141,8 @@ class TestEntrypoints extends utest.Test {
 
 	#if (cpp && hxcpp_luv_io)
 
-	function setupLuv(createDispatcher:(cpp.luv.Luv.LuvLoop, IScheduler) -> Dispatcher) {
-		final loop = cpp.luv.Luv.allocLoop();
-		final scheduler = new hxcoro.schedulers.LuvScheduler(loop);
-		final dispatcher = createDispatcher(loop, scheduler);
-		function finalize() {
-			scheduler.shutDown();
-			cpp.luv.Luv.stopLoop(loop);
-			cpp.luv.Luv.shutdownLoop(loop);
-			cpp.luv.Luv.freeLoop(loop);
-		}
-		return new LoopSetup(scheduler, dispatcher, finalize);
-	}
-
 	public function testLuvTrampoline() {
-		final setup = setupLuv((uvLoop, loop) -> new TrampolineDispatcher(loop));
+		final setup = Setup.createLuvGen((uvLoop, loop) -> new TrampolineDispatcher(loop));
 		final context = setup.createContext();
 		runSuite(context, setup.loop);
 		setup.close();
@@ -163,7 +151,7 @@ class TestEntrypoints extends utest.Test {
 
 	public function testLuvThreadPool() {
 		final pool = new hxcoro.thread.FixedThreadPool(1);
-		final setup = setupLuv((uvLoop, loop) -> new ThreadPoolDispatcher(loop, pool));
+		final setup = Setup.createLuvGen((uvLoop, loop) -> new ThreadPoolDispatcher(loop, pool));
 		final context = setup.createContext();
 		runSuite(context, setup.loop);
 		setup.close();

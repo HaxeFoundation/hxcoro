@@ -1,5 +1,6 @@
 package hxcoro.schedulers;
 
+import hxcoro.schedulers.ILoop;
 import haxe.Int64;
 import haxe.exceptions.ArgumentException;
 
@@ -55,7 +56,9 @@ class VirtualTimeScheduler extends EventLoopScheduler.HeapScheduler implements I
 		return hasMoreEvents;
 	}
 
-	public function loop() {
-		while (advanceBy(1)) {}
+	public function loop(runMode:RunMode) {
+		advanceBy(1);
 	}
+
+	public function wakeUp() {}
 }
