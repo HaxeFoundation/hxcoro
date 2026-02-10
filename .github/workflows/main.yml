@@ -19,7 +19,8 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
-      - uses: krdlab/setup-haxe@v2
+      # - uses: krdlab/setup-haxe@v2
+      - uses: kLabz/setup-haxe@neko-latest
         with:
           haxe-version: "latest"
 
