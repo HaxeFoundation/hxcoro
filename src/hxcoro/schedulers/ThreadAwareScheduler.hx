@@ -1,6 +1,5 @@
 package hxcoro.schedulers;
 
-import hxcoro.schedulers.ILoop;
 import haxe.Int64;
 import haxe.Timer;
 import haxe.coro.IContinuation;
@@ -9,6 +8,7 @@ import haxe.coro.schedulers.ISchedulerHandle;
 import haxe.exceptions.ArgumentException;
 import hxcoro.concurrent.AtomicInt;
 import hxcoro.ds.CircularVector;
+import hxcoro.schedulers.ILoop;
 import sys.thread.Deque;
 import sys.thread.Semaphore;
 import sys.thread.Thread;
@@ -79,57 +79,12 @@ private enum TlsQueueEvent {
 	Remove(queue:TlsQueue);
 }
 
-private class AtomicGate {
-	final int:AtomicInt;
-	final semaphore:Semaphore;
-
-	public function new() {
-		int = new AtomicInt(1);
-		semaphore = new Semaphore(1);
-	}
-
-	public function currentState() {
-		return int.load();
-	}
-
-	public function tryOpen() {
-		if (int.add(1) == 0) {
-			semaphore.release();
-		}
-	}
-
-	public function tryClose(expected:Int) {
-		if (expected == 0) {
-			return false;
-		}
-		if (int.compareExchange(expected, 0) == expected) {
-	 		// The "real" acquire to decrease the semaphore count to 0.
-			semaphore.acquire();
-			return true;
-		} else {
-			return false;
-		}
-	}
-
-	public function waitTimeout(timeout:Float) {
-		if (semaphore.tryAcquire(timeout)) {
-			int.store(0);
-		}
-	}
-
-	@:native("waitOn")
-	public function wait() {
-		semaphore.acquire();
-		int.store(0);
-	}
-}
-
 class ThreadAwareScheduler implements IScheduler implements ILoop {
 	final heap:MinimumHeap;
 	final queueTls:Tls<TlsQueue>;
 	final queueDeque:Deque<TlsQueueEvent>;
 	final rootEvent:ScheduledEvent;
-	final gate:AtomicGate;
+	final semaphore:Semaphore;
 	var firstQueue:Null<TlsQueue>;
 
 	public function new() {
@@ -137,7 +92,7 @@ class ThreadAwareScheduler implements IScheduler implements ILoop {
 		queueTls = new Tls();
 		queueDeque = new Deque();
 		rootEvent = new ScheduledEvent(null, 0);
-		gate = new AtomicGate();
+		semaphore = new Semaphore(0);
 	}
 
 	function getTlsQueue():TlsQueue {
@@ -164,7 +119,7 @@ class ThreadAwareScheduler implements IScheduler implements ILoop {
 
 		final event = new ScheduledEvent(cont, now() + ms);
 		getTlsQueue().add(event);
-		gate.tryOpen();
+		semaphore.release();
 		return event;
     }
 
@@ -255,32 +210,25 @@ class ThreadAwareScheduler implements IScheduler implements ILoop {
 	public function loop(runMode:RunMode) {
 		var wasWokenUp = false;
 		while(true) {
-			final expected = gate.currentState();
 			if (loopNoWait() || wasWokenUp || runMode == NoWait) {
 				// If we did something we're fine.
 				return;
-			}
-			if (!gate.tryClose(expected)) {
-				// Failure to close means something changed, which we treat as if we were woken up.
-				// This ensures that we exit after continuing the loop once.
-				wasWokenUp = true;
-				continue;
 			}
 			final minimum = heap.minimum();
 			if (minimum != null) {
 				// If there's a scheduled event, its due time is our max timeout time.
 				final timeout:Float = (Int64.toInt(minimum.runTime - now())) / 1000;
-				gate.waitTimeout(timeout);
+				semaphore.tryAcquire(timeout);
 			} else {
 				// Otherwise we wait until something happens.
-				gate.wait();
+				semaphore.acquire();
 			}
 			wasWokenUp = true;
 		}
 	}
 
 	public function wakeUp() {
-		gate.tryOpen();
+		semaphore.release();
 	}
 
 	public function dump() {
