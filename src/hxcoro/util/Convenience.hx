@@ -1,13 +1,14 @@
 package hxcoro.util;
 
-import haxe.coro.context.Context;
-import haxe.coro.cancellation.ICancellationToken;
-import haxe.exceptions.CancellationException;
-import haxe.coro.dispatchers.Dispatcher;
-import haxe.coro.dispatchers.IDispatchObject;
 import haxe.Exception;
 import haxe.Int64;
 import haxe.coro.IContinuation;
+import haxe.coro.cancellation.CancellationToken;
+import haxe.coro.cancellation.ICancellationToken;
+import haxe.coro.context.Context;
+import haxe.coro.dispatchers.Dispatcher;
+import haxe.coro.dispatchers.IDispatchObject;
+import haxe.exceptions.CancellationException;
 import hxcoro.continuations.FunctionContinuation;
 
 private class FunctionDispatchObject implements IDispatchObject {
@@ -41,7 +42,7 @@ private class ContinuationDispatchObject<T> implements IDispatchObject {
 /**
 	A set of convenience functions for working with hxcoro data.
 **/
-class Convenience {
+class ContinuationConvenience {
 	/**
 		Resumes `cont` with `result` immediately.
 	**/
@@ -103,6 +104,30 @@ class Convenience {
 		cont.context.get(Dispatcher).dispatchContinuation(cont, result, error);
 	}
 
+}
+
+class DispatcherConvenience {
+	static public inline function dispatchFunction(dispatcher:Dispatcher, f:()->Void) {
+		return dispatcher.dispatch(new FunctionDispatchObject(f));
+	}
+
+	static public inline function dispatchContinuation<T>(dispatcher: Dispatcher, cont:IContinuation<T>, result:T, error:Exception) {
+		dispatcher.dispatch(new ContinuationDispatchObject(cont, result, error));
+	}
+}
+
+class ContextConvenience {
+	static public function isCancellationRequested(context:Context) {
+		final token = context.get(CancellationToken);
+		return token != null && token.isCancellationRequested();
+	}
+
+	static public inline function scheduleFunction(context:Context, ms:Int64, func:() -> Void) {
+		return context.get(Dispatcher).scheduler.schedule(ms, new FunctionContinuation(context, (_, _) -> func()));
+	}
+}
+
+class OtherConvenience {
 	static public inline function orCancellationException(exc:Exception):CancellationException {
 		return exc is CancellationException ? cast exc : new CancellationException();
 	}
@@ -111,15 +136,4 @@ class Convenience {
 		return ct?.cancellationException != null;
 	}
 
-	static public inline function dispatchFunction(dispatcher:Dispatcher, f:()->Void) {
-		return dispatcher.dispatch(new FunctionDispatchObject(f));
-	}
-
-	static public inline function dispatchContinuation<T>(dispatcher: Dispatcher, cont:IContinuation<T>, result:T, error:Exception) {
-		dispatcher.dispatch(new ContinuationDispatchObject(cont, result, error));
-	}
-
-	static public inline function scheduleFunction(context:Context, ms:Int64, func:() -> Void) {
-		return context.get(Dispatcher).scheduler.schedule(ms, new FunctionContinuation(context, (_, _) -> func()));
-	}
 }
