@@ -67,7 +67,7 @@ class TestEntrypoints extends utest.Test {
 		assertLastMessage("Launched Task 1 says hello");
 		assertNoCurrentMessage();
 
-		loop.loop();
+		loop.loop(Once);
 
 		assertAwaitLastMessage("Launched Task 1 says goodbye");
 		assertNoCurrentMessage();
@@ -93,7 +93,7 @@ class TestEntrypoints extends utest.Test {
 		assertNoCurrentMessage();
 
 		// Created Task 2 is still missing, but it was never started so running the loop at this point doesn't do anything.
-		// loop.loop();
+		loop.loop(NoWait);
 
 		assertNoCurrentMessage();
 
@@ -103,7 +103,7 @@ class TestEntrypoints extends utest.Test {
 		assertLastMessage("Created Task 2 says hello");
 
 		// But with this we finally get it.
-		loop.loop();
+		loop.loop(Once);
 
 		assertAwaitLastMessage("Created Task 2 says goodbye");
 		assertNoCurrentMessage();
@@ -112,7 +112,7 @@ class TestEntrypoints extends utest.Test {
 	function runSuite(context:Context, loop:ILoop) {
 		launchTask(context, loop);
 		createTasks(context, loop);
-		loop.loop();
+		loop.loop(NoWait);
 	}
 
 	public function testEventTrampoline() {

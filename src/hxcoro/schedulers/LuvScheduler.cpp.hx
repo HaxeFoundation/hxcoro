@@ -162,8 +162,8 @@ class LuvScheduler implements IScheduler implements ILoop {
 		consumeDeque(closeQueue, event -> event.stop());
 	}
 
-	public function loop() {
-		cpp.luv.Luv.runLoop(uvLoop, Once);
+	public function loop(runMode:RunMode) {
+		cpp.luv.Luv.runLoop(uvLoop, cast runMode);
 	}
 
 	public function wakeUp() {

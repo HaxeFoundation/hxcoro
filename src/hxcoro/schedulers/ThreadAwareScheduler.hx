@@ -1,5 +1,6 @@
 package hxcoro.schedulers;
 
+import hxcoro.schedulers.ILoop;
 import haxe.Int64;
 import haxe.Timer;
 import haxe.coro.IContinuation;
@@ -251,11 +252,11 @@ class ThreadAwareScheduler implements IScheduler implements ILoop {
 		}
 	}
 
-	public function loop() {
+	public function loop(runMode:RunMode) {
 		var wasWokenUp = false;
 		while(true) {
 			final expected = gate.currentState();
-			if (loopNoWait() || wasWokenUp) {
+			if (loopNoWait() || wasWokenUp || runMode == NoWait) {
 				// If we did something we're fine.
 				return;
 			}

@@ -48,7 +48,7 @@ class LoopRun {
 		#end
 
 		while (task.isActive()) {
-			loop.loop();
+			loop.loop(Once);
 		}
 
 		#if (target.threaded && !neko)

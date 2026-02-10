@@ -143,8 +143,8 @@ class LuvScheduler implements IScheduler implements ILoop {
 		return uvLoop.now().toInt64();
 	}
 
-	public function loop() {
-		uvLoop.run(ONCE);
+	public function loop(runMode:ILoop.RunMode) {
+		uvLoop.run(cast runMode);
 	}
 
 	public function wakeUp() {
