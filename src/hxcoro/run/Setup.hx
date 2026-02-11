@@ -1,10 +1,9 @@
 package hxcoro.run;
 
-import haxe.coro.schedulers.IScheduler;
-import hxcoro.dispatchers.IShutDown;
 import haxe.coro.BaseContinuation;
 import haxe.coro.context.Context;
 import haxe.coro.dispatchers.Dispatcher;
+import haxe.coro.schedulers.IScheduler;
 import hxcoro.schedulers.ILoop;
 
 class Setup {
@@ -59,15 +58,13 @@ class Setup {
 
 	#if (cpp && hxcpp_luv_io)
 
-	static public function createLuvGen(createDispatcher:(cpp.luv.Luv.LuvLoop, IScheduler) -> Dispatcher) {
+	static public function createLuvGen<T:Dispatcher>(createDispatcher:(cpp.luv.Luv.LuvLoop, IScheduler) -> T, shutDownDispatcher:T -> Void) {
 		final loop = cpp.luv.Luv.allocLoop();
 		final scheduler = new hxcoro.schedulers.LuvScheduler(loop);
 		final dispatcher = createDispatcher(loop, scheduler);
 		function finalize() {
 			scheduler.shutDown();
-			if (dispatcher is IShutDown) {
-				(cast dispatcher : IShutDown).shutDown();
-			}
+			shutDownDispatcher(dispatcher);
 			cpp.luv.Luv.stopLoop(loop);
 			cpp.luv.Luv.freeLoop(loop);
 		}
@@ -75,7 +72,10 @@ class Setup {
 	}
 
 	static public function createLuv() {
-		return createLuvGen((uvLoop, loop) -> new hxcoro.dispatchers.LuvDispatcher(uvLoop, loop));
+		return createLuvGen(
+			(uvLoop, loop) -> new hxcoro.dispatchers.LuvDispatcher(uvLoop, loop),
+			dispatcher -> dispatcher.shutDown()
+		);
 	}
 
 	#elseif interp
