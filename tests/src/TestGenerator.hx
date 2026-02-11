@@ -1,54 +1,12 @@
 import hxcoro.dispatchers.TrampolineDispatcher;
 import hxcoro.task.CoroTask;
 import haxe.coro.context.Context;
+import hxcoro.generators.SyncGenerator;
 import haxe.Exception;
-
-private typedef Yield<T> = Coroutine<T->Void>;
-
-private function sequence<T>(f:Coroutine<Yield<T>->Void>):Iterator<T> {
-	var hasValue = false;
-	var nextValue:T = null;
-	var exception:Null<Exception> = null;
-
-	var nextStep = null;
-	final scope = new CoroTask(Context.create(new TrampolineDispatcher()), CoroTask.CoroScopeStrategy);
-
-	@:coroutine function yield(value:T) {
-		nextValue = value;
-		hasValue = true;
-		suspend(cont -> {
-			nextStep = () -> {
-				hasValue = false;
-				cont.resume(null, null);
-				if (!scope.isActive()) {
-					exception = scope.getError();
-				}
-			}
-		});
-	}
-
-	nextStep = () -> {
-		f(scope, yield);
-		scope.start();
-	}
-
-	function hasNext() {
-		nextStep();
-		if (exception != null) {
-			throw exception;
-		}
-		return hasValue;
-	}
-	function next() {
-		return nextValue;
-	}
-
-	return {hasNext: hasNext, next: next};
-}
 
 class TestGenerator extends utest.Test {
 	function testSimple() {
-		var iter = sequence(yield -> {
+		var iter = SyncGenerator.create(yield -> {
 			yield(1);
 			yield(2);
 			yield(3);
@@ -64,7 +22,7 @@ class TestGenerator extends utest.Test {
 		}
 
 		function iterTree<T>(tree:Tree<T>):Iterator<T> {
-			return sequence(yield -> iterTreeRec(yield, tree));
+			return SyncGenerator.create(yield -> iterTreeRec(yield, tree));
 		}
 
 		var tree:Tree<Int> = {
@@ -86,7 +44,7 @@ class TestGenerator extends utest.Test {
 	function testException() {
 		final result = [];
 		Assert.raises(() -> {
-			for (i in sequence(yield -> {
+			for (i in SyncGenerator.create(yield -> {
 				yield(1);
 				yield(2);
 				throw "oh no";
