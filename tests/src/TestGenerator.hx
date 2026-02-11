@@ -1,3 +1,4 @@
+import haxe.Unit;
 import hxcoro.dispatchers.TrampolineDispatcher;
 import hxcoro.task.CoroTask;
 import haxe.coro.context.Context;
@@ -15,13 +16,13 @@ class TestGenerator extends utest.Test {
 	}
 
 	function testTreeIter() {
-		@:coroutine function iterTreeRec<T>(yield:Yield<T>, tree:Tree<T>) {
+		@:coroutine function iterTreeRec<T>(yield:Yield<T, Unit>, tree:Tree<T>) {
 			yield(tree.leaf);
 			if (tree.left != null) iterTreeRec(yield, tree.left);
 			if (tree.right != null) iterTreeRec(yield, tree.right);
 		}
 
-		function iterTree<T>(tree:Tree<T>):Iterator<T> {
+		function iterTree<T>(tree:Tree<T>) {
 			return SyncGenerator.create(yield -> iterTreeRec(yield, tree));
 		}
 
