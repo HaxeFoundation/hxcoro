@@ -78,6 +78,14 @@ class Setup {
 		);
 	}
 
+	static public function createLuvThreadPool() {
+		final pool = new hxcoro.thread.FixedThreadPool(10);
+		return createLuvGen(
+			(uvLoop, loop) -> new hxcoro.dispatchers.LuvDispatcher(uvLoop, loop),
+			dispatcher -> pool.shutDown()
+		);
+	}
+
 	#elseif interp
 
 	static public function createLuv() {
@@ -111,8 +119,10 @@ class Setup {
 	#end
 
 	static public function createDefault() {
-		#if (cpp && hxcpp_luv_io || interp)
+		#if interp
 		return createLuv();
+		#elseif (cpp && hxcpp_luv_io)
+		return createLuvThreadPool();
 		#elseif (jvm || cpp || hl)
 		return createThreadPool(10);
 		#else
