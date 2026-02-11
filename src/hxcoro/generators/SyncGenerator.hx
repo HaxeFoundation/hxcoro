@@ -18,6 +18,7 @@ private class GeneratorImpl<T> extends Dispatcher implements IContinuation<Any> 
 	final f:Coroutine<Yield<T> -> Void>;
 	var nextValue:Null<T>;
 	var nextStep:Null<IContinuation<T>>;
+	var raisedException:Null<Exception>;
 	var resumed:Bool;
 
 	public function new(f:Coroutine<Yield<T> -> Void>) {
@@ -44,13 +45,18 @@ private class GeneratorImpl<T> extends Dispatcher implements IContinuation<Any> 
 	}
 
 	public function next() {
+		if (raisedException != null) {
+			resumed = true;
+			throw raisedException;
+		}
 		return nextValue;
 	}
 
 	public function resume(result:Null<Any>, error:Null<Exception>) {
-		resumed = true;
 		if (error != null) {
-			throw error;
+			raisedException = error;
+		} else {
+			resumed = true;
 		}
 	}
 
