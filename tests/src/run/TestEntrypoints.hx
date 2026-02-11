@@ -142,7 +142,10 @@ class TestEntrypoints extends utest.Test {
 	#if (cpp && hxcpp_luv_io)
 
 	public function testLuvTrampoline() {
-		final setup = Setup.createLuvGen((uvLoop, loop) -> new TrampolineDispatcher(loop));
+		final setup = Setup.createLuvGen(
+			(uvLoop, loop) -> new TrampolineDispatcher(loop),
+			_ -> {}
+		);
 		final context = setup.createContext();
 		runSuite(context, setup.loop);
 		setup.close();
@@ -151,11 +154,15 @@ class TestEntrypoints extends utest.Test {
 
 	public function testLuvThreadPool() {
 		final pool = new hxcoro.thread.FixedThreadPool(1);
-		final setup = Setup.createLuvGen((uvLoop, loop) -> new ThreadPoolDispatcher(loop, pool));
+		final setup = Setup.createLuvGen(
+			(uvLoop, loop) -> new ThreadPoolDispatcher(loop, pool),
+			dispatcher -> {
+				pool.shutDown();
+			}
+		);
 		final context = setup.createContext();
 		runSuite(context, setup.loop);
 		setup.close();
-		pool.shutDown();
 	}
 
 	// public function testLuvLuv() {
