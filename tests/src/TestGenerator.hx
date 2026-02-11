@@ -1,3 +1,4 @@
+import hxcoro.generators.SyncGenerator;
 import haxe.Unit;
 import hxcoro.dispatchers.TrampolineDispatcher;
 import hxcoro.task.CoroTask;
@@ -55,6 +56,26 @@ class TestGenerator extends utest.Test {
 			}
 		});
 		Assert.same([1, 2], result);
+	}
+
+	function testValueGenerator() {
+		final expected = [1, 3, 5, 7, 9, 11];
+		final actual = [];
+		final gen = SyncValueGenerator.create(yield -> {
+			var sum = 1.;
+			while (true) {
+				sum += yield(sum);
+			}
+		});
+
+		while (gen.hasNext()) {
+			final value = gen.next(2);
+			actual.push(Std.int(value));
+			if (value > 10) {
+				break;
+			}
+		}
+		Assert.same(expected, actual);
 	}
 }
 
