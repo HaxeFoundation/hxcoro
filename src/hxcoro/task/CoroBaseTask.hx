@@ -20,38 +20,6 @@ import haxe.coro.dispatchers.Dispatcher;
 import haxe.coro.cancellation.CancellationToken;
 import hxcoro.concurrent.ThreadSafeCallbacks;
 
-private class CoroTaskWith<T> implements ICoroNodeWith {
-	public var context(get, null):Context;
-
-	final task:CoroBaseTask<T>;
-
-	public function new(context:Context, task:CoroBaseTask<T>) {
-		this.context = context;
-		this.task = task;
-	}
-
-	inline function get_context() {
-		return context;
-	}
-
-	public function async<T>(lambda:NodeLambda<T>):ICoroTask<T> {
-		final child = new CoroTaskWithLambda(context, lambda, CoroTask.CoroChildStrategy);
-		context.get(Dispatcher).dispatch(child);
-		return child;
-	}
-
-	public function lazy<T>(lambda:NodeLambda<T>):IStartableCoroTask<T> {
-		return new CoroTaskWithLambda(context, lambda, CoroTask.CoroChildStrategy, Created);
-	}
-
-	public function with(...elements:IElement<Any>) {
-		return task.with(...elements);
-	}
-
-	public function without(...keys:Key<Any>) {
-		return task.without(...keys);
-	}
-}
 class TaskContinuationManager extends ThreadSafeCallbacks<IContinuation<Any>, IContinuation<Any>, IContinuation<Any>> {
 	public function new(task:CoroBaseTask<Any>) {
 		super(handle -> handle.resume(task.get(), task.getError()));
@@ -126,14 +94,14 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 		Returns a copy of this tasks' `Context` with `elements` added, which can be used to start child tasks.
 	**/
 	public function with(...elements:IElement<Any>) {
-		return new CoroTaskWith(context.clone().with(...elements), this);
+		return context.with(...elements);
 	}
 
 	/**
 		Returns a copy of this tasks' `Context` where all `keys` are unset, which can be used to start child tasks.
 	**/
 	public function without(...keys:Key<Any>) {
-		return new CoroTaskWith(context.clone().without(...keys), this);
+		return context.without(...keys);
 	}
 
 	/**

@@ -1,5 +1,8 @@
 package hxcoro.util;
 
+import hxcoro.task.CoroTask;
+import hxcoro.task.ICoroTask;
+import hxcoro.task.NodeLambda;
 import haxe.Exception;
 import haxe.Int64;
 import haxe.coro.IContinuation;
@@ -124,6 +127,16 @@ class ContextConvenience {
 
 	static public inline function scheduleFunction(context:Context, ms:Int64, func:() -> Void) {
 		return context.get(Dispatcher).scheduler.schedule(ms, new FunctionContinuation(context, (_, _) -> func()));
+	}
+
+	static public function async<T>(context:Context, lambda:NodeLambda<T>):ICoroTask<T> {
+		final child = new CoroTaskWithLambda<T>(context, lambda, CoroTask.CoroChildStrategy);
+		context.get(Dispatcher).dispatch(child);
+		return child;
+	}
+
+	static public function lazy<T>(context:Context, lambda:NodeLambda<T>):IStartableCoroTask<T> {
+		return new CoroTaskWithLambda(context, lambda, CoroTask.CoroChildStrategy, Created);
 	}
 }
 
