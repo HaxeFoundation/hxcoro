@@ -81,7 +81,7 @@ class Setup {
 	static public function createLuvThreadPool() {
 		final pool = new hxcoro.thread.FixedThreadPool(10);
 		return createLuvGen(
-			(uvLoop, loop) -> new hxcoro.dispatchers.LuvDispatcher(uvLoop, loop),
+			(uvLoop, loop) -> new hxcoro.dispatchers.ThreadPoolDispatcher(loop, pool),
 			dispatcher -> pool.shutDown()
 		);
 	}
