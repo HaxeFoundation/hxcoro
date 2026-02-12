@@ -41,7 +41,7 @@ private class CoroTaskWith<T> implements ICoroNodeWith {
 	}
 
 	public function lazy<T>(lambda:NodeLambda<T>):IStartableCoroTask<T> {
-		return new StartableCoroTask(context, lambda, CoroTask.CoroChildStrategy);
+		return new CoroTaskWithLambda(context, lambda, CoroTask.CoroChildStrategy, Created);
 	}
 
 	public function with(...elements:IElement<Any>) {
@@ -110,7 +110,7 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 		method is called. This occurrs automatically once this task has finished execution.
 	**/
 	public function lazy<T>(lambda:NodeLambda<T>):IStartableCoroTask<T> {
-		return new StartableCoroTask(context, lambda, CoroTask.CoroChildStrategy);
+		return new CoroTaskWithLambda(context, lambda, CoroTask.CoroChildStrategy, Created);
 	}
 
 	/**
