@@ -10,6 +10,9 @@ import haxe.coro.dispatchers.Dispatcher;
 import haxe.coro.dispatchers.IDispatchObject;
 import haxe.exceptions.CancellationException;
 import hxcoro.continuations.FunctionContinuation;
+import hxcoro.task.CoroTask;
+import hxcoro.task.ICoroTask;
+import hxcoro.task.NodeLambda;
 
 private class FunctionDispatchObject implements IDispatchObject {
 	final func : ()->Void;
@@ -124,6 +127,14 @@ class ContextConvenience {
 
 	static public inline function scheduleFunction(context:Context, ms:Int64, func:() -> Void) {
 		return context.get(Dispatcher).scheduler.schedule(ms, new FunctionContinuation(context, (_, _) -> func()));
+	}
+
+	static public function async<T>(context:Context, lambda:NodeLambda<T>):ICoroTask<T> {
+		return new CoroTaskWithLambda<T>(context, lambda, CoroTask.CoroChildStrategy);
+	}
+
+	static public function lazy<T>(context:Context, lambda:NodeLambda<T>):IStartableCoroTask<T> {
+		return new CoroTaskWithLambda(context, lambda, CoroTask.CoroChildStrategy, Created);
 	}
 }
 

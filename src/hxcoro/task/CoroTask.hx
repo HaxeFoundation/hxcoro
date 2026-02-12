@@ -1,14 +1,14 @@
 package hxcoro.task;
 
+import haxe.Exception;
+import haxe.coro.IContinuation;
+import haxe.coro.context.Context;
+import hxcoro.task.AbstractTask;
+import hxcoro.task.ICoroTask;
 import hxcoro.task.node.CoroChildStrategy;
 import hxcoro.task.node.CoroScopeStrategy;
 import hxcoro.task.node.CoroSupervisorStrategy;
 import hxcoro.task.node.INodeStrategy;
-import hxcoro.task.AbstractTask;
-import haxe.coro.IContinuation;
-import haxe.coro.context.Context;
-import haxe.coro.dispatchers.IDispatchObject;
-import haxe.Exception;
 
 @:using(CoroTask.ResumeStatusTools)
 private enum abstract ResumeStatus(Int) to Int {
@@ -38,19 +38,6 @@ class CoroTask<T> extends CoroBaseTask<T> implements IContinuation<T> {
 
 	public function doStart() {}
 
-	public function runNodeLambda(lambda:NodeLambda<T>) {
-		start();
-		final result = lambda(this, this);
-		@:nullSafety(Off) switch result.state {
-			case Pending:
-				return;
-			case Returned:
-				this.succeedSync(result.result);
-			case Thrown:
-				this.failSync(result.error);
-		}
-	}
-
 	/**
 		Resumes the task with the provided `result` and `error`.
 	**/
@@ -76,18 +63,30 @@ class CoroTask<T> extends CoroBaseTask<T> implements IContinuation<T> {
 	#end
 }
 
-class CoroTaskWithLambda<T> extends CoroTask<T> implements IDispatchObject {
+class CoroTaskWithLambda<T> extends CoroTask<T> implements IStartableCoroTask<T> {
 	final lambda:NodeLambda<T>;
 
 	/**
 		Creates a new task using the provided `context` in order to execute `lambda`.
 	**/
-	public function new(context:Context, lambda:NodeLambda<T>, nodeStrategy:INodeStrategy) {
-		super(context, nodeStrategy);
+	public function new(context:Context, lambda:NodeLambda<T>, nodeStrategy:INodeStrategy, initialState:TaskState = Running) {
 		this.lambda = lambda;
+		super(context, nodeStrategy, initialState);
 	}
 
-	public function onDispatch() {
-		runNodeLambda(lambda);
+	/**
+		Starts executing this task's `lambda`. Has no effect if the task is already active or has completed.
+	**/
+	override public function doStart() {
+		super.doStart();
+		final result = lambda(this, this);
+		@:nullSafety(Off) switch result.state {
+			case Pending:
+				return;
+			case Returned:
+				this.succeedSync(result.result);
+			case Thrown:
+				this.failSync(result.error);
+		}
 	}
 }

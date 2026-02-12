@@ -6,7 +6,6 @@ import hxcoro.schedulers.ILoop;
 import hxcoro.task.CoroTask;
 import hxcoro.task.ICoroTask;
 import hxcoro.task.NodeLambda;
-import hxcoro.task.StartableCoroTask;
 
 /**
 	This class provides static extensions for `Context` to work with `Task` instances.
@@ -41,7 +40,7 @@ class ContextRun {
 		if (dispatcher == null) {
 			throw 'Cannot create a task without a Dispatcher element';
 		}
-		return new StartableCoroTask(context, lambda, CoroTask.CoroScopeStrategy);
+		return new CoroTaskWithLambda(context, lambda, CoroTask.CoroScopeStrategy, Created);
 	}
 
 	/**
@@ -56,9 +55,7 @@ class ContextRun {
 		if (dispatcher == null) {
 			throw 'Cannot launch a task without a Dispatcher element';
 		}
-		final task = new CoroTask(context, CoroTask.CoroScopeStrategy);
-		task.runNodeLambda(lambda);
-		return task;
+		return new CoroTaskWithLambda(context, lambda, CoroTask.CoroScopeStrategy);
 	}
 
 	/**
