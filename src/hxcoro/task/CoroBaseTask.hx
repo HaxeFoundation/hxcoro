@@ -112,11 +112,11 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 		start();
 	}
 
-	override function cancel(?cause:CancellationException) {
+	override function doCancel(error:Exception) {
 		if (context.get(NonCancellable) != null) {
 			return;
 		}
-		super.cancel(cause);
+		super.doCancel(error);
 	}
 
 	public function onCompletion(callback:(result:T, error:Exception)->Void) {

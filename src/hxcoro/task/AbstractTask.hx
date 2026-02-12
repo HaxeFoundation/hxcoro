@@ -95,9 +95,6 @@ abstract class AbstractTask implements ICancellationToken {
 			case _:
 				setInternalException('Invalid initial state $initialState');
 		}
-		if (parent != null && parent.isCancelling()) {
-			cancel();
-		}
 	}
 
 	/**
@@ -164,6 +161,9 @@ abstract class AbstractTask implements ICancellationToken {
 	public final function start() {
 		if (state.compareExchange(Created, Running) == Created) {
 			doStart();
+			if (parent != null && parent.isCancelling()) {
+				cancel();
+			}
 		}
 	}
 
@@ -215,7 +215,9 @@ abstract class AbstractTask implements ICancellationToken {
 
 		switch (state.load()) {
 			case Created:
-				setInternalException('Bad state Created in checkCompletion');
+				if (state.compareExchange(Created, Cancelled) == Created) {
+					complete();
+				}
 			case Running:
 				// Definitely not yet completed.
 			case Completing if (isCancelling()):
