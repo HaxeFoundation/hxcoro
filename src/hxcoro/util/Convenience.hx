@@ -1,8 +1,5 @@
 package hxcoro.util;
 
-import hxcoro.task.CoroTask;
-import hxcoro.task.ICoroTask;
-import hxcoro.task.NodeLambda;
 import haxe.Exception;
 import haxe.Int64;
 import haxe.coro.IContinuation;
@@ -13,6 +10,9 @@ import haxe.coro.dispatchers.Dispatcher;
 import haxe.coro.dispatchers.IDispatchObject;
 import haxe.exceptions.CancellationException;
 import hxcoro.continuations.FunctionContinuation;
+import hxcoro.task.CoroTask;
+import hxcoro.task.ICoroTask;
+import hxcoro.task.NodeLambda;
 
 private class FunctionDispatchObject implements IDispatchObject {
 	final func : ()->Void;
@@ -130,9 +130,7 @@ class ContextConvenience {
 	}
 
 	static public function async<T>(context:Context, lambda:NodeLambda<T>):ICoroTask<T> {
-		final child = new CoroTaskWithLambda<T>(context, lambda, CoroTask.CoroChildStrategy);
-		context.get(Dispatcher).dispatch(child);
-		return child;
+		return new CoroTaskWithLambda<T>(context, lambda, CoroTask.CoroChildStrategy);
 	}
 
 	static public function lazy<T>(context:Context, lambda:NodeLambda<T>):IStartableCoroTask<T> {

@@ -1,15 +1,14 @@
 package hxcoro.task;
 
+import haxe.Exception;
+import haxe.coro.IContinuation;
+import haxe.coro.context.Context;
+import hxcoro.task.AbstractTask;
+import hxcoro.task.ICoroTask;
 import hxcoro.task.node.CoroChildStrategy;
 import hxcoro.task.node.CoroScopeStrategy;
 import hxcoro.task.node.CoroSupervisorStrategy;
 import hxcoro.task.node.INodeStrategy;
-import hxcoro.task.AbstractTask;
-import hxcoro.task.ICoroTask;
-import haxe.coro.IContinuation;
-import haxe.coro.context.Context;
-import haxe.coro.dispatchers.IDispatchObject;
-import haxe.Exception;
 
 @:using(CoroTask.ResumeStatusTools)
 private enum abstract ResumeStatus(Int) to Int {
@@ -64,7 +63,7 @@ class CoroTask<T> extends CoroBaseTask<T> implements IContinuation<T> {
 	#end
 }
 
-class CoroTaskWithLambda<T> extends CoroTask<T> implements IDispatchObject implements IStartableCoroTask<T> {
+class CoroTaskWithLambda<T> extends CoroTask<T> implements IStartableCoroTask<T> {
 	final lambda:NodeLambda<T>;
 
 	/**
@@ -73,10 +72,6 @@ class CoroTaskWithLambda<T> extends CoroTask<T> implements IDispatchObject imple
 	public function new(context:Context, lambda:NodeLambda<T>, nodeStrategy:INodeStrategy, initialState:TaskState = Running) {
 		this.lambda = lambda;
 		super(context, nodeStrategy, initialState);
-	}
-
-	public function onDispatch() {
-		start();
 	}
 
 	/**

@@ -1,24 +1,21 @@
 package hxcoro.task;
 
-import hxcoro.continuations.FunctionContinuation;
-import hxcoro.concurrent.AtomicState;
-import hxcoro.concurrent.AtomicObject;
-import hxcoro.concurrent.BackOff;
-import hxcoro.elements.NonCancellable;
-import hxcoro.task.CoroTask;
-import hxcoro.task.node.INodeStrategy;
-import hxcoro.task.ICoroTask;
-import hxcoro.task.AbstractTask;
-import hxcoro.task.ICoroNode;
 import haxe.Exception;
-import haxe.exceptions.CancellationException;
 import haxe.coro.IContinuation;
-import haxe.coro.context.Context;
-import haxe.coro.context.Key;
-import haxe.coro.context.IElement;
-import haxe.coro.dispatchers.Dispatcher;
 import haxe.coro.cancellation.CancellationToken;
+import haxe.coro.context.Context;
+import haxe.coro.context.IElement;
+import haxe.coro.context.Key;
+import haxe.exceptions.CancellationException;
+import hxcoro.concurrent.AtomicObject;
 import hxcoro.concurrent.ThreadSafeCallbacks;
+import hxcoro.continuations.FunctionContinuation;
+import hxcoro.elements.NonCancellable;
+import hxcoro.task.AbstractTask;
+import hxcoro.task.CoroTask;
+import hxcoro.task.ICoroNode;
+import hxcoro.task.ICoroTask;
+import hxcoro.task.node.INodeStrategy;
 
 class TaskContinuationManager extends ThreadSafeCallbacks<IContinuation<Any>, IContinuation<Any>, IContinuation<Any>> {
 	public function new(task:CoroBaseTask<Any>) {
@@ -85,9 +82,7 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 		Creates a child task to execute `lambda` and starts it automatically.
 	**/
 	public function async<T>(lambda:NodeLambda<T>):ICoroTask<T> {
-		final child = new CoroTaskWithLambda<T>(context, lambda, CoroTask.CoroChildStrategy);
-		context.get(Dispatcher).dispatch(child);
-		return child;
+		return new CoroTaskWithLambda<T>(context, lambda, CoroTask.CoroChildStrategy);
 	}
 
 	/**
