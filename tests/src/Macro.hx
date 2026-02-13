@@ -18,6 +18,12 @@ function autoRunHl() {
 	});
 }
 
+function autoRunCs() {
+	haxe.macro.Context.onAfterGenerate(() -> {
+		runCommand("dotnet run --project bin/cs");
+	});
+}
+
 class CommandFailure extends haxe.Exception {
 	public final exitCode:Int;
 	public function new(exitCode:Int = 1) {
