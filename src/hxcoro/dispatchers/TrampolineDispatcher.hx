@@ -1,9 +1,10 @@
 package hxcoro.dispatchers;
 
-import haxe.coro.schedulers.IScheduler;
-import haxe.exceptions.ArgumentException;
 import haxe.coro.dispatchers.Dispatcher;
 import haxe.coro.dispatchers.IDispatchObject;
+import haxe.coro.schedulers.IScheduler;
+import haxe.exceptions.ArgumentException;
+import hxcoro.concurrent.Tls;
 import hxcoro.schedulers.EventLoopScheduler;
 
 private class Trampoline {
@@ -15,39 +16,31 @@ private class Trampoline {
 		queue   = null;
 	}
 
-	public static function get():Trampoline {
-#if target.threaded
- 		static final tls = {
-			final l = new sys.thread.Tls<Trampoline>();
-			l.value = null;
-			l;
-		}
+	public static function get(tls:Tls<Trampoline>):Trampoline {
 		final value = tls.value;
 		if (value != null) {
 			return value;
 		}
+		#if target.threaded
 		final thread = sys.thread.Thread.current();
 		thread.onExit(function() {
 			tls.value = null;
 		});
+		#end
 		final trampoline = new Trampoline();
 		tls.value = trampoline;
 		return trampoline;
-#else
-		static var trampoline : Null<Trampoline> = null;
-
-		return trampoline ??= new Trampoline();
-#end
 	}
 }
 
 final class TrampolineDispatcher extends Dispatcher {
 	final s : IScheduler;
-	final trampoline : Trampoline;
+	final trampolineTls : Tls<Trampoline>;
 
 	public function new(scheduler : IScheduler = null) {
-		s          = scheduler ?? new EventLoopScheduler();
-		trampoline = Trampoline.get();
+		s             = scheduler ?? new EventLoopScheduler();
+		trampolineTls = new Tls();
+		trampolineTls.value = null; // TODO: python...
 	}
 
 	public function get_scheduler() {
@@ -58,6 +51,8 @@ final class TrampolineDispatcher extends Dispatcher {
 		if (null == obj) {
 			throw new ArgumentException("obj");
 		}
+
+		final trampoline = Trampoline.get(trampolineTls);
 
 		if (false == trampoline.running) {
 			trampoline.running = true;
