@@ -58,7 +58,7 @@ class TestCoroutineScope extends utest.Test {
 				});
 
 				node.async(_ -> {
-					delay(500);
+					delay(501);
 
 					actual.push(1);
 				});
@@ -71,7 +71,7 @@ class TestCoroutineScope extends utest.Test {
 		Assert.same(actual, []);
 		Assert.isTrue(task.isActive());
 
-		scheduler.advanceTo(500);
+		scheduler.advanceTo(501);
 		Assert.same(actual, [ 0, 1 ]);
 		Assert.isFalse(task.isActive());
 	}

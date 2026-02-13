@@ -1,5 +1,6 @@
 package issues.hf;
 
+import hxcoro.concurrent.CoroSemaphore;
 import hxcoro.elements.NonCancellable;
 import haxe.exceptions.CancellationException;
 
@@ -7,8 +8,10 @@ class Issue47 extends utest.Test {
 	function testTaskActiveAfterCancellation() {
 		CoroRun.run(node -> {
 			var cancelCause = null;
+			final sem = new CoroSemaphore(0, 1);
 			final task = node.async(node -> {
 				try {
+					sem.release();
 					while (true) {
 						yield();
 					}
@@ -17,6 +20,7 @@ class Issue47 extends utest.Test {
 					throw e;
 				}
 			});
+			sem.acquire();
 			final cancelCause2 = new CancellationException();
 			task.cancel(cancelCause2);
 			AssertAsync.raises(() -> task.await(), CancellationException);
@@ -28,8 +32,10 @@ class Issue47 extends utest.Test {
 	function testCancellableTaskFromCancelledTask() {
 		CoroRun.run(node -> {
 			var cancelCause = null;
+			final sem = new CoroSemaphore(0, 1);
 			final task = node.async(node -> {
 				try {
+					sem.release();
 					while (true) {
 						yield();
 					}
@@ -42,6 +48,7 @@ class Issue47 extends utest.Test {
 					throw e;
 				}
 			});
+			sem.acquire();
 			final cancelCause2 = new CancellationException();
 			task.cancel(cancelCause2);
 			AssertAsync.raises(() -> task.await(), CancellationException);
@@ -53,8 +60,10 @@ class Issue47 extends utest.Test {
 	function testNonCancellableTaskFromCancelledTask() {
 		CoroRun.run(node -> {
 			var cancelCause = null;
+			final sem = new CoroSemaphore(0, 1);
 			final task = node.async(node -> {
 				try {
+					sem.release();
 					while (true) {
 						yield();
 					}
@@ -66,6 +75,7 @@ class Issue47 extends utest.Test {
 					throw e;
 				}
 			});
+			sem.acquire();
 			final cancelCause2 = new CancellationException();
 			task.cancel(cancelCause2);
 			AssertAsync.raises(() -> task.await(), CancellationException);
@@ -77,8 +87,10 @@ class Issue47 extends utest.Test {
 	function testLazyNonCancellableTaskFromCancelledTask() {
 		CoroRun.run(node -> {
 			var cancelCause = null;
+			final sem = new CoroSemaphore(0, 1);
 			final task = node.async(node -> {
 				try {
+					sem.release();
 					while (true) {
 						yield();
 					}
@@ -91,6 +103,7 @@ class Issue47 extends utest.Test {
 					throw e;
 				}
 			});
+			sem.acquire();
 			final cancelCause2 = new CancellationException();
 			task.cancel(cancelCause2);
 			AssertAsync.raises(() -> task.await(), CancellationException);

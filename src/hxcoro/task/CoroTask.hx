@@ -3,6 +3,8 @@ package hxcoro.task;
 import haxe.Exception;
 import haxe.coro.IContinuation;
 import haxe.coro.context.Context;
+import haxe.coro.dispatchers.Dispatcher;
+import haxe.coro.dispatchers.IDispatchObject;
 import hxcoro.task.AbstractTask;
 import hxcoro.task.ICoroTask;
 import hxcoro.task.node.CoroChildStrategy;
@@ -63,7 +65,7 @@ class CoroTask<T> extends CoroBaseTask<T> implements IContinuation<T> {
 	#end
 }
 
-class CoroTaskWithLambda<T> extends CoroTask<T> implements IStartableCoroTask<T> {
+class CoroTaskWithLambda<T> extends CoroTask<T> implements IDispatchObject implements IStartableCoroTask<T> {
 	final lambda:NodeLambda<T>;
 
 	/**
@@ -71,7 +73,14 @@ class CoroTaskWithLambda<T> extends CoroTask<T> implements IStartableCoroTask<T>
 	**/
 	public function new(context:Context, lambda:NodeLambda<T>, nodeStrategy:INodeStrategy, initialState:TaskState = Running) {
 		this.lambda = lambda;
-		super(context, nodeStrategy, initialState);
+		super(context, nodeStrategy, Created);
+		if (initialState == Running) {
+			context.get(Dispatcher).dispatch(this);
+		}
+	}
+
+	public function onDispatch() {
+		start();
 	}
 
 	/**
