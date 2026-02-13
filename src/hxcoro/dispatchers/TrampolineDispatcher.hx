@@ -35,13 +35,12 @@ private class Trampoline {
 
 final class TrampolineDispatcher extends Dispatcher {
 	final s : IScheduler;
-	final trampoline : Trampoline;
 	final trampolineTls : Tls<Trampoline>;
 
 	public function new(scheduler : IScheduler = null) {
 		s             = scheduler ?? new EventLoopScheduler();
 		trampolineTls = new Tls();
-		trampoline    = Trampoline.get(trampolineTls);
+		trampolineTls.value = null; // TODO: python...
 	}
 
 	public function get_scheduler() {
@@ -52,6 +51,8 @@ final class TrampolineDispatcher extends Dispatcher {
 		if (null == obj) {
 			throw new ArgumentException("obj");
 		}
+
+		final trampoline = Trampoline.get(trampolineTls);
 
 		if (false == trampoline.running) {
 			trampoline.running = true;
