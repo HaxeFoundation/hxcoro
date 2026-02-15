@@ -10,7 +10,7 @@ abstract Es6Yield<T, R>(Yield<T, R>) to Yield<T, R> from Yield<T, R> {
 	}
 
 	@:coroutine public function next(value:T):R {
-		return this.yieldReturn(value);
+		return this.generator.yieldReturn(value);
 	}
 }
 

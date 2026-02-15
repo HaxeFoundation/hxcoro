@@ -23,10 +23,6 @@ class TestGenerator extends utest.Test {
 			if (tree.right != null) iterTreeRec(yield, tree.right);
 		}
 
-		function iterTree<T>(tree:Tree<T>) {
-			return HaxeGenerator.create(yield -> iterTreeRec(yield, tree));
-		}
-
 		var tree:Tree<Int> = {
 			leaf: 1,
 			left: {
@@ -40,7 +36,24 @@ class TestGenerator extends utest.Test {
 			}
 		};
 
-		Assert.same([1,2,3,4,5,6,7], [for (v in iterTree(tree)) v]);
+		function iterTreeHaxe<T>(tree:Tree<T>) {
+			return HaxeGenerator.create(yield -> iterTreeRec(yield, tree));
+		}
+
+		function iterTreeEs6<T>(tree:Tree<T>) {
+			return Es6Generator.create(yield -> iterTreeRec(yield, tree));
+		}
+
+		function iterTreeCs<T>(tree:Tree<T>) {
+			return CsGenerator.create(yield -> {
+				iterTreeRec(yield, tree);
+				null;
+			});
+		}
+
+		Assert.same([1,2,3,4,5,6,7], [for (v in iterTreeHaxe(tree)) v]);
+		Assert.same([1,2,3,4,5,6,7], [for (v in iterTreeEs6(tree)) v]);
+		Assert.same([1,2,3,4,5,6,7], [for (v in iterTreeCs(tree)) v]);
 	}
 
 	function testException() {

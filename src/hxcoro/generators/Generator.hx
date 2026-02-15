@@ -11,16 +11,18 @@ import hxcoro.Coro.*;
 
 @:coroutine.restrictedSuspension
 abstract Yield<T, R>(Generator<T, R>) {
+	public var generator(get, never):Generator<T, R>;
+
 	public inline function new(generator:Generator<T, R>) {
 		this = generator;
 	}
 
-	@:op(a()) @:coroutine public function yieldReturn(value:T):R {
-		return this.yieldReturn(value);
+	inline function get_generator() {
+		return this;
 	}
 
-	@:coroutine public function yieldBreak() {
-		this.yieldBreak();
+	@:op(a()) @:coroutine function next(value:T):Void {
+		this.yieldReturn(value);
 	}
 }
 
