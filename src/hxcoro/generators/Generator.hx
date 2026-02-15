@@ -1,14 +1,12 @@
 package hxcoro.generators;
 
+import haxe.coro.SuspensionResult;
 import hxcoro.schedulers.ImmediateScheduler;
 import hxcoro.dispatchers.SelfDispatcher;
 import haxe.Exception;
 import haxe.coro.Coroutine;
 import haxe.coro.IContinuation;
 import haxe.coro.context.Context;
-import haxe.coro.dispatchers.Dispatcher;
-import haxe.coro.dispatchers.IDispatchObject;
-import haxe.exceptions.CoroutineException;
 import hxcoro.Coro.*;
 
 @:coroutine.restrictedSuspension
@@ -28,27 +26,18 @@ abstract Yield<T, R>(Generator<T, R>) {
 	}
 }
 
-private enum ResumeResult<T> {
-	Unresumed;
-	Error(error:haxe.Exception);
-	Result(it:Iterator<T>);
-	Done;
-}
-
-class Generator<T, R> implements IContinuation<Iterable<T>> {
+class Generator<T, R> extends SuspensionResult<Iterator<T>> implements IContinuation<Iterable<T>> {
 	public var context(get, null):Context;
 
 	final f:Coroutine<Yield<T, R> -> Iterable<T>>;
 	var nextValue:Null<T>;
 	var nextStep:Null<IContinuation<R>>;
-	var raisedException:Null<Exception>;
-	var resumeResult:ResumeResult<T>;
 
 	public function new(f:Coroutine<Yield<T, R> -> Iterable<T>>) {
+		super(Pending);
 		static final generatorContext = Context.create(new SelfDispatcher(new ImmediateScheduler()));
 		this.context = generatorContext;
 		this.f = f;
-		resumeResult = Unresumed;
 	}
 
 	function get_context() {
@@ -56,24 +45,22 @@ class Generator<T, R> implements IContinuation<Iterable<T>> {
 	}
 
 	public function hasNext() {
-		return switch (resumeResult) {
-			case Unresumed if (nextStep == null):
+		return switch (state) {
+			case Pending if (nextStep == null):
+				// Start the coro.
 				final result = f(this, new Yield(this));
 				switch (result.state) {
 					case Pending:
-						hasNext(); // recurse
 					case Returned | Thrown:
 						resume(result.result, result.error);
-						hasNext(); // recurse
 				}
-			case Unresumed:
+				hasNext(); // recurse
+			case Pending:
 				true;
-			case Error(_):
+			case Thrown:
 				true;
-			case Done:
-				false;
-			case Result(it):
-				it.hasNext();
+			case Returned:
+				result != null && result.hasNext();
 		}
 	}
 
@@ -82,28 +69,31 @@ class Generator<T, R> implements IContinuation<Iterable<T>> {
 	}
 
 	public function nextWith(value:Null<R>) {
-		return switch (resumeResult) {
-			case Unresumed:
+		return switch (state) {
+			case Pending:
 				var current = nextValue;
 				nextStep.resume(value, null);
 				return current;
-			case Error(exc):
-				resumeResult = Done;
-				throw raisedException;
-			case Result(it):
-				it.next();
-			case Done:
-				throw 'Invalid next call on already completed Generator';
+			case Thrown:
+				state = Returned;
+				throw error;
+			case Returned:
+				if (result == null) {
+					throw 'Invalid next call on already completed Generator';
+				}
+				result.next();
 		}
 	}
 
 	public function resume(result:Null<Iterable<T>>, error:Null<Exception>) {
 		if (error != null) {
-			resumeResult = Error(error);
+			this.error = error;
+			state = Thrown;
 		} else if (result != null) {
-			resumeResult = Result(result.iterator());
+			this.result = result.iterator();
+			state = Returned;
 		} else {
-			resumeResult = Done;
+			state = Returned;
 		}
 	}
 
@@ -115,7 +105,7 @@ class Generator<T, R> implements IContinuation<Iterable<T>> {
 	}
 
 	@:coroutine public function yieldBreak() {
-		resumeResult = Done;
+		state = Returned;
 		return suspend(_ -> {});
 	}
 
