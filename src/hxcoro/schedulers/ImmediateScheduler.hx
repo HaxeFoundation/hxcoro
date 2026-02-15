@@ -29,7 +29,7 @@ class ImmediateScheduler implements IScheduler implements ISchedulerHandle {
 		Returns 0.
 	**/
 	public function now() {
-		return 0;
+		return 0i64;
 	}
 
 	/**
