@@ -5,17 +5,13 @@ import haxe.coro.Coroutine;
 import hxcoro.generators.Generator;
 
 @:coroutine.restrictedSuspension
-abstract CsYield<T, R>(Yield<T, R>) to Yield<T, R> from Yield<T, R> {
-	public inline function new(yield:Yield<T, R>) {
-		this = yield;
-	}
-
+abstract CsYield<T, R>(Generator<T, R>) to Generator<T, R> from Generator<T, R> {
 	@:coroutine public function yieldReturn(value:T):R {
-		return this.generator.yield(value);
+		return this.yield(value);
 	}
 
 	@:coroutine public function yieldBreak() {
-		this.generator.resume(null, null);
+		this.resume(null, null);
 		return suspend(_ -> {});
 	}
 }

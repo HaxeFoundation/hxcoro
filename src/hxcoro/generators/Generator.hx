@@ -9,31 +9,14 @@ import hxcoro.Coro.*;
 import hxcoro.dispatchers.SelfDispatcher;
 import hxcoro.schedulers.ImmediateScheduler;
 
-@:coroutine.restrictedSuspension
-abstract Yield<T, R>(Generator<T, R>) {
-	public var generator(get, never):Generator<T, R>;
-
-	public inline function new(generator:Generator<T, R>) {
-		this = generator;
-	}
-
-	inline function get_generator() {
-		return this;
-	}
-
-	@:op(a()) @:coroutine function next(value:T):Void {
-		this.yield(value);
-	}
-}
-
 class Generator<T, R> extends SuspensionResult<Iterator<T>> implements IContinuation<Iterable<T>> {
 	public var context(get, null):Context;
 
-	final f:Coroutine<Yield<T, R> -> Iterable<T>>;
+	final f:Coroutine<Generator<T, R> -> Iterable<T>>;
 	var nextValue:Null<T>;
 	var nextStep:Null<IContinuation<R>>;
 
-	public function new(f:Coroutine<Yield<T, R> -> Iterable<T>>) {
+	public function new(f:Coroutine<Generator<T, R> -> Iterable<T>>) {
 		super(Pending);
 		static final generatorContext = Context.create(new SelfDispatcher(new ImmediateScheduler()));
 		this.context = generatorContext;
@@ -48,7 +31,7 @@ class Generator<T, R> extends SuspensionResult<Iterator<T>> implements IContinua
 		return switch (state) {
 			case Pending if (nextStep == null):
 				// Start the coro.
-				final result = f(this, new Yield(this));
+				final result = f(this, this);
 				switch (result.state) {
 					case Pending:
 					case Returned | Thrown:
