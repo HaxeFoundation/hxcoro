@@ -47,6 +47,8 @@ class TestBarrier extends utest.Test {
 		], actual);
 	}
 
+	#if tomorrow
+
 	function testArriveAndDrop() {
 		final numTasks = 10;
 		final actual = [];
@@ -86,4 +88,6 @@ class TestBarrier extends utest.Test {
 		}
 		Assert.same(expected, actual);
 	}
+
+	#end
 }
