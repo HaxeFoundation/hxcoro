@@ -1,9 +1,9 @@
 package hxcoro.task;
 
-import haxe.exceptions.CancellationException;
 import haxe.coro.context.Context;
-import haxe.coro.context.Key;
 import haxe.coro.context.IElement;
+import haxe.coro.context.Key;
+import haxe.exceptions.CancellationException;
 import hxcoro.task.ICoroTask;
 
 interface ICoroNodeWith {
@@ -14,6 +14,7 @@ interface ICoroNodeWith {
 	function without(...keys:Key<Any>):Context;
 }
 
+@:coroutine.scope
 interface ICoroNode extends ICoroNodeWith {
 	var id(get, never):Int;
 	@:coroutine function awaitChildren():Void;
