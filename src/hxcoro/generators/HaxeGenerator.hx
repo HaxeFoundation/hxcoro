@@ -11,7 +11,7 @@ abstract HaxeYield<T>(Yield<T, Unit>) to Yield<T, Unit> from Yield<T, Unit> {
 	}
 
 	@:op(a()) @:coroutine function next(value:T):Void {
-		this.generator.yieldReturn(value);
+		this.generator.yield(value);
 	}
 }
 

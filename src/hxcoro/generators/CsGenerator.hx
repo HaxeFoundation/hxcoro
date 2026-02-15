@@ -11,11 +11,12 @@ abstract CsYield<T, R>(Yield<T, R>) to Yield<T, R> from Yield<T, R> {
 	}
 
 	@:coroutine public function yieldReturn(value:T):R {
-		return this.generator.yieldReturn(value);
+		return this.generator.yield(value);
 	}
 
 	@:coroutine public function yieldBreak() {
-		this.generator.yieldBreak();
+		this.generator.resume(null, null);
+		return suspend(_ -> {});
 	}
 }
 

@@ -1,13 +1,13 @@
 package hxcoro.generators;
 
-import haxe.coro.SuspensionResult;
-import hxcoro.schedulers.ImmediateScheduler;
-import hxcoro.dispatchers.SelfDispatcher;
 import haxe.Exception;
 import haxe.coro.Coroutine;
 import haxe.coro.IContinuation;
+import haxe.coro.SuspensionResult;
 import haxe.coro.context.Context;
 import hxcoro.Coro.*;
+import hxcoro.dispatchers.SelfDispatcher;
+import hxcoro.schedulers.ImmediateScheduler;
 
 @:coroutine.restrictedSuspension
 abstract Yield<T, R>(Generator<T, R>) {
@@ -22,7 +22,7 @@ abstract Yield<T, R>(Generator<T, R>) {
 	}
 
 	@:op(a()) @:coroutine function next(value:T):Void {
-		this.yieldReturn(value);
+		this.yield(value);
 	}
 }
 
@@ -97,16 +97,11 @@ class Generator<T, R> extends SuspensionResult<Iterator<T>> implements IContinua
 		}
 	}
 
-	@:coroutine public function yieldReturn(value:T) {
+	@:coroutine public function yield(value:T) {
 		nextValue = value;
 		return suspend(cont -> {
 			nextStep = cont;
 		});
-	}
-
-	@:coroutine public function yieldBreak() {
-		state = Returned;
-		return suspend(_ -> {});
 	}
 
 	public function iterator() {
