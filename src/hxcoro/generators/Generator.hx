@@ -1,5 +1,7 @@
 package hxcoro.generators;
 
+import hxcoro.schedulers.ImmediateScheduler;
+import hxcoro.dispatchers.SelfDispatcher;
 import haxe.Exception;
 import haxe.coro.Coroutine;
 import haxe.coro.IContinuation;
@@ -33,7 +35,7 @@ private enum ResumeResult<T> {
 	Done;
 }
 
-class Generator<T, R> extends Dispatcher implements IContinuation<Iterable<T>> {
+class Generator<T, R> implements IContinuation<Iterable<T>> {
 	public var context(get, null):Context;
 
 	final f:Coroutine<Yield<T, R> -> Iterable<T>>;
@@ -43,17 +45,14 @@ class Generator<T, R> extends Dispatcher implements IContinuation<Iterable<T>> {
 	var resumeResult:ResumeResult<T>;
 
 	public function new(f:Coroutine<Yield<T, R> -> Iterable<T>>) {
-		this.context = Context.create(this);
+		static final generatorContext = Context.create(new SelfDispatcher(new ImmediateScheduler()));
+		this.context = generatorContext;
 		this.f = f;
 		resumeResult = Unresumed;
 	}
 
 	function get_context() {
 		return context;
-	}
-
-	function get_scheduler() {
-		return throw new CoroutineException('Cannot access scheduler on Generator contexts');
 	}
 
 	public function hasNext() {
@@ -106,10 +105,6 @@ class Generator<T, R> extends Dispatcher implements IContinuation<Iterable<T>> {
 		} else {
 			resumeResult = Done;
 		}
-	}
-
-	public function dispatch(obj:IDispatchObject) {
-		obj.onDispatch();
 	}
 
 	@:coroutine public function yieldReturn(value:T) {
