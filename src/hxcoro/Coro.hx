@@ -57,8 +57,7 @@ class Coro {
 	@:coroutine static public function scope<T>(lambda:NodeLambda<T>):T {
 		return suspend(cont -> {
 			final context = cont.context;
-			final scope = new CoroTask(context, CoroTask.CoroScopeStrategy);
-			scope.runNodeLambda(lambda);
+			final scope = new CoroTaskWithLambda(context, lambda, CoroTask.CoroScopeStrategy);
 			scope.awaitContinuation(cont);
 		});
 	}
@@ -72,8 +71,7 @@ class Coro {
 	@:coroutine static public function supervisor<T>(lambda:NodeLambda<T>):T {
 		return suspend(cont -> {
 			final context = cont.context;
-			final scope = new CoroTask(context, CoroTask.CoroSupervisorStrategy);
-			scope.runNodeLambda(lambda);
+			final scope = new CoroTaskWithLambda(context, lambda, CoroTask.CoroSupervisorStrategy);
 			scope.awaitContinuation(cont);
 		});
 	}
@@ -97,12 +95,11 @@ class Coro {
 		return suspend(cont -> {
 
 			final context = cont.context;
-			final scope = new CoroTask(context, CoroTask.CoroScopeStrategy);
+			final scope = new CoroTaskWithLambda(context, lambda, CoroTask.CoroScopeStrategy);
 			final handle = context.scheduleFunction(ms, () -> {
 				scope.cancel(new TimeoutException());
 			});
 
-			scope.runNodeLambda(lambda);
 			scope.awaitContinuation(new TimeoutContinuation(cont, handle));
 		});
 	}

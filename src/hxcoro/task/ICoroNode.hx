@@ -10,8 +10,8 @@ interface ICoroNodeWith {
 	var context(get, null):Context;
 	function async<T>(lambda:NodeLambda<T>):ICoroTask<T>;
 	function lazy<T>(lambda:NodeLambda<T>):IStartableCoroTask<T>;
-	function with(...elements:IElement<Any>):ICoroNodeWith;
-	function without(...keys:Key<Any>):ICoroNodeWith;
+	function with(...elements:IElement<Any>):Context;
+	function without(...keys:Key<Any>):Context;
 }
 
 @:coroutine.scope

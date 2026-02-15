@@ -64,7 +64,7 @@ class TestEntrypoints extends utest.Test {
 			helloAndGoodbyeAfter("Launched Task 1");
 		});
 
-		assertLastMessage("Launched Task 1 says hello");
+		assertAwaitLastMessage("Launched Task 1 says hello");
 		assertNoCurrentMessage();
 
 		loop.loop(Once);

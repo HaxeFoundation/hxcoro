@@ -1,57 +1,22 @@
 package hxcoro.task;
 
-import hxcoro.continuations.FunctionContinuation;
-import hxcoro.concurrent.AtomicState;
-import hxcoro.concurrent.AtomicObject;
-import hxcoro.concurrent.BackOff;
-import hxcoro.elements.NonCancellable;
-import hxcoro.task.CoroTask;
-import hxcoro.task.node.INodeStrategy;
-import hxcoro.task.ICoroTask;
-import hxcoro.task.AbstractTask;
-import hxcoro.task.ICoroNode;
 import haxe.Exception;
-import haxe.exceptions.CancellationException;
 import haxe.coro.IContinuation;
-import haxe.coro.context.Context;
-import haxe.coro.context.Key;
-import haxe.coro.context.IElement;
-import haxe.coro.dispatchers.Dispatcher;
 import haxe.coro.cancellation.CancellationToken;
+import haxe.coro.context.Context;
+import haxe.coro.context.IElement;
+import haxe.coro.context.Key;
+import haxe.exceptions.CancellationException;
+import hxcoro.concurrent.AtomicObject;
 import hxcoro.concurrent.ThreadSafeCallbacks;
+import hxcoro.continuations.FunctionContinuation;
+import hxcoro.elements.NonCancellable;
+import hxcoro.task.AbstractTask;
+import hxcoro.task.CoroTask;
+import hxcoro.task.ICoroNode;
+import hxcoro.task.ICoroTask;
+import hxcoro.task.node.INodeStrategy;
 
-private class CoroTaskWith<T> implements ICoroNodeWith {
-	public var context(get, null):Context;
-
-	final task:CoroBaseTask<T>;
-
-	public function new(context:Context, task:CoroBaseTask<T>) {
-		this.context = context;
-		this.task = task;
-	}
-
-	inline function get_context() {
-		return context;
-	}
-
-	public function async<T>(lambda:NodeLambda<T>):ICoroTask<T> {
-		final child = new CoroTaskWithLambda(context, lambda, CoroTask.CoroChildStrategy);
-		context.get(Dispatcher).dispatch(child);
-		return child;
-	}
-
-	public function lazy<T>(lambda:NodeLambda<T>):IStartableCoroTask<T> {
-		return new StartableCoroTask(context, lambda, CoroTask.CoroChildStrategy);
-	}
-
-	public function with(...elements:IElement<Any>) {
-		return task.with(...elements);
-	}
-
-	public function without(...keys:Key<Any>) {
-		return task.without(...keys);
-	}
-}
 class TaskContinuationManager extends ThreadSafeCallbacks<IContinuation<Any>, IContinuation<Any>, IContinuation<Any>> {
 	public function new(task:CoroBaseTask<Any>) {
 		super(handle -> handle.resume(task.get(), task.getError()));
@@ -110,30 +75,28 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 		method is called. This occurrs automatically once this task has finished execution.
 	**/
 	public function lazy<T>(lambda:NodeLambda<T>):IStartableCoroTask<T> {
-		return new StartableCoroTask(context, lambda, CoroTask.CoroChildStrategy);
+		return new CoroTaskWithLambda(context, lambda, CoroTask.CoroChildStrategy, Created);
 	}
 
 	/**
 		Creates a child task to execute `lambda` and starts it automatically.
 	**/
 	public function async<T>(lambda:NodeLambda<T>):ICoroTask<T> {
-		final child = new CoroTaskWithLambda<T>(context, lambda, CoroTask.CoroChildStrategy);
-		context.get(Dispatcher).dispatch(child);
-		return child;
+		return new CoroTaskWithLambda<T>(context, lambda, CoroTask.CoroChildStrategy);
 	}
 
 	/**
 		Returns a copy of this tasks' `Context` with `elements` added, which can be used to start child tasks.
 	**/
 	public function with(...elements:IElement<Any>) {
-		return new CoroTaskWith(context.clone().with(...elements), this);
+		return context.with(...elements);
 	}
 
 	/**
 		Returns a copy of this tasks' `Context` where all `keys` are unset, which can be used to start child tasks.
 	**/
 	public function without(...keys:Key<Any>) {
-		return new CoroTaskWith(context.clone().without(...keys), this);
+		return context.without(...keys);
 	}
 
 	/**
@@ -149,11 +112,11 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 		start();
 	}
 
-	override function cancel(?cause:CancellationException) {
+	override function doCancel(error:Exception) {
 		if (context.get(NonCancellable) != null) {
 			return;
 		}
-		super.cancel(cause);
+		super.doCancel(error);
 	}
 
 	public function onCompletion(callback:(result:T, error:Exception)->Void) {

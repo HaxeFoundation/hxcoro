@@ -1,0 +1,4 @@
+build-base.hxml
+-lib hxcs
+-cs bin/cs
+--macro Macro.autoRunCs()
