@@ -29,7 +29,7 @@ class TestLatch extends utest.Test {
 			}
 
 			log("Work is starting");
-			startWork.countDown(1);
+			startWork.arrive(1);
 			workerDone.wait();
 			log("Work is done");
 
@@ -38,7 +38,7 @@ class TestLatch extends utest.Test {
 				Assert.equals(null, cleanUpVector[i]);
 			}
 
-			startCleanUp.countDown(1);
+			startCleanUp.arrive(1);
 			log("CleanUp has started");
 			node.awaitChildren();
 			log("CleanUp is done");
