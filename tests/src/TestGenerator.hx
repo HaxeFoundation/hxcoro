@@ -1,14 +1,14 @@
-import hxcoro.generators.SyncGenerator;
+import hxcoro.generators.Generator;
+import hxcoro.generators.HaxeGenerator;
+import hxcoro.generators.Es6Generator;
+import hxcoro.generators.CsGenerator;
 import haxe.Unit;
-import hxcoro.dispatchers.TrampolineDispatcher;
-import hxcoro.task.CoroTask;
-import haxe.coro.context.Context;
-import hxcoro.generators.SyncGenerator;
-import haxe.Exception;
+
+using Lambda;
 
 class TestGenerator extends utest.Test {
 	function testSimple() {
-		var iter = SyncGenerator.create(yield -> {
+		var iter = HaxeGenerator.create(yield -> {
 			yield(1);
 			yield(2);
 			yield(3);
@@ -24,7 +24,7 @@ class TestGenerator extends utest.Test {
 		}
 
 		function iterTree<T>(tree:Tree<T>) {
-			return SyncGenerator.create(yield -> iterTreeRec(yield, tree));
+			return HaxeGenerator.create(yield -> iterTreeRec(yield, tree));
 		}
 
 		var tree:Tree<Int> = {
@@ -46,7 +46,7 @@ class TestGenerator extends utest.Test {
 	function testException() {
 		final result = [];
 		Assert.raises(() -> {
-			for (i in SyncGenerator.create(yield -> {
+			for (i in HaxeGenerator.create(yield -> {
 				yield(1);
 				yield(2);
 				throw "oh no";
@@ -58,13 +58,13 @@ class TestGenerator extends utest.Test {
 		Assert.same([1, 2], result);
 	}
 
-	function testValueGenerator() {
+	function testEs6Generator() {
 		final expected = [1, 3, 5, 7, 9, 11];
 		final actual = [];
-		final gen = SyncValueGenerator.create(yield -> {
+		final gen = Es6Generator.create(yield -> {
 			var sum = 1.;
 			while (true) {
-				sum += yield(sum);
+				sum += yield.next(sum);
 			}
 		});
 
@@ -76,6 +76,116 @@ class TestGenerator extends utest.Test {
 			}
 		}
 		Assert.same(expected, actual);
+	}
+
+	function testCsGeneratorYieldReturn() {
+		var iter = CsGenerator.create(yield -> {
+			yield.yieldReturn(1);
+			yield.yieldReturn(2);
+			yield.yieldReturn(3);
+			return null;
+		});
+		Assert.same([1,2,3], [for (v in iter) v]);
+	}
+
+	function testCsGeneratorYieldBreak() {
+		var iter = CsGenerator.create(yield -> {
+			yield.yieldBreak();
+			yield.yieldReturn(1);
+			yield.yieldReturn(2);
+			yield.yieldReturn(3);
+			return [4, 5, 6];
+		});
+		Assert.same([], [for (v in iter) v]);
+	}
+
+	function testCsGeneratorReturn() {
+		var iter = CsGenerator.create(yield -> {
+			return [4, 5, 6];
+		});
+		Assert.same([4, 5, 6], [for (v in iter) v]);
+	}
+
+	function testCsGeneratorYieldReturnPlusReturn() {
+		var iter = CsGenerator.create(yield -> {
+			yield.yieldReturn(1);
+			yield.yieldReturn(2);
+			yield.yieldReturn(3);
+			return [4, 5, 6];
+		});
+		Assert.same([1, 2, 3, 4, 5, 6], [for (v in iter) v]);
+	}
+
+	function testCsGeneratorYieldReturnPlusYieldBreak() {
+		var iter = CsGenerator.create(yield -> {
+			yield.yieldReturn(1);
+			yield.yieldReturn(2);
+			yield.yieldReturn(3);
+			yield.yieldBreak();
+			return [4, 5, 6];
+		});
+		Assert.same([1, 2, 3], [for (v in iter) v]);
+	}
+
+	function testCsGeneratorYieldBreakPlusReturn() {
+		var iter = CsGenerator.create(yield -> {
+			yield.yieldBreak();
+			return [4, 5, 6];
+		});
+		Assert.same([], [for (v in iter) v]);
+	}
+
+	function testTakeWhilePositive() {
+		function TakeWhilePositiveHaxe(numbers:Iterable<Int>):Iterable<Int> {
+			return HaxeGenerator.create(yield -> {
+				for (n in numbers) {
+					if (n > 0) {
+						yield(n);
+					} else {
+						return;
+					}
+				}
+			});
+		}
+
+		function TakeWhilePositiveCs(numbers:Iterable<Int>):Iterable<Int> {
+			return CsGenerator.create(yield -> {
+				for (n in numbers) {
+					if (n > 0) {
+						yield.yieldReturn(n);
+					} else {
+						yield.yieldBreak();
+					}
+				}
+				return null;
+			});
+		}
+
+		function TakeWhilePositiveEs6(numbers:Iterable<Int>):Iterable<Int> {
+			return Es6Generator.create(yield -> {
+				for (n in numbers) {
+					if (n > 0) {
+						yield.next(n);
+					} else {
+						return;
+					}
+				}
+			});
+		}
+
+		final arrays = [
+			[2, 3, 4, 5, -1, 3, 4],
+			[9, 8, 7]
+		];
+		final expected = [
+			[2, 3, 4, 5],
+			[9, 8, 7]
+		];
+		for (i in 0...arrays.length) {
+			Assert.same(expected[i], TakeWhilePositiveHaxe(arrays[i]).array());
+			Assert.same(expected[i], TakeWhilePositiveCs(arrays[i]).array());
+			Assert.same(expected[i], TakeWhilePositiveEs6(arrays[i]).array());
+		}
 	}
 }
 
