@@ -39,10 +39,14 @@ abstract HaxeGenerator<T>(Generator<T, Unit>) from Generator<T, Unit> {
 		The coroutine `f` is executed in a restricted suspension scope, which means
 		that it cannot call arbitrary coroutines that might suspend.
 	**/
-	static public function create<T>(f:Coroutine<HaxeYield<T> -> Void>):HaxeGenerator<T> {
+	extern static inline overload public function create<T>(f:Coroutine<HaxeYield<T> -> Null<Iterable<T>>>):HaxeGenerator<T> {
+		return new Generator(f);
+	}
+
+	extern static inline overload  public function create<T>(f:Coroutine<HaxeYield<T> -> Void>):HaxeGenerator<T> {
 		return new Generator(yield -> {
 			f(yield);
-			return null;
+			null;
 		});
 	}
 }
