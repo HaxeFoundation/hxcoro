@@ -165,8 +165,7 @@ class CoroLatchImpl {
 		}
 		while (!deque.isEmpty()) {
 			@:nullSafety(Off) final cont:IContinuation<Any> = deque.pop();
-			final ct = cont.context.get(CancellationToken);
-			if (ct != null && ct.isCancellationRequested()) {
+			if (cont.context.isCancellationRequested()) {
 				continue;
 			}
 			cont.callAsync();
