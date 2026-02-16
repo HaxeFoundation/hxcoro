@@ -11,9 +11,6 @@ import hxcoro.ds.PagedDeque;
 
 using hxcoro.util.Convenience;
 
-/**
-	A latch allows coroutines to wait until its counter reaches zero.
-**/
 class CoroLatchImpl {
 	final counter:AtomicInt;
 	final barrierCallback:Null<() -> Void>;
@@ -82,6 +79,8 @@ class CoroLatchImpl {
 		Decreases the internal counter value by `n` and waits for it to reach 0.
 
 		This is equivalent to calling `arrive(n)` followed by `wait()`.
+
+		See `arrive` for details about the arrival process.
 	**/
 	@:coroutine public function arriveAndWait(n:Int) {
 		if (n <= 0) {
@@ -175,8 +174,14 @@ class CoroLatchImpl {
 	}
 }
 
+/**
+	A latch allows coroutines to wait until its counter reaches zero.
+**/
 @:forward("arrive", "tryWait", "wait", "arriveAndWait")
 abstract CoroLatch(CoroLatchImpl) {
+	/**
+		Creates a new `CoroLatch` instance with the specified `counter` value.
+	**/
 	public inline function new(counter:Int) {
 		this = new CoroLatchImpl(counter, null);
 	}
