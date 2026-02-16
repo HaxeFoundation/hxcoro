@@ -105,7 +105,7 @@ class CoroLatchImpl {
 				case -1:
 					// Locked, let's wait.
 				case 0:
-					throw new CoroutineException("Invalid call to arriveAndDrop in latch-mode");
+					throw new CoroutineException("Invalid call to arriveAndDrop when counter is at 0");
 				case old:
 					if (counter.compareExchange(old, -1) == old) {
 						--maxCounter;

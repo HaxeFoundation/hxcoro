@@ -1,5 +1,6 @@
 package concurrent;
 
+import haxe.exceptions.CoroutineException;
 import haxe.ds.Vector;
 import hxcoro.concurrent.CoroLatch;
 
@@ -47,8 +48,6 @@ class TestBarrier extends utest.Test {
 		], actual);
 	}
 
-	#if tomorrow
-
 	function testArriveAndDrop() {
 		final numTasks = 10;
 		final actual = [];
@@ -56,7 +55,7 @@ class TestBarrier extends utest.Test {
 			actual.push(msg);
 		}
 		CoroRun.run(node -> {
-			final syncPoint = new CoroBarrier(numTasks);
+			final syncPoint = new CoroBarrier(numTasks + 1);
 
 			var numTasks = numTasks;
 			while (numTasks > 0) {
@@ -73,10 +72,14 @@ class TestBarrier extends utest.Test {
 						}
 					});
 				}
-				syncPoint.wait();
-				syncPoint.wait();
+				syncPoint.arriveAndWait();
+				syncPoint.arriveAndWait();
 				--numTasks;
 			}
+			syncPoint.arriveAndDrop();
+			Assert.raises(() -> {
+				syncPoint.arriveAndDrop();
+			}, CoroutineException);
 		});
 
 		final expected = [];
@@ -88,6 +91,4 @@ class TestBarrier extends utest.Test {
 		}
 		Assert.same(expected, actual);
 	}
-
-	#end
 }
