@@ -1,10 +1,10 @@
 package hxcoro.concurrent;
 
-import hxcoro.concurrent.exceptions.SemaphoreFullException;
-import haxe.exceptions.ArgumentException;
-import hxcoro.ds.PagedDeque;
 import haxe.coro.IContinuation;
 import haxe.coro.cancellation.CancellationToken;
+import haxe.exceptions.ArgumentException;
+import hxcoro.concurrent.exceptions.SemaphoreFullException;
+import hxcoro.ds.PagedDeque;
 
 class CoroSemaphore {
 	final maxFree:Int;
@@ -114,9 +114,7 @@ class CoroSemaphore {
 				return;
 			}
 			@:nullSafety(Off) final cont:IContinuation<Any> = deque.pop();
-			final ct = cont.context.get(CancellationToken);
-			if (ct != null && ct.isCancellationRequested()) {
-				// Ignore, back to the loop.
+			if (cont.context.isCancellationRequested()) {
 				continue;
 			}
 			// There's a continuation to execute, so free is 0 again.
