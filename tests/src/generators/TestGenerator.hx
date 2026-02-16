@@ -1,4 +1,5 @@
-import hxcoro.generators.Generator;
+package generators;
+
 import hxcoro.generators.Yield;
 import hxcoro.generators.HaxeGenerator;
 import hxcoro.generators.Es6Generator;
