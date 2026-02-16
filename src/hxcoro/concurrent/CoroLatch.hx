@@ -99,6 +99,9 @@ class CoroLatchImpl {
 		}
 	}
 
+	/**
+		Decreases the counter for the next phase, then acts as `arrive(1)` for the current one.
+	**/
 	public function arriveAndDrop() {
 		while (true) {
 			switch (counter.load()) {
@@ -176,19 +179,5 @@ class CoroLatchImpl {
 abstract CoroLatch(CoroLatchImpl) {
 	public inline function new(counter:Int) {
 		this = new CoroLatchImpl(counter, null);
-	}
-}
-
-@:forward("arrive", "arriveAndDrop", "wait")
-abstract CoroBarrier(CoroLatchImpl) {
-
-	static function noOpCallback() {}
-
-	public function new(counter:Int, ?onCompletion:() -> Void) {
-		this = new CoroLatchImpl(counter, onCompletion ?? noOpCallback);
-	}
-
-	@:coroutine public function arriveAndWait() {
-		this.arriveAndWait(1);
 	}
 }

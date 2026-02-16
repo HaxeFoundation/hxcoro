@@ -2,7 +2,7 @@ package concurrent;
 
 import haxe.exceptions.CoroutineException;
 import haxe.ds.Vector;
-import hxcoro.concurrent.CoroLatch;
+import hxcoro.concurrent.CoroBarrier;
 
 class TestBarrier extends utest.Test {
 	function testCppSample() {
