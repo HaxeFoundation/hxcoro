@@ -18,15 +18,30 @@ enum abstract AsyncGeneratorState(Int) to Int {
 	final Stopped;
 }
 
-class AsyncGenerator<T> extends SuspensionResult<Iterator<T>> implements IContinuation<Iterable<T>> implements YieldingGenerator<T, Unit> {
+/**
+	An asynchronous generator can be used like an iterator, but asynchronously. Its `hasNext`
+	method blocks until either a value is available or until it is clear that no more values
+	are going to arrive.
+
+	This class is thread-safe with regards to a single producer (calling `yield`) and a single
+	consumer (calling `hasNext`). It does not support multiple producers or consumers.
+**/
+class AsyncGenerator<T> extends SuspensionResult<Iterator<T>> implements IContinuation<Null<Iterable<T>>> implements YieldingGenerator<T, Unit> {
 	public var context(get, null):Context;
 
-	final f:Coroutine<AsyncGenerator<T> -> Iterable<T>>;
+	final f:Coroutine<AsyncGenerator<T> -> Null<Iterable<T>>>;
 	var gState:AtomicState<AsyncGeneratorState>;
 	var cont:Null<IContinuation<Any>>;
 	var nextValue:Null<T>;
 
-	function new(f:Coroutine<AsyncGenerator<T> -> Iterable<T>>) {
+	/**
+		Creates a new `AsyncGenerator` instance that runs `f` to obtain values.
+
+		`f` starts executing on the first call to `hasNext`. If it finishes execution, this
+		generator's `resume` method is called with the result. If that result is not null,
+		its elements are offered as the final values of this generator.
+	**/
+	function new(f:Coroutine<AsyncGenerator<T> -> Null<Iterable<T>>>) {
 		super(Pending);
 		gState = new AtomicState(Created);
 		this.f = f;
@@ -54,6 +69,10 @@ class AsyncGenerator<T> extends SuspensionResult<Iterator<T>> implements IContin
 		}
 	}
 
+	/**
+		Returns `true` if more elements exist, `false` otherwise. This function may block
+		until an element becomes available or this generator finishes.
+	**/
 	@:coroutine public function hasNext() {
 		inline function awaitContinuation(cont:IContinuation<Any>) {
 			this.cont = cont;
@@ -86,6 +105,10 @@ class AsyncGenerator<T> extends SuspensionResult<Iterator<T>> implements IContin
 		}
 	}
 
+	/**
+		Returns the next element. This method must only be called after a prior call to
+		`hasNext` returned `true`.
+	**/
 	public function next() {
 		final value = nextValue;
 		if (gState.compareExchange(ValueAvailable, Running) == ValueAvailable) {
@@ -94,6 +117,17 @@ class AsyncGenerator<T> extends SuspensionResult<Iterator<T>> implements IContin
 		return value;
 	}
 
+	/**
+		Initializes the stopping procedure of this generator.
+
+		If `error` is not null, it will be thrown by the next `hasNext` operation.
+
+		Otherwise, if `result` is not null, its elements are offered as the final
+		values of this generator.
+
+		If there's a waiting `hasNext` continuation, it is resumed. A waiting `yield`
+		continuation is not resumed.
+	**/
 	public function resume(result:Null<Iterable<T>>, error:Null<Exception>) {
 		if (error != null) {
 			this.error = error;
@@ -125,6 +159,9 @@ class AsyncGenerator<T> extends SuspensionResult<Iterator<T>> implements IContin
 		}
 	}
 
+	/**
+		Offers `value` as the next value.
+	**/
 	@:coroutine public function yield(value:T) {
 		inline function offerValue(cont:IContinuation<Any>) {
 			this.cont = cont;
