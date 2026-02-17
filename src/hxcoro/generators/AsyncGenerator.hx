@@ -56,20 +56,22 @@ class AsyncGenerator<T> extends SuspensionResult<Iterator<T>> implements IContin
 	}
 
 	@:coroutine public function hasNext() {
+		inline function awaitContinuation(cont:IContinuation<Any>) {
+			this.cont = cont;
+			gState.store(AwaitingValue);
+		}
 		while (true) {
 			switch (gState.load()) {
 				case Created:
 					context = CoroIntrinsics.getContext();
 					suspend(cont -> {
-						this.cont = cont;
-						gState.store(AwaitingValue);
+						awaitContinuation(cont);
 						start();
 					});
 				case Running:
 					if (gState.compareExchange(Running, Modifying) == Running) {
 						suspend(cont -> {
-							this.cont = cont;
-							gState.store(AwaitingValue);
+							awaitContinuation(cont);
 						});
 					}
 				case Modifying:
@@ -113,6 +115,7 @@ class AsyncGenerator<T> extends SuspensionResult<Iterator<T>> implements IContin
 					// wait
 				case AwaitingValue:
 					if (gState.compareExchange(AwaitingValue, Stopped) == AwaitingValue) {
+						// resume waiting hasNext
 						cont.callAsync();
 						return;
 					}
@@ -124,6 +127,11 @@ class AsyncGenerator<T> extends SuspensionResult<Iterator<T>> implements IContin
 	}
 
 	@:coroutine public function yield(value:T) {
+		inline function offerValue(cont:IContinuation<Any>) {
+			this.cont = cont;
+			nextValue = value;
+			gState.store(ValueAvailable);
+		}
 		while (true) {
 			switch (gState.load()) {
 				case Created | ValueAvailable:
@@ -133,19 +141,15 @@ class AsyncGenerator<T> extends SuspensionResult<Iterator<T>> implements IContin
 				case Running:
 					if (gState.compareExchange(Running, Modifying) == Running) {
 						suspend(cont -> {
-							this.cont = cont;
-							nextValue = value;
-							gState.store(ValueAvailable);
+							offerValue(cont);
 						});
 						return Unit;
 					}
 				case AwaitingValue:
 					if (gState.compareExchange(AwaitingValue, Modifying) == AwaitingValue) {
 						final awaitCont = cont;
-						nextValue = value;
 						suspend(cont -> {
-							this.cont = cont;
-							gState.store(ValueAvailable);
+							offerValue(cont);
 							awaitCont.callAsync();
 						});
 						return Unit;
