@@ -31,6 +31,25 @@ class TestAsyncGenerator extends utest.Test {
 		Assert.same([1, 2, 3, 4, 5, 6], actual);
 	}
 
+	public function testChannelIteratorClosed() {
+		final setup = Setup.createVirtualTrampoline();
+		final actual = [];
+		setup.createContext().runTask(node -> {
+			final ch = Channel.createUnbounded({});
+			ch.write(1);
+			ch.write(2);
+			ch.write(3);
+			ch.close();
+
+			final it = ch.iterator();
+			while (it.hasNext()) {
+				final value = it.next();
+				actual.push(value);
+			}
+		});
+		Assert.same([1, 2, 3], actual);
+	}
+
 	public function testRandomSample() {
 		final setup = Setup.createVirtualTrampoline();
 		final actual = [];
