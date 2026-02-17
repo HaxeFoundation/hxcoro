@@ -132,7 +132,6 @@ class Channel<T> implements IChannelReader<T> implements IChannelWriter<T> {
 					gen.yield(out.get());
 				}
 			}
-			null;
 		});
 	}
 }

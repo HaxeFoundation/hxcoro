@@ -57,7 +57,6 @@ class TestGenerator extends utest.Test {
 		function iterTreeAsync<T>(tree:Tree<T>) {
 			return AsyncGenerator.create(yield -> {
 				iterTreeRec(yield, tree);
-				null;
 			});
 		}
 

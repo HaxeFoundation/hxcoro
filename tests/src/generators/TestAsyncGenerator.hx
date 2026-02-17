@@ -43,7 +43,6 @@ class TestAsyncGenerator extends utest.Test {
 					delay(i * 50);
 					i += 2;
 				}
-				null;
 			});
 			while (gen.hasNext()) {
 				var value = gen.next();
@@ -91,7 +90,6 @@ class TestAsyncGenerator extends utest.Test {
 					gen.yield(2);
 					throw "oh no";
 					gen.yield(3);
-					null;
 				});
 				iterateGenerator(gen, result.push);
 			}, String);
