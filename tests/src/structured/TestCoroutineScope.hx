@@ -1,5 +1,6 @@
 package structured;
 
+import hxcoro.concurrent.CoroBarrier;
 import hxcoro.dispatchers.TrampolineDispatcher;
 import haxe.coro.Mutex;
 import haxe.Exception;
@@ -184,6 +185,7 @@ class TestCoroutineScope extends utest.Test {
 
 	function test_cancel_due_to_sibling_exception1() {
 		final acc = [];
+		final barrier = new CoroBarrier(2);
 
 		final mutex = new Mutex();
 		function push(v:String) {
@@ -196,6 +198,7 @@ class TestCoroutineScope extends utest.Test {
 			node.async(_ -> {
 				scope(_ -> {
 					push("before yield 2");
+					barrier.arriveAndWait();
 					yield();
 					push("after yield 2");
 					throw new FooException();
@@ -205,6 +208,7 @@ class TestCoroutineScope extends utest.Test {
 			node.async(_ -> {
 				scope(_ -> {
 					push("before yield 1");
+					barrier.arriveAndWait();
 					while (true) {
 						yield();
 					}
@@ -218,6 +222,7 @@ class TestCoroutineScope extends utest.Test {
 
 	function test_cancel_due_to_sibling_exception2() {
 		final acc = [];
+		final barrier = new CoroBarrier(2);
 
 		final mutex = new Mutex();
 		function push(v:String) {
@@ -230,6 +235,7 @@ class TestCoroutineScope extends utest.Test {
 			node.async(_ -> {
 				scope(_ -> {
 					push("before yield 1");
+					barrier.arriveAndWait();
 					while (true) {
 						delay(1);
 					}
@@ -239,6 +245,7 @@ class TestCoroutineScope extends utest.Test {
 			node.async(_ -> {
 				scope(_ -> {
 					push("before yield 2");
+					barrier.arriveAndWait();
 					yield();
 					push("after yield 2");
 					throw new FooException();
