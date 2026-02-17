@@ -56,13 +56,13 @@ class TestAsyncGenerator extends utest.Test {
 		Assert.same([0, 2, 4, 6, 8], actual);
 	}
 
-	@:coroutine function iterateGenerator<T>(gen:AsyncGenerator<T>, f:T -> Void) {
+	@:coroutine static public function iterateGenerator<T>(gen:AsyncGenerator<T>, f:T -> Void) {
 		while (gen.hasNext()) {
 			f(gen.next());
 		}
 	}
 
-	function generatorToArray<T>(gen:AsyncGenerator<T>) {
+	static public function generatorToArray<T>(gen:AsyncGenerator<T>) {
 		final ret = [];
 		CoroRun.run(node -> {
 			while (gen.hasNext()) {

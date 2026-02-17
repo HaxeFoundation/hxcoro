@@ -1,6 +1,7 @@
 package hxcoro.generators;
 
 import haxe.Exception;
+import haxe.Unit;
 import haxe.coro.CoroIntrinsics;
 import haxe.coro.Coroutine;
 import haxe.coro.IContinuation;
@@ -18,7 +19,7 @@ enum abstract AsyncGeneratorState(Int) to Int {
 	final Stopped;
 }
 
-class AsyncGenerator<T> extends SuspensionResult<Iterator<T>> implements IContinuation<Iterable<T>> {
+class AsyncGenerator<T> extends SuspensionResult<Iterator<T>> implements IContinuation<Iterable<T>> implements YieldingGenerator<T, Unit> {
 	public var context(get, null):Context;
 
 	final f:Coroutine<AsyncGenerator<T> -> Iterable<T>>;
@@ -136,7 +137,7 @@ class AsyncGenerator<T> extends SuspensionResult<Iterator<T>> implements IContin
 							nextValue = value;
 							gState.store(ValueAvailable);
 						});
-						return;
+						return Unit;
 					}
 				case AwaitingValue:
 					if (gState.compareExchange(AwaitingValue, Modifying) == AwaitingValue) {
@@ -147,10 +148,10 @@ class AsyncGenerator<T> extends SuspensionResult<Iterator<T>> implements IContin
 							gState.store(ValueAvailable);
 							awaitCont.callAsync();
 						});
-						return;
+						return Unit;
 					}
 				case Stopped:
-					return;
+					return Unit;
 			}
 			BackOff.backOff();
 		}

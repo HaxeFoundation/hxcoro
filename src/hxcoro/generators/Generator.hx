@@ -9,7 +9,7 @@ import hxcoro.Coro.*;
 import hxcoro.dispatchers.SelfDispatcher;
 import hxcoro.schedulers.ImmediateScheduler;
 
-class Generator<T, R> extends SuspensionResult<Iterator<T>> implements IContinuation<Iterable<T>> {
+class Generator<T, R> extends SuspensionResult<Iterator<T>> implements IContinuation<Iterable<T>> implements YieldingGenerator<T, R>{
 	public var context(get, null):Context;
 
 	final f:Coroutine<Generator<T, R> -> Iterable<T>>;
