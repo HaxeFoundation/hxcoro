@@ -62,13 +62,9 @@ class TestAsyncGenerator extends utest.Test {
 	}
 
 	static public function generatorToArray<T>(gen:AsyncGenerator<T>) {
-		final ret = [];
-		CoroRun.run(node -> {
-			while (gen.hasNext()) {
-				ret.push(gen.next());
-			}
+		return CoroRun.run(node -> {
+			[while (gen.hasNext()) gen.next()];
 		});
-		return ret;
 	}
 
 	public function testYieldPlusReturn() {
