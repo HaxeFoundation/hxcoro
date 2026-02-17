@@ -2,7 +2,6 @@ package hxcoro.generators;
 
 import haxe.Exception;
 import haxe.Unit;
-import haxe.coro.CoroIntrinsics;
 import haxe.coro.Coroutine;
 import haxe.coro.IContinuation;
 import haxe.coro.SuspensionResult;
@@ -63,8 +62,8 @@ class AsyncGenerator<T> extends SuspensionResult<Iterator<T>> implements IContin
 		while (true) {
 			switch (gState.load()) {
 				case Created:
-					context = CoroIntrinsics.getContext();
 					suspend(cont -> {
+						context = cont.context;
 						awaitContinuation(cont);
 						start();
 					});
