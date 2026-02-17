@@ -197,10 +197,10 @@ class TestGenerator extends utest.Test {
 		}
 
 		function TakeWhilePositiveAsync(numbers:Iterable<Int>) {
-			return AsyncGenerator.create(gen -> {
+			return AsyncGenerator.create(yield -> {
 				for (n in numbers) {
 					if (n > 0) {
-						gen.yield(n);
+						yield(n);
 					} else {
 						break;
 					}

@@ -35,11 +35,11 @@ class TestAsyncGenerator extends utest.Test {
 		final setup = Setup.createVirtualTrampoline();
 		final actual = [];
 		setup.createContext().runTask(node -> {
-			final gen = AsyncGenerator.create(gen -> {
+			final gen = AsyncGenerator.create(yield -> {
 				var i = 0;
 				while (true) {
 					delay(i * 50);
-					gen.yield(i);
+					yield(i);
 					delay(i * 50);
 					i += 2;
 				}
@@ -68,10 +68,10 @@ class TestAsyncGenerator extends utest.Test {
 	}
 
 	public function testYieldPlusReturn() {
-		final gen = AsyncGenerator.create(gen -> {
-			gen.yield(1);
-			gen.yield(2);
-			gen.yield(3);
+		final gen = AsyncGenerator.create(yield -> {
+			yield(1);
+			yield(2);
+			yield(3);
 			return [4, 5, 6];
 		});
 		Assert.same([1, 2, 3, 4, 5, 6], generatorToArray(gen));
@@ -81,11 +81,11 @@ class TestAsyncGenerator extends utest.Test {
 		final result = [];
 		CoroRun.run(node -> {
 			AssertAsync.raises(() -> {
-				final gen = AsyncGenerator.create(gen -> {
-					gen.yield(1);
-					gen.yield(2);
+				final gen = AsyncGenerator.create(yield -> {
+					yield(1);
+					yield(2);
 					throw "oh no";
-					gen.yield(3);
+					yield(3);
 				});
 				iterateGenerator(gen, result.push);
 			}, String);

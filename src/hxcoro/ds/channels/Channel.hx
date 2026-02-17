@@ -125,11 +125,11 @@ class Channel<T> implements IChannelReader<T> implements IChannelWriter<T> {
 	}
 
 	public function iterator() {
-		return AsyncGenerator.create(gen -> {
+		return AsyncGenerator.create(yield -> {
 			final out = new Out();
 			while (reader.waitForRead()) {
 				while (reader.tryRead(out)) {
-					gen.yield(out.get());
+					yield(out.get());
 				}
 			}
 		});

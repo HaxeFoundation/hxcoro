@@ -157,14 +157,20 @@ class AsyncGenerator<T> extends SuspensionResult<Iterator<T>> implements IContin
 		}
 	}
 
-	extern static inline overload public function create<T>(f:Coroutine<AsyncGenerator<T> -> Null<Iterable<T>>>) {
+	extern static inline overload public function create<T>(f:Coroutine<AsyncGeneratorApi<T> -> Null<Iterable<T>>>) {
 		return new AsyncGenerator(f);
 	}
 
-	extern static inline overload public function create<T>(f:Coroutine<AsyncGenerator<T> -> Void>) {
+	extern static inline overload public function create<T>(f:Coroutine<AsyncGeneratorApi<T> -> Void>) {
 		return new AsyncGenerator(gen -> {
 			f(gen);
 			null;
 		});
+	}
+}
+
+abstract AsyncGeneratorApi<T>(AsyncGenerator<T>) to AsyncGenerator<T> from AsyncGenerator<T> {
+	@:op(a()) @:coroutine function yield(value:T) {
+		this.yield(value);
 	}
 }
