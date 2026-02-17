@@ -43,6 +43,7 @@ class TestAsyncGenerator extends utest.Test {
 					delay(i * 50);
 					i += 2;
 				}
+				null;
 			});
 			while (gen.hasNext()) {
 				var value = gen.next();
@@ -53,5 +54,44 @@ class TestAsyncGenerator extends utest.Test {
 			}
 		});
 		Assert.same([0, 2, 4, 6, 8], actual);
+	}
+
+	@:coroutine function iterateGenerator<T>(gen:AsyncGenerator<T>, f:T -> Void) {
+		while (gen.hasNext()) {
+			f(gen.next());
+		}
+	}
+
+	function generatorToArray<T>(gen:AsyncGenerator<T>) {
+		final ret = [];
+		CoroRun.run(node -> iterateGenerator(gen, ret.push));
+		return ret;
+	}
+
+	public function testYieldPlusReturn() {
+		final gen = AsyncGenerator.create(gen -> {
+			gen.yield(1);
+			gen.yield(2);
+			gen.yield(3);
+			return [4, 5, 6];
+		});
+		Assert.same([1, 2, 3, 4, 5, 6], generatorToArray(gen));
+	}
+
+	function testException() {
+		final result = [];
+		CoroRun.run(node -> {
+			AssertAsync.raises(() -> {
+				final gen = AsyncGenerator.create(gen -> {
+					gen.yield(1);
+					gen.yield(2);
+					throw "oh no";
+					gen.yield(3);
+					null;
+				});
+				iterateGenerator(gen, result.push);
+			}, String);
+		});
+		Assert.same([1, 2], result);
 	}
 }
