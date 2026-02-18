@@ -15,8 +15,10 @@ hxcoro is a coroutine library for Haxe that provides generators, async generator
 
 **ALWAYS** ensure these tools are set up before building or testing:
 1. Haxe compiler (latest version recommended)
+   - Latest version: https://build.haxe.org/builds/haxe/linux64/haxe_latest.tar.gz (includes haxelib binary)
 2. Neko VM
-3. haxelib package manager
+   - Latest version: https://build.haxe.org/builds/neko/linux64/neko_latest.tar.gz
+3. haxelib package manager (included with Haxe)
 
 For target-specific builds:
 - **HashLink (hl):** Requires HashLink runtime (the CI uses nightly version as specified in the workflow)
@@ -55,9 +57,9 @@ Tests are located in the `tests/` directory. To run tests for a specific target:
 haxe --cwd tests build-<target>.hxml
 ```
 
-Where `<target>` is one of: `eval`, `js`, `hl`, `hlc`, `cpp`, `jvm`, `php`, `python`, `neko`, `cs`, `lua`
+Where `<target>` is one of: `eval`, `js`, `hl`, `hlc`, `cpp`, `jvm`, `php`, `python`, `neko`, `lua`
 
-**Note:** The CI primarily tests: `eval`, `js`, `hl`, `cpp`, `jvm`, `php`, `python`, `neko`. Other targets like `cs`, `lua`, and `hlc` have build files but may not be regularly tested in CI.
+**Note:** The CI primarily tests: `eval`, `js`, `hl`, `cpp`, `jvm`, `php`, `python`, `neko`. Other targets like `lua` and `hlc` have build files but may not be regularly tested in CI. The `cs` (C#) target is still in development and should be ignored for now.
 
 **Example:**
 ```bash
@@ -103,10 +105,10 @@ The repository uses GitHub Actions for CI (`.github/workflows/main.yml`). The CI
 │       ├── Coro.hx           # Core coroutine utilities and suspend functions
 │       ├── CoroRun.hx        # Coroutine execution utilities
 │       ├── generators/       # Generator implementations
-│       │   ├── Generator.hx         # Basic generator
-│       │   ├── AsyncGenerator.hx    # Async generator
+│       │   ├── Generator.hx         # Synchronous generator (restricted suspension)
+│       │   ├── AsyncGenerator.hx    # Asynchronous generator
 │       │   ├── YieldingGenerator.hx # Yielding interface
-│       │   └── ...          # Target-specific generators (Es6, Cs, Haxe)
+│       │   └── ...          # API-style variants (Es6Generator, CsGenerator, HaxeGenerator)
 │       ├── dispatchers/      # Execution dispatchers
 │       │   ├── SelfDispatcher.hx
 │       │   ├── TrampolineDispatcher.hx
@@ -120,7 +122,7 @@ The repository uses GitHub Actions for CI (`.github/workflows/main.yml`). The CI
 │       ├── concurrent/       # Concurrency primitives
 │       │   ├── CoroLatch.hx
 │       │   ├── Tls.hx        # Thread-local storage
-│       │   └── BackOff.hx
+│       │   └── BackOff.hx    # Used in busy-loops (e.g., CAS loops) to avoid GC deadlocks
 │       ├── task/             # Task abstractions
 │       ├── exceptions/       # Exception types
 │       └── ...
@@ -137,12 +139,15 @@ The repository uses GitHub Actions for CI (`.github/workflows/main.yml`). The CI
 
 ### Key Architectural Concepts
 
-1. **Generators:** The library provides several generator implementations that support yielding values from coroutines. The base `Generator<T, R>` class in `src/hxcoro/generators/Generator.hx` implements both `Iterator<T>` and `IContinuation<Iterable<T>>`.
-
-2. **Coroutines:** Use the `@:coroutine` metadata on methods. The `Coro` class provides key primitives:
+1. **Coroutines:** The primary focus of this library. Use the `@:coroutine` metadata on methods. The `Coro` class provides key primitives:
    - `suspend()`: Basic suspension point
    - `suspendCancellable()`: Cancellable suspension with cleanup
    - `delay()`: Async delay primitive
+
+2. **Generators:** A use-case for coroutines that support yielding values. Two main types:
+   - `Generator<T, R>`: Synchronous generator requiring Kotlin-style restricted suspension
+   - `AsyncGenerator<T, R>`: Asynchronous generator
+   - Additional API-style variants (Es6Generator, CsGenerator, HaxeGenerator) provide different interfaces but work on any target
 
 3. **Dispatchers:** Control coroutine execution context. Available dispatchers include:
    - `SelfDispatcher`: Synchronous execution
