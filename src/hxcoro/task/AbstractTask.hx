@@ -161,9 +161,10 @@ abstract class AbstractTask implements ICancellationToken {
 	**/
 	public final function start() {
 		if (state.compareExchange(Created, Running) == Created) {
-			doStart();
 			if (parent != null && parent.isCancelling()) {
 				cancel();
+			} else {
+				doStart();
 			}
 		}
 	}
