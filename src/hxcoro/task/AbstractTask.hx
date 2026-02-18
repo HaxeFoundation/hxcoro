@@ -57,7 +57,7 @@ abstract class AbstractTask implements ICancellationToken {
 
 	final numActiveChildren:AtomicInt;
 	final firstChild:AtomicObject<Null<AbstractTask>>;
-	var nextSibling:Null<AbstractTask>;
+	final nextSibling:AtomicObject<Null<AbstractTask>>;
 
 	function get_cancellationException() {
 		return switch (error.load()) {
@@ -81,6 +81,7 @@ abstract class AbstractTask implements ICancellationToken {
 		cancellationManager = new TaskCancellationManager(this);
 		numActiveChildren = new AtomicInt(0);
 		firstChild = new AtomicObject(null);
+		nextSibling = new AtomicObject(null);
 		// The correct order of operations here is:
 		// 1. Add child to parent
 		// 2. Start the child, if needed
@@ -183,7 +184,7 @@ abstract class AbstractTask implements ICancellationToken {
 
 		do {
 			child.cancel(cause);
-			child = child.nextSibling;
+			child = child.nextSibling.load();
 		} while(child != null);
 	}
 
@@ -191,7 +192,7 @@ abstract class AbstractTask implements ICancellationToken {
 		var child = firstChild.load();
 		while (child != null) {
 			child.start();
-			child = child.nextSibling;
+			child = child.nextSibling.load();
 		}
 	}
 
@@ -285,22 +286,21 @@ abstract class AbstractTask implements ICancellationToken {
 			f(firstChild);
 		}
 		var prev = firstChild;
-		var current = firstChild.nextSibling;
+		var current = firstChild.nextSibling.load();
 
 		while (current != null) {
 			if (!current.isActive()) {
-				prev.nextSibling = current.nextSibling;
+				prev.nextSibling.store(current.nextSibling.load());
 			} else {
 				f(current);
+				prev = current;
 			}
-			current = current.nextSibling;
+			current = current.nextSibling.load();
 		}
 	}
 
-	// single-threaded
-
 	function addChild(child:AbstractTask) {
-		child.nextSibling = firstChild.exchange(child);
+		child.nextSibling.store(firstChild.exchange(child));
 		numActiveChildren.add(1);
 	}
 }
