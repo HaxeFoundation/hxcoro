@@ -161,9 +161,14 @@ abstract class AbstractTask implements ICancellationToken {
 	**/
 	public final function start() {
 		if (state.compareExchange(Created, Running) == Created) {
+			// Check if parent is cancelling and attempt to cancel this task before starting.
+			// If the task has NonCancellable context, doCancel() will return early and
+			// isCancelling() will still be false, allowing the task to start.
 			if (parent != null && parent.isCancelling()) {
 				cancel();
-			} else {
+			}
+			// Only start if the task wasn't successfully cancelled
+			if (!isCancelling()) {
 				doStart();
 			}
 		}
