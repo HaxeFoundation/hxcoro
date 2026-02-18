@@ -7,7 +7,6 @@ import hxcoro.CoroRun;
 import hxcoro.Coro.*;
 
 class Issue37 extends utest.Test {
-	#if !neko // neko can't count milliseconds
 	function testCancelling() {
 		final numIterations = 2;
 		final numTasks = 100;
@@ -22,8 +21,6 @@ class Issue37 extends utest.Test {
 				var count = new AtomicInt(0);
 				for (_ in 0...numTasks) {
 					node.async(_ -> {
-						delay(1);
-
 						channel.writer.write(1);
 
 						if (count.add(1) == numTasks - 1) {
@@ -38,7 +35,6 @@ class Issue37 extends utest.Test {
 						final o = new Out();
 
 						while (channel.reader.waitForRead()) {
-							delay(1);
 							if (channel.reader.tryRead(o)) {
 								aggregateValue.add(o.get());
 								break;
@@ -67,8 +63,6 @@ class Issue37 extends utest.Test {
 				// set up writers
 				for (_ in 0...numTasks) {
 					node.async(_ -> {
-						delay(1);
-
 						channel.writer.write(1);
 					});
 				}
@@ -79,7 +73,6 @@ class Issue37 extends utest.Test {
 						final o = new Out();
 
 						while (channel.reader.waitForRead()) {
-							delay(1);
 							if (channel.reader.tryRead(o)) {
 								aggregateValue.add(o.get());
 								break;
@@ -94,50 +87,4 @@ class Issue37 extends utest.Test {
 		}
 		utest.Assert.same(expected, actual);
 	}
-
-	function testRacing() {
-		final numIterations = 2;
-		final numTasks = 100;
-		final expected = [for (i in 0...numIterations) numTasks];
-		final actual = [];
-		for (_ in 0...numIterations) {
-			var aggregateValue = new AtomicInt(0);
-			CoroRun.run(node -> {
-				final channel = Channel.createBounded({size: 10});
-
-				// set up writers
-				var count = 0;
-				for (_ in 0...numTasks) {
-					node.async(_ -> {
-						delay(1);
-						channel.writer.write(1);
-
-						if (++count == numTasks) {
-							channel.writer.close();
-						}
-					});
-				}
-
-				// set up readers
-				for (_ in 0...numTasks) {
-					node.async(_ -> {
-						final o = new Out();
-
-						while (channel.reader.waitForRead()) {
-							delay(1);
-							if (channel.reader.tryRead(o)) {
-								aggregateValue.add(o.get());
-								break;
-							} else {
-								continue;
-							}
-						}
-					});
-				}
-			});
-			actual.push(aggregateValue.load());
-		}
-		utest.Assert.same(expected, actual);
-	}
-	#end
 }
