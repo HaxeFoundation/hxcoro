@@ -288,53 +288,22 @@ abstract class AbstractTask implements ICancellationToken {
 	}
 
 	public function iterateChildren(f:AbstractTask -> Void) {
-		// Load the first child from the atomic wrapper
-		var firstChildTask = firstChild.load();
-		if (firstChildTask == null) {
+		final firstChild = firstChild.load();
+		if (firstChild == null) {
 			return;
+		} else if (firstChild.isActive()) {
+			f(firstChild);
 		}
-
-		// Handle inactive first child by attempting to unlink it
-		while (firstChildTask != null && !firstChildTask.isActive()) {
-			final next = firstChildTask.nextSibling.load();
-			if (firstChild.compareExchange(firstChildTask, next) == firstChildTask) {
-				// Successfully unlinked the inactive first child
-				firstChildTask = next;
-			} else {
-				// Another thread modified firstChild, reload and retry
-				firstChildTask = firstChild.load();
-			}
-		}
-
-		if (firstChildTask == null) {
-			return;
-		}
-
-		// First child is now active, process it
-		f(firstChildTask);
-
-		// Iterate through remaining siblings
-		var prev = firstChildTask;
-		var current = firstChildTask.nextSibling.load();
+		var prev = firstChild;
+		var current = firstChild.nextSibling.load();
 
 		while (current != null) {
 			if (!current.isActive()) {
-				// compareExchange returns the old value before the exchange attempt.
-				// If it returns 'current', the CAS succeeded and current has been unlinked.
-				final next = current.nextSibling.load();
-				if (prev.nextSibling.compareExchange(current, next) == current) {
-					// Successfully unlinked current, prev stays the same
-					current = next;
-				} else {
-					// Another thread modified the list, reload from prev
-					current = prev.nextSibling.load();
-				}
+				prev.nextSibling.store(current.nextSibling.load());
 			} else {
 				f(current);
-				prev = current;
-				// Reload from prev to ensure we have the current state after f() executes
-				current = prev.nextSibling.load();
 			}
+			current = current.nextSibling.load();
 		}
 	}
 
