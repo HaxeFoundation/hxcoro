@@ -21,8 +21,6 @@ class Issue37 extends utest.Test {
 				var count = new AtomicInt(0);
 				for (_ in 0...numTasks) {
 					node.async(_ -> {
-						delay(1);
-
 						channel.writer.write(1);
 
 						if (count.add(1) == numTasks - 1) {
@@ -65,8 +63,6 @@ class Issue37 extends utest.Test {
 				// set up writers
 				for (_ in 0...numTasks) {
 					node.async(_ -> {
-						delay(1);
-
 						channel.writer.write(1);
 					});
 				}
