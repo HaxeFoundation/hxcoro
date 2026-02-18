@@ -1,19 +1,20 @@
 package hxcoro.ds.channels;
 
-import haxe.coro.Mutex;
 import haxe.coro.IContinuation;
+import haxe.coro.Mutex;
 import haxe.exceptions.ArgumentException;
+import hxcoro.concurrent.AtomicObject;
+import hxcoro.ds.CircularBuffer;
 import hxcoro.ds.Out;
 import hxcoro.ds.PagedDeque;
-import hxcoro.ds.CircularBuffer;
+import hxcoro.ds.channels.bounded.AtomicChannelState;
 import hxcoro.ds.channels.bounded.BoundedReader;
 import hxcoro.ds.channels.bounded.BoundedWriter;
 import hxcoro.ds.channels.bounded.SingleBoundedReader;
-import hxcoro.ds.channels.bounded.AtomicChannelState;
 import hxcoro.ds.channels.bounded.SingleBoundedWriter;
 import hxcoro.ds.channels.unbounded.UnboundedReader;
 import hxcoro.ds.channels.unbounded.UnboundedWriter;
-import hxcoro.concurrent.AtomicObject;
+import hxcoro.generators.AsyncGenerator;
 
 typedef DropCallback<T> = (dropped : T)->Void;
 
@@ -121,5 +122,16 @@ class Channel<T> implements IChannelReader<T> implements IChannelWriter<T> {
 
 	public function close() {
 		writer.close();
+	}
+
+	public function iterator() {
+		return AsyncGenerator.create(yield -> {
+			final out = new Out();
+			while (reader.waitForRead()) {
+				while (reader.tryRead(out)) {
+					yield(out.get());
+				}
+			}
+		});
 	}
 }

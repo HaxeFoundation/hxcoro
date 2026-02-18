@@ -5,7 +5,7 @@ package hxcoro.generators;
 **/
 @:coroutine.restrictedSuspension
 @:transitive
-abstract Yield<T, R>(Generator<T, R>) to Generator<T, R> from Generator<T, R> {
+abstract Yield<T, R>(YieldingGenerator<T, R>) to YieldingGenerator<T, R> from YieldingGenerator<T, R> {
 	@:op(a()) @:coroutine function next(value:T):Void {
 		this.yield(value);
 	}

@@ -1,4 +1,6 @@
-import hxcoro.generators.Generator;
+package generators;
+
+import hxcoro.generators.AsyncGenerator;
 import hxcoro.generators.Yield;
 import hxcoro.generators.HaxeGenerator;
 import hxcoro.generators.Es6Generator;
@@ -52,9 +54,16 @@ class TestGenerator extends utest.Test {
 			});
 		}
 
+		function iterTreeAsync<T>(tree:Tree<T>) {
+			return AsyncGenerator.create(yield -> {
+				iterTreeRec(yield, tree);
+			});
+		}
+
 		Assert.same([1,2,3,4,5,6,7], [for (v in iterTreeHaxe(tree)) v]);
 		Assert.same([1,2,3,4,5,6,7], [for (v in iterTreeEs6(tree)) v]);
 		Assert.same([1,2,3,4,5,6,7], [for (v in iterTreeCs(tree)) v]);
+		Assert.same([1,2,3,4,5,6,7], TestAsyncGenerator.generatorToArray(iterTreeAsync(tree)));
 	}
 
 	function testException() {
@@ -187,6 +196,19 @@ class TestGenerator extends utest.Test {
 			});
 		}
 
+		function TakeWhilePositiveAsync(numbers:Iterable<Int>) {
+			return AsyncGenerator.create(yield -> {
+				for (n in numbers) {
+					if (n > 0) {
+						yield(n);
+					} else {
+						break;
+					}
+				}
+				return null;
+			});
+		}
+
 		final arrays = [
 			[2, 3, 4, 5, -1, 3, 4],
 			[9, 8, 7]
@@ -199,6 +221,7 @@ class TestGenerator extends utest.Test {
 			Assert.same(expected[i], TakeWhilePositiveHaxe(arrays[i]).array());
 			Assert.same(expected[i], TakeWhilePositiveCs(arrays[i]).array());
 			Assert.same(expected[i], TakeWhilePositiveEs6(arrays[i]).array());
+			Assert.same(expected[i], TestAsyncGenerator.generatorToArray(TakeWhilePositiveAsync(arrays[i])));
 		}
 	}
 }

@@ -10,9 +10,6 @@ function main() {
 		new TestHoisting(),
 		new TestMisc(),
 		new TestTexpr(),
-		#if !hl
-		new TestGenerator(),
-		#end
 		#if js
 		new TestJsPromise(),
 		#end
@@ -31,6 +28,9 @@ function main() {
 	runner.addCases("ds");
 	runner.addCases("elements");
 	runner.addCases("features");
+	#if !hl // TODO: ping Yuxiao about this
+	runner.addCases("generators");
+	#end
 	runner.addCases("run");
 	runner.addCases("schedulers");
 	runner.addCases("structured");
