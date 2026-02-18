@@ -323,7 +323,8 @@ abstract class AbstractTask implements ICancellationToken {
 			} else {
 				f(current);
 				prev = current;
-				current = current.nextSibling.load();
+				// Reload from prev to ensure we have the current state after f() executes
+				current = prev.nextSibling.load();
 			}
 		}
 	}
