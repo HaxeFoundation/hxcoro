@@ -51,6 +51,7 @@ class Generator<T, R> extends SuspensionResult<Iterator<T>> implements IContinua
 		return nextWith(null);
 	}
 
+	@:nullSafety(Off)
 	public function nextWith(value:Null<R>) {
 		return switch (state) {
 			case Pending:

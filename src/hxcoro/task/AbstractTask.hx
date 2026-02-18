@@ -78,7 +78,7 @@ abstract class AbstractTask implements ICancellationToken {
 		this.parent = parent;
 		state = new AtomicState(Created);
 		error = new AtomicObject(null);
-		cancellationManager = new TaskCancellationManager(this);
+		cancellationManager = @:nullSafety(Off) new TaskCancellationManager(this);
 		numActiveChildren = new AtomicInt(0);
 		firstChild = new AtomicObject(null);
 		// The correct order of operations here is:
@@ -151,7 +151,7 @@ abstract class AbstractTask implements ICancellationToken {
 		return error.load() != null;
 	}
 
-	public function onCancellationRequested(callback:ICancellationCallback):ICancellationHandle {
+	public function onCancellationRequested(callback:ICancellationCallback):Null<ICancellationHandle> {
 		return cancellationManager.add(callback);
 	}
 

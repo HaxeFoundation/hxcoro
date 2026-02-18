@@ -114,7 +114,7 @@ class DispatcherConvenience {
 		return dispatcher.dispatch(new FunctionDispatchObject(f));
 	}
 
-	static public inline function dispatchContinuation<T>(dispatcher: Dispatcher, cont:IContinuation<T>, result:T, error:Exception) {
+	static public inline function dispatchContinuation<T>(dispatcher: Dispatcher, cont:IContinuation<T>, result:Null<T>, error:Null<Exception>) {
 		dispatcher.dispatch(new ContinuationDispatchObject(cont, result, error));
 	}
 }

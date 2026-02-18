@@ -21,7 +21,7 @@ class ImmediateScheduler implements IScheduler implements ISchedulerHandle {
 		Dispatches `cont` immediately, ignoring `ms`.
 	**/
 	public function schedule(ms:Int64, cont:IContinuation<Any>) {
-		cont.context.get(Dispatcher).dispatchContinuation(cont, null, null);
+		cont.context.get(Dispatcher)?.dispatchContinuation(cont, null, null);
 		return this;
 	}
 

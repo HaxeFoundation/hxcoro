@@ -36,7 +36,7 @@ class CancellingContinuation<T> extends SuspensionResult<T> implements IContinua
 		return cont.context;
 	}
 
-	public var onCancellationRequested (default, set) : CancellationException->Void;
+	public var onCancellationRequested (default, set) : Null<CancellationException->Void>;
 
 	function set_onCancellationRequested(f : CancellationException->Void) {
 		return switch (cancellationToken?.cancellationException) {

@@ -89,7 +89,7 @@ class FixedThreadPool implements IThreadPool {
 		if(obj == null) {
 			throw new ThreadPoolException('Task to run must not be null.');
 		}
-		queueTls.value.add(obj);
+		@:nullSafety(Off) queueTls.value.add(obj);
 		semaphore.release();
 	}
 
@@ -132,7 +132,7 @@ class FixedThreadPool implements IThreadPool {
 		Sys.println('\ttotal worker loops: $totalLoops');
 		Sys.println('\ttotal worker dispatches: $totalDispatches');
 		Sys.print('\tqueue 0: ');
-		queueTls.value.dump();
+		queueTls.value?.dump();
 		for (worker in pool) {
 			final loopShare = worker.numLooped * 100 / totalLoops;
 			final dispatchShare = worker.numDispatched * 100 / totalDispatches;
