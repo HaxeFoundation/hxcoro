@@ -291,12 +291,19 @@ abstract class AbstractTask implements ICancellationToken {
 
 		while (current != null) {
 			if (!current.isActive()) {
-				prev.nextSibling.store(current.nextSibling.load());
+				// Use compareExchange to ensure we're unlinking the expected node.
+				// If current has been modified by another thread, we skip the unlink.
+				final next = current.nextSibling.load();
+				if (prev.nextSibling.compareExchange(current, next) != current) {
+					// Another thread modified the list, skip this unlink
+					prev = current;
+				}
+				current = next;
 			} else {
 				f(current);
 				prev = current;
+				current = current.nextSibling.load();
 			}
-			current = current.nextSibling.load();
 		}
 	}
 
