@@ -6,7 +6,7 @@ hxcoro is a coroutine library for Haxe that provides generators, async generator
 
 **Project Type:** Haxe library
 **Language:** Haxe
-**License:** GPL
+**License:** GPL (see haxelib.json)
 **Repository Size:** Small to medium-sized library focused on coroutine implementation
 
 ## Build and Test Instructions
@@ -19,7 +19,7 @@ hxcoro is a coroutine library for Haxe that provides generators, async generator
 3. haxelib package manager
 
 For target-specific builds:
-- **HashLink (hl):** Requires HashLink runtime (nightly version)
+- **HashLink (hl):** Requires HashLink runtime (the CI uses nightly version as specified in the workflow)
 - **C++ (cpp):** Requires hxcpp library and hxcpp_luv_io
 - **JVM (jvm):** Requires hxjava library
 
