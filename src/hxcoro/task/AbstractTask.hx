@@ -170,6 +170,9 @@ abstract class AbstractTask implements ICancellationToken {
 			// Only start if the task wasn't successfully cancelled
 			if (!isCancelling()) {
 				doStart();
+			} else if (state.compareExchange(Running, Cancelling) == Running) {
+				// If the task started but was already cancelling, transition to Cancelling state.
+				checkCompletion();
 			}
 		}
 	}
@@ -290,7 +293,7 @@ abstract class AbstractTask implements ICancellationToken {
 		if (firstChildTask == null) {
 			return;
 		}
-		
+
 		// Handle inactive first child by attempting to unlink it
 		while (firstChildTask != null && !firstChildTask.isActive()) {
 			final next = firstChildTask.nextSibling.load();
@@ -302,14 +305,14 @@ abstract class AbstractTask implements ICancellationToken {
 				firstChildTask = firstChild.load();
 			}
 		}
-		
+
 		if (firstChildTask == null) {
 			return;
 		}
-		
+
 		// First child is now active, process it
 		f(firstChildTask);
-		
+
 		// Iterate through remaining siblings
 		var prev = firstChildTask;
 		var current = firstChildTask.nextSibling.load();
