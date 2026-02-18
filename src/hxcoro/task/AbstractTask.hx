@@ -280,20 +280,38 @@ abstract class AbstractTask implements ICancellationToken {
 
 	public function iterateChildren(f:AbstractTask -> Void) {
 		// Load the first child from the atomic wrapper
-		final firstChildTask = firstChild.load();
+		var firstChildTask = firstChild.load();
 		if (firstChildTask == null) {
 			return;
-		} else if (firstChildTask.isActive()) {
-			f(firstChildTask);
 		}
+		
+		// Handle inactive first child by attempting to unlink it
+		while (firstChildTask != null && !firstChildTask.isActive()) {
+			final next = firstChildTask.nextSibling.load();
+			if (firstChild.compareExchange(firstChildTask, next) == firstChildTask) {
+				// Successfully unlinked the inactive first child
+				firstChildTask = next;
+			} else {
+				// Another thread modified firstChild, reload and retry
+				firstChildTask = firstChild.load();
+			}
+		}
+		
+		if (firstChildTask == null) {
+			return;
+		}
+		
+		// First child is now active, process it
+		f(firstChildTask);
+		
+		// Iterate through remaining siblings
 		var prev = firstChildTask;
 		var current = firstChildTask.nextSibling.load();
 
 		while (current != null) {
 			if (!current.isActive()) {
-				// Use compareExchange to ensure we're unlinking the expected node.
-				// If the CAS succeeds, we've unlinked current and can move to next.
-				// If it fails, another thread modified the list, so we reload and continue.
+				// compareExchange returns the old value before the exchange attempt.
+				// If it returns 'current', the CAS succeeded and current has been unlinked.
 				final next = current.nextSibling.load();
 				if (prev.nextSibling.compareExchange(current, next) == current) {
 					// Successfully unlinked current, prev stays the same
