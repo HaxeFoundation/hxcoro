@@ -33,12 +33,18 @@ haxelib git utest https://github.com/haxe-utest/utest.git
 haxelib dev hxcoro .
 ```
 
-For C++ target, additionally run:
+For target-specific dependencies:
+
+**C++ target:**
 ```bash
-haxelib install hxjava  # for JVM
 haxelib git hxcpp https://github.com/HaxeFoundation/hxcpp.git
 haxe --cwd .haxelib/hxcpp/git/tools/hxcpp compile.hxml
 haxelib git hxcpp_luv_io https://github.com/Aidan63/hxcpp_luv_io
+```
+
+**JVM target:**
+```bash
+haxelib install hxjava
 ```
 
 ### Running Tests
@@ -49,7 +55,9 @@ Tests are located in the `tests/` directory. To run tests for a specific target:
 haxe --cwd tests build-<target>.hxml
 ```
 
-Where `<target>` is one of: `eval`, `js`, `hl`, `cpp`, `jvm`, `php`, `python`, `neko`, `cs`, `lua`
+Where `<target>` is one of: `eval`, `js`, `hl`, `hlc`, `cpp`, `jvm`, `php`, `python`, `neko`, `cs`, `lua`
+
+**Note:** The CI primarily tests: `eval`, `js`, `hl`, `cpp`, `jvm`, `php`, `python`, `neko`. Other targets like `cs`, `lua`, and `hlc` have build files but may not be regularly tested in CI.
 
 **Example:**
 ```bash
@@ -68,7 +76,7 @@ haxe --cwd tests build-<target>.hxml --hxb bin/test.hxb
 haxe --cwd tests build-<target>.hxml --hxb-lib bin/test.hxb
 ```
 
-**Note:** For C++ target, skip the initial debug build step.
+**C++ Target Specific:** According to the CI workflow, when testing the C++ target, skip the debug mode build (the `-debug` flag variation) and proceed directly with the standard build.
 
 ### CI Pipeline
 
