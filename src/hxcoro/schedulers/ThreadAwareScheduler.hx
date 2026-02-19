@@ -195,11 +195,13 @@ class ThreadAwareScheduler implements IScheduler implements ILoop {
 			}
 			current = current.next;
 		}
+		currentEvent.next = null;
 		var event:Null<ScheduledEvent> = rootEvent;
 		var didSomething = false;
 		while (true) {
 			event = event.next;
 			if (event == null) {
+				rootEvent.next = null;
 				return didSomething;
 			}
 			didSomething = true;
