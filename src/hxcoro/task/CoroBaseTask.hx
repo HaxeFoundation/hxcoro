@@ -7,7 +7,6 @@ import haxe.coro.context.Context;
 import haxe.coro.context.IElement;
 import haxe.coro.context.Key;
 import haxe.exceptions.CancellationException;
-import hxcoro.concurrent.AtomicObject;
 import hxcoro.concurrent.ThreadSafeCallbacks;
 import hxcoro.continuations.FunctionContinuation;
 import hxcoro.elements.NonCancellable;
@@ -40,7 +39,7 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 
 	final nodeStrategy:INodeStrategy;
 	final awaitingContinuations:TaskContinuationManager;
-	final awaitingChildContinuation:AtomicObject<Null<IContinuation<Any>>>;
+	var awaitingChildContinuation:Null<IContinuation<Any>>;
 	var result:Null<T>;
 
 	/**
@@ -51,7 +50,6 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 		this.context = context.clone().with(this).set(CancellationToken, this);
 		this.nodeStrategy = nodeStrategy;
 		awaitingContinuations = new TaskContinuationManager(this);
-		awaitingChildContinuation = new AtomicObject(null);
 		super(parent, initialState);
 	}
 
@@ -132,16 +130,13 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 	@:coroutine public function awaitChildren() {
 		startChildren();
 		Coro.suspend(cont -> {
-			// Preemptively set the value in case `childrenCompleted` happens.
-			awaitingChildContinuation.store(cont);
-			if (firstChild.load() == null) {
-				// There's no child now and we know that none can appear because this
-				// function is part of the single-threaded API. However, we don't know
-				// if `childrenCompleted` might have occured, so we need to synchronize.
-				if (awaitingChildContinuation.exchange(null) == cont) {
+			switch (lockChildren()) {
+				case 0:
 					cont.callAsync();
-				}
-				return;
+					numActiveChildren.store(0);
+				case activeChildren:
+					awaitingChildContinuation = cont;
+					numActiveChildren.store(activeChildren);
 			}
 		});
 	}
@@ -158,8 +153,12 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 	}
 
 	function childrenCompleted() {
-		final cont = awaitingChildContinuation.exchange(null);
-		cont?.callSync();
+		// The numActiveChildren lock is active while we're here, so this modification is safe
+		final cont = awaitingChildContinuation;
+		if (cont != null) {
+			awaitingChildContinuation = null;
+			cont.callAsync();
+		}
 	}
 
 	final function beginCompleting(result:T) {
