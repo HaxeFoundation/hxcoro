@@ -1,0 +1,11 @@
+steps:
+  - name: Setup Haxe (nightly) and Neko
+    uses: kLabz/setup-haxe@neko-latest
+    with:
+      haxe-version: "latest"
+
+  - name: Setup haxelib
+    run: |
+      haxelib newrepo
+      haxelib git utest https://github.com/haxe-utest/utest.git
+      haxelib dev hxcoro .
