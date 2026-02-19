@@ -19,8 +19,7 @@ private class CircularQueueData {
 	public var storage:CircularVector<ScheduledEvent>;
 
 	public function new() {
-		read = 0;
-		write = 0; // TODO: chain should work
+		read = write = 0;
 		storage = CircularVector.create(1);
 	}
 }
