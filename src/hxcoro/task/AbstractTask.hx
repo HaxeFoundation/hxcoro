@@ -200,12 +200,7 @@ abstract class AbstractTask implements ICancellationToken {
 			case activeChildren:
 				cause ??= new CancellationException();
 				// Collect children, then unlock and cancel them
-				final children = [];
-				var child = firstChild;
-				do {
-					children.push(child);
-					child = child.nextSibling;
-				} while(child != null);
+				final children = getCurrentChildren();
 				numActiveChildren.store(activeChildren);
 				for (child in children) {
 					child.cancel(cause);
@@ -220,17 +215,23 @@ abstract class AbstractTask implements ICancellationToken {
 				return;
 			case activeChildren:
 				// Collect children, then unlock and start them
-				final children = [];
-				var child = firstChild;
-				while (child != null) {
-					children.push(child);
-					child = child.nextSibling;
-				}
+				final children = getCurrentChildren();
 				numActiveChildren.store(activeChildren);
 				for (child in children) {
 					child.start();
 				}
 		}
+	}
+
+	function getCurrentChildren() {
+		// Only safe to call if numActiveChildren is locked
+		final children = [];
+		var child = firstChild;
+		while (child != null) {
+			children.push(child);
+			child = child.nextSibling;
+		}
+		return children;
 	}
 
 	final function checkCompletion() {
