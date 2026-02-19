@@ -7,7 +7,7 @@ class MinimumHeap {
 	var length:Int;
 
 	public function new() {
-		storage = @:nullSafety(Off) new Vector(16);
+		storage = new Vector(16);
 		length = 0;
 	}
 
@@ -33,7 +33,7 @@ class MinimumHeap {
 
 	function ensureCapacity() {
 		if (length == storage.length) {
-			final newStorage = @:nullSafety(Off) new Vector(storage.length << 1);
+			final newStorage = new Vector(storage.length << 1);
 			Vector.blit(storage, 0, newStorage, 0, storage.length);
 			storage = newStorage;
 		}
