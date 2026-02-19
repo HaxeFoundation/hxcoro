@@ -10,14 +10,14 @@ class Issue106 extends utest.Test {
 	public function test() {
 		final scheduler   = new VirtualTimeScheduler();
 		final dispatcher  = new TrampolineDispatcher(scheduler);
-		final numChildren = 1000;
+		final numChildrenHalved = 500;
+		final numChildren = numChildrenHalved * 2;
 
 		final task = CoroRun.with(dispatcher).createTask(node -> {
 			var k = 0;
-			for (_ in 0...numChildren) {
+			for (i in 0...numChildren) {
 				node.async(_ -> {
-					// https://github.com/Aidan63/haxe/issues/98 prevents writing a test utilizing loop variables
-					delay(Math.random() > 0.5 ? 5 : 10);
+					delay(i & 1 == 1 ? 5 : 10);
 					k++;
 				});
 			}
@@ -29,18 +29,13 @@ class Issue106 extends utest.Test {
 
 		scheduler.advanceTo(5);
 
-		atask.iterateChildren(child -> {
-			Assert.isTrue(child.isActive());
-		});
+		final children = @:privateAccess atask.getCurrentChildren();
+		Assert.equals(numChildrenHalved, children.length);
 
 		scheduler.advanceTo(10);
 
-		var count = 0;
-		atask.iterateChildren(child -> {
-			count++;
-		});
-
-		Assert.equals(0, count);
+		final children = @:privateAccess atask.getCurrentChildren();
+		Assert.equals(0, children.length);
 
 		scheduler.advanceTo(11);
 		Assert.equals(numChildren, task.get());
