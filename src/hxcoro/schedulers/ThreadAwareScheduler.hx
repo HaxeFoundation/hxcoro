@@ -201,6 +201,7 @@ class ThreadAwareScheduler implements IScheduler implements ILoop {
 		while (true) {
 			event = event.next;
 			if (event == null) {
+				rootEvent.next = null;
 				return didSomething;
 			}
 			didSomething = true;
