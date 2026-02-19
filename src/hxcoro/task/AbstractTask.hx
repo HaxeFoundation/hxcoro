@@ -287,26 +287,6 @@ abstract class AbstractTask implements ICancellationToken {
 		checkCompletion();
 	}
 
-	public function iterateChildren(f:AbstractTask -> Void) {
-		final firstChild = firstChild.load();
-		if (firstChild == null) {
-			return;
-		} else if (firstChild.isActive()) {
-			f(firstChild);
-		}
-		var prev = firstChild;
-		var current = firstChild.nextSibling.load();
-
-		while (current != null) {
-			if (!current.isActive()) {
-				prev.nextSibling.store(current.nextSibling.load());
-			} else {
-				f(current);
-			}
-			current = current.nextSibling.load();
-		}
-	}
-
 	function addChild(child:AbstractTask) {
 		child.nextSibling.store(firstChild.exchange(child));
 		numActiveChildren.add(1);
