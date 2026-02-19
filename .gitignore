@@ -2,3 +2,5 @@
 .haxelsp/recording/
 dump/
 tests/bin
+haxe_latest/
+neko-latest-linux64/
