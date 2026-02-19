@@ -312,12 +312,19 @@ abstract class AbstractTask implements ICancellationToken {
 				numActiveChildren.store(0);
 				checkCompletion();
 			case activeChildren:
-				if (child.nextSibling != null) {
-					child.nextSibling.previousSibling = child.previousSibling;
+				final next = child.nextSibling;
+				final prev = child.previousSibling;
+				if (next != null) {
+					next.previousSibling = prev;
 				}
-				if (child.previousSibling != null) {
-					child.previousSibling.nextSibling = child.nextSibling;
+				if (prev != null) {
+					prev.nextSibling = next;
 				}
+				if (firstChild == child) {
+					firstChild = next;
+				}
+				child.nextSibling = null;
+				child.previousSibling = null;
 				numActiveChildren.store(activeChildren - 1);
 		}
 	}
