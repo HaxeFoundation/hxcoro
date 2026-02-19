@@ -5,6 +5,7 @@ import hxcoro.schedulers.VirtualTimeScheduler;
 import hxcoro.concurrent.CoroSemaphore;
 import hxcoro.elements.NonCancellable;
 import haxe.exceptions.CancellationException;
+import haxe.ValueException;
 
 class Issue47 extends utest.Test {
 	function testTaskActiveAfterCancellation() {
@@ -148,7 +149,8 @@ class Issue47 extends utest.Test {
 		task.start();
 		scheduler.advanceBy(110);
 		Assert.isFalse(task.isActive());
-		Assert.notNull(task.getError());
+		Assert.isOfType(task.getError(), ValueException);
+		Assert.equals("ArithmeticException", (cast task.getError():ValueException).value);
 		Assert.same(expected, actual);
 	}
 }
