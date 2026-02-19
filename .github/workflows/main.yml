@@ -22,7 +22,7 @@ jobs:
       # - uses: krdlab/setup-haxe@v2
       - uses: kLabz/setup-haxe@neko-latest
         with:
-          haxe-version: "haxe_2026-02-19_copilot/optimize-state-machine-generation_26b5c95"
+          haxe-version: "2026-02-19_copilot/optimize-state-machine-generation_26b5c95"
 
       - name: Setup hashlink
         if: matrix.target == 'hl'
