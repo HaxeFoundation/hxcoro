@@ -59,6 +59,7 @@ abstract class AbstractTask implements ICancellationToken {
 	final numActiveChildren:AtomicInt;
 	var firstChild:Null<AbstractTask>;
 	var nextSibling:Null<AbstractTask>;
+	var previousSibling:Null<AbstractTask>;
 
 	function get_cancellationException() {
 		return switch (error.load()) {
@@ -306,17 +307,34 @@ abstract class AbstractTask implements ICancellationToken {
 				numActiveChildren.store(0);
 				return setInternalException('numActiveChildren is already 0 in childCompletes');
 			case 1:
+				firstChild = null;
 				childrenCompleted();
 				numActiveChildren.store(0);
 				checkCompletion();
 			case activeChildren:
+				final next = child.nextSibling;
+				final prev = child.previousSibling;
+				if (next != null) {
+					next.previousSibling = prev;
+				}
+				if (prev != null) {
+					prev.nextSibling = next;
+				}
+				if (firstChild == child) {
+					firstChild = next;
+				}
+				child.nextSibling = null;
+				child.previousSibling = null;
 				numActiveChildren.store(activeChildren - 1);
 		}
 	}
 
 	function addChild(child:AbstractTask) {
 		final activeChildren = lockChildren();
-		child.nextSibling = firstChild;
+		if (firstChild != null) {
+			child.nextSibling = firstChild;
+			firstChild.previousSibling = child;
+		}
 		firstChild = child;
 		numActiveChildren.store(activeChildren + 1);
 	}

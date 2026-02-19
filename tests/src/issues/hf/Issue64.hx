@@ -1,5 +1,6 @@
 package issues.hf;
 
+import hxcoro.concurrent.CoroLatch;
 import haxe.coro.Mutex;
 import haxe.exceptions.CancellationException;
 
@@ -10,9 +11,11 @@ class Issue64 extends utest.Test {
 		final mutex = new Mutex();
 		CoroRun.run(node -> {
 			for (i in 0...5) {
+				final latch = new CoroLatch(5);
 				for (k in 0...5) {
 					node.async(node -> {
 						try {
+							latch.arrive(1);
 							delay(5000000);
 						} catch(e:CancellationException) {
 							mutex.acquire();
@@ -22,7 +25,7 @@ class Issue64 extends utest.Test {
 						}
 					});
 				}
-				delay(1);
+				latch.wait();
 				node.cancelChildren(cause);
 				node.awaitChildren();
 			}

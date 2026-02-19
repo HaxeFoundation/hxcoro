@@ -93,9 +93,9 @@ class CoroTaskWithLambda<T> extends CoroTask<T> implements IDispatchObject imple
 			case Pending:
 				return;
 			case Returned:
-				this.succeedSync(result.result);
+				this.succeedAsync(result.result);
 			case Thrown:
-				this.failSync(result.error);
+				this.failAsync(result.error);
 		}
 	}
 }
