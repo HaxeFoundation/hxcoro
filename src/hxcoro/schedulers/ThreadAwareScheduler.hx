@@ -161,6 +161,8 @@ class ThreadAwareScheduler implements IScheduler implements ILoop {
 		consumeQueueDeque();
 
 		var currentEvent = rootEvent;
+		// Reset the chain head to avoid re-dispatching stale events from a previous call.
+		rootEvent.next = null;
 
 		// Next we dispatch all expired and current events in the heap.
 		while (true) {
@@ -195,6 +197,7 @@ class ThreadAwareScheduler implements IScheduler implements ILoop {
 			}
 			current = current.next;
 		}
+		currentEvent.next = null;
 		var event:Null<ScheduledEvent> = rootEvent;
 		var didSomething = false;
 		while (true) {
