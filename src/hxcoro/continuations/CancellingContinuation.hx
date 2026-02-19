@@ -28,7 +28,7 @@ class CancellingContinuation<T> extends SuspensionResult<T> implements IContinua
 
 	final handle : Null<ICancellationHandle>;
 
-	final cancellationToken : ICancellationToken;
+	final cancellationToken : Null<ICancellationToken>;
 
 	public var context (get, never) : Context;
 
@@ -81,7 +81,7 @@ class CancellingContinuation<T> extends SuspensionResult<T> implements IContinua
 					this.result = result;
 					this.error = error;
 					resumeState.store(Completed);
-					context.get(Dispatcher).dispatch(this);
+					context.getOrRaise(Dispatcher).dispatch(this);
 					true;
 				} else {
 					false;

@@ -28,7 +28,7 @@ class ScheduledEvent implements ISchedulerHandle implements IDispatchObject {
 	public function dispatch() {
 		final cont = cont;
 		if (cont != null) {
-			cont.context.get(Dispatcher).dispatch(this);
+			cont.context.getOrRaise(Dispatcher).dispatch(this);
 		}
 		if (childEvents != null) {
 			final childEvents = childEvents;

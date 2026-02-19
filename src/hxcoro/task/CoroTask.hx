@@ -75,7 +75,7 @@ class CoroTaskWithLambda<T> extends CoroTask<T> implements IDispatchObject imple
 		this.lambda = lambda;
 		super(context, nodeStrategy, Created);
 		if (initialState == Running) {
-			context.get(Dispatcher).dispatch(this);
+			context.getOrRaise(Dispatcher).dispatch(this);
 		}
 	}
 
