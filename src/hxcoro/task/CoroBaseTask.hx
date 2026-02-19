@@ -7,7 +7,6 @@ import haxe.coro.context.Context;
 import haxe.coro.context.IElement;
 import haxe.coro.context.Key;
 import haxe.exceptions.CancellationException;
-import hxcoro.concurrent.AtomicObject;
 import hxcoro.concurrent.ThreadSafeCallbacks;
 import hxcoro.continuations.FunctionContinuation;
 import hxcoro.elements.NonCancellable;
@@ -41,7 +40,7 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 	final nodeStrategy:INodeStrategy;
 	final awaitingContinuations:TaskContinuationManager;
 	var awaitingChildContinuation:Null<IContinuation<Any>>;
-	final result:AtomicObject<Null<T>>;
+	var result:Null<T>;
 
 	/**
 		Creates a new task using the provided `context`.
@@ -51,7 +50,6 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 		this.context = context.clone().with(this).set(CancellationToken, this);
 		this.nodeStrategy = nodeStrategy;
 		awaitingContinuations = new TaskContinuationManager(this);
-		result = new AtomicObject(null);
 		super(parent, initialState);
 	}
 
@@ -63,7 +61,7 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 		Returns this task's value, if any.
 	**/
 	public function get() {
-		return result.load();
+		return result;
 	}
 
 	public function getKey() {
@@ -165,7 +163,7 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 
 	final function beginCompleting(result:T) {
 		if (state.compareExchange(Running, Completing) == Running) {
-			this.result.store(result);
+			this.result = result;
 			startChildren();
 		}
 	}
