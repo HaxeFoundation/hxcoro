@@ -93,7 +93,7 @@ private class LuvTimerEvent implements ISchedulerHandle implements IDispatchObje
 
 	function run() {
 		if (stop()) {
-			cont.context.get(Dispatcher).dispatch(this);
+			cont.context.getOrRaise(Dispatcher).dispatch(this);
 		}
 	}
 
