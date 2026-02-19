@@ -17,7 +17,7 @@ class Issue106 extends utest.Test {
 			var k = 0;
 			for (i in 0...numChildren) {
 				node.async(_ -> {
-					delay(i & 1 == 0 ? 5 : 10);
+					delay(i & 1 == 1 ? 5 : 10);
 					k++;
 				});
 			}
