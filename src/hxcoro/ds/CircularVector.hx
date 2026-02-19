@@ -28,6 +28,6 @@ abstract CircularVector<T>(ActualStorage<T>) {
 	}
 
 	static public inline function create<T>(size:Int) {
-		return new CircularVector<T>(new ActualStorage(size));
+		return new CircularVector<T>(@:nullSafety(Off) new ActualStorage(size));
 	}
 }

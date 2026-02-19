@@ -23,7 +23,7 @@ final class ConcurrentCircularBuffer<T> {
 		}
 
 		// We need +1 since we do a "full" check by comparing the head and tail.
-		storage = new Vector(capacity + 1);
+		storage = @:nullSafety(Off) new Vector(capacity + 1);
 		head    = new AtomicInt(0);
 		tail    = new AtomicInt(0);
 	}

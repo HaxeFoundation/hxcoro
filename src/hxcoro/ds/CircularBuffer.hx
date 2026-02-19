@@ -16,7 +16,7 @@ final class CircularBuffer<T> {
 		}
 
 		// We need +1 since we do a "full" check by comparing the head and tail.
-		storage = new Vector(capacity + 1);
+		storage = @:nullSafety(Off) new Vector(capacity + 1);
 		head    = 0;
 		tail    = 0;
 	}
