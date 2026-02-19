@@ -225,7 +225,7 @@ abstract class AbstractTask implements ICancellationToken {
 
 	function getCurrentChildren() {
 		// Only safe to call if numActiveChildren is locked
-		final children = [];
+		final children:Array<AbstractTask> = [];
 		var child = firstChild;
 		while (child != null) {
 			children.push(child);
