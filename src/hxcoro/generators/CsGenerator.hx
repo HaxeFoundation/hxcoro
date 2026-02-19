@@ -25,7 +25,6 @@ abstract CsGenerator<T>(Generator<T, Unit>) from Generator<T, Unit> {
 		return this.next();
 	}
 
-	@:nullSafety(Off) // TODO
 	@:to inline function toIterable():Iterable<T> {
 		return this;
 	}

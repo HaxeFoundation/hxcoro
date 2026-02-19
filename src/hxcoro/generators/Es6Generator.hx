@@ -23,7 +23,6 @@ abstract Es6Generator<T, R>(Generator<T, R>) from Generator<T, R> {
 		return this.nextWith(value);
 	}
 
-	@:nullSafety(Off) // TODO
 	@:to inline function toIterable():Iterable<T> {
 		return this;
 	}
