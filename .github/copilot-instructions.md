@@ -13,12 +13,7 @@ hxcoro is a coroutine library for Haxe that provides generators, async generator
 
 ### Prerequisites
 
-**ALWAYS** ensure these tools are set up before building or testing:
-1. Haxe compiler (latest version recommended)
-   - Latest version: https://build.haxe.org/builds/haxe/linux64/haxe_latest.tar.gz (includes haxelib binary)
-2. Neko VM
-   - Latest version: https://build.haxe.org/builds/neko/linux64/neko_latest.tar.gz
-3. haxelib package manager (included with Haxe)
+Nightly Haxe, Neko, and haxelib are **pre-installed** in the agent environment via `.github/workflows/copilot-setup-steps.yml`, so you do not need to install them manually. The `utest` library and `hxcoro` dev library are also pre-configured.
 
 For target-specific builds:
 - **HashLink (hl):** Requires HashLink runtime (the CI uses nightly version as specified in the workflow)
@@ -27,12 +22,11 @@ For target-specific builds:
 
 ### Environment Setup
 
-**ALWAYS** run these commands in order before running tests:
+The haxelib setup is handled automatically. You can verify with:
 
 ```bash
-haxelib newrepo
-haxelib git utest https://github.com/haxe-utest/utest.git
-haxelib dev hxcoro .
+haxe -version
+haxelib list
 ```
 
 For target-specific dependencies:
