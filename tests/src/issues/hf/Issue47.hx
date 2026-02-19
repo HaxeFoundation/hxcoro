@@ -1,5 +1,7 @@
 package issues.hf;
 
+import hxcoro.dispatchers.TrampolineDispatcher;
+import hxcoro.schedulers.VirtualTimeScheduler;
 import hxcoro.concurrent.CoroSemaphore;
 import hxcoro.elements.NonCancellable;
 import haxe.exceptions.CancellationException;
@@ -122,27 +124,31 @@ class Issue47 extends utest.Test {
 		function add(s:String) {
 			actual.push(s);
 		}
-		Assert.raises(() -> {
-			CoroRun.run(node -> {
-				node.async(node -> {
-					try {
-						delay(10000);
-					} catch (e:CancellationException) {
-						node.with(new NonCancellable()).async(node -> {
-							add(expected[1]);
-							delay(100);
-							add(expected[2]);
-						});
-						throw e;
-					}
-				});
-				node.async(node -> {
-					delay(10);
-					add(expected[0]);
-					throw "ArithmeticException";
-				});
+		final scheduler = new VirtualTimeScheduler();
+		final dispatcher = new TrampolineDispatcher(scheduler);
+		final task = CoroRun.with(dispatcher).createTask(node -> {
+			node.async(node -> {
+				try {
+					delay(10000);
+				} catch (e:CancellationException) {
+					node.with(new NonCancellable()).async(node -> {
+						add(expected[1]);
+						delay(100);
+						add(expected[2]);
+					});
+					throw e;
+				}
 			});
-		}, String);
+			node.async(node -> {
+				delay(10);
+				add(expected[0]);
+				throw "ArithmeticException";
+			});
+		});
+		task.start();
+		scheduler.advanceBy(110);
+		Assert.isFalse(task.isActive());
+		Assert.notNull(task.getError());
 		Assert.same(expected, actual);
 	}
 }
