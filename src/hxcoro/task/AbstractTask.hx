@@ -57,7 +57,7 @@ abstract class AbstractTask implements ICancellationToken {
 
 	final numActiveChildren:AtomicInt;
 	final firstChild:AtomicObject<Null<AbstractTask>>;
-	var nextSibling:Null<AbstractTask>;
+	final nextSibling:AtomicObject<Null<AbstractTask>>;
 
 	function get_cancellationException() {
 		return switch (error.load()) {
@@ -81,6 +81,7 @@ abstract class AbstractTask implements ICancellationToken {
 		cancellationManager = new TaskCancellationManager(this);
 		numActiveChildren = new AtomicInt(0);
 		firstChild = new AtomicObject(null);
+		nextSibling = new AtomicObject(null);
 		// The correct order of operations here is:
 		// 1. Add child to parent
 		// 2. Start the child, if needed
@@ -160,9 +161,18 @@ abstract class AbstractTask implements ICancellationToken {
 	**/
 	public final function start() {
 		if (state.compareExchange(Created, Running) == Created) {
-			doStart();
+			// Check if parent is cancelling and attempt to cancel this task before starting.
+			// If the task has NonCancellable context, doCancel() will return early and
+			// isCancelling() will still be false, allowing the task to start.
 			if (parent != null && parent.isCancelling()) {
 				cancel();
+			}
+			// Only start if the task wasn't successfully cancelled
+			if (!isCancelling()) {
+				doStart();
+			} else if (state.compareExchange(Running, Cancelling) == Running) {
+				// If the task started but was already cancelling, transition to Cancelling state.
+				checkCompletion();
 			}
 		}
 	}
@@ -183,7 +193,7 @@ abstract class AbstractTask implements ICancellationToken {
 
 		do {
 			child.cancel(cause);
-			child = child.nextSibling;
+			child = child.nextSibling.load();
 		} while(child != null);
 	}
 
@@ -191,7 +201,7 @@ abstract class AbstractTask implements ICancellationToken {
 		var child = firstChild.load();
 		while (child != null) {
 			child.start();
-			child = child.nextSibling;
+			child = child.nextSibling.load();
 		}
 	}
 
@@ -277,30 +287,8 @@ abstract class AbstractTask implements ICancellationToken {
 		checkCompletion();
 	}
 
-	public function iterateChildren(f:AbstractTask -> Void) {
-		final firstChild = firstChild.load();
-		if (firstChild == null) {
-			return;
-		} else if (firstChild.isActive()) {
-			f(firstChild);
-		}
-		var prev = firstChild;
-		var current = firstChild.nextSibling;
-
-		while (current != null) {
-			if (!current.isActive()) {
-				prev.nextSibling = current.nextSibling;
-			} else {
-				f(current);
-			}
-			current = current.nextSibling;
-		}
-	}
-
-	// single-threaded
-
 	function addChild(child:AbstractTask) {
-		child.nextSibling = firstChild.exchange(child);
+		child.nextSibling.store(firstChild.exchange(child));
 		numActiveChildren.add(1);
 	}
 }
