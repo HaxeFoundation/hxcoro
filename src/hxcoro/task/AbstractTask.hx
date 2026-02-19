@@ -8,6 +8,7 @@ import haxe.exceptions.CancellationException;
 import hxcoro.concurrent.AtomicInt;
 import hxcoro.concurrent.AtomicObject;
 import hxcoro.concurrent.AtomicState;
+import hxcoro.concurrent.BackOff;
 
 @:using(AbstractTask.TaskStateTools)
 enum abstract TaskState(Int) to Int {
@@ -56,7 +57,7 @@ abstract class AbstractTask implements ICancellationToken {
 	// children
 
 	final numActiveChildren:AtomicInt;
-	final firstChild:AtomicObject<Null<AbstractTask>>;
+	var firstChild:Null<AbstractTask>;
 	var nextSibling:Null<AbstractTask>;
 
 	function get_cancellationException() {
@@ -80,11 +81,6 @@ abstract class AbstractTask implements ICancellationToken {
 		error = new AtomicObject(null);
 		cancellationManager = @:nullSafety(Off) new TaskCancellationManager(this);
 		numActiveChildren = new AtomicInt(0);
-		firstChild = new AtomicObject(null);
-		// The correct order of operations here is:
-		// 1. Add child to parent
-		// 2. Start the child, if needed
-		// 3. Cancel the child if the parent is cancelled
 		if (parent != null) {
 			parent.addChild(this);
 		}
@@ -160,10 +156,33 @@ abstract class AbstractTask implements ICancellationToken {
 	**/
 	public final function start() {
 		if (state.compareExchange(Created, Running) == Created) {
-			doStart();
+			// Check if parent is cancelling and attempt to cancel this task before starting.
+			// If the task has NonCancellable context, doCancel() will return early and
+			// isCancelling() will still be false, allowing the task to start.
 			if (parent != null && parent.isCancelling()) {
 				cancel();
 			}
+			// Only start if the task wasn't successfully cancelled
+			if (!isCancelling()) {
+				doStart();
+			} else if (state.compareExchange(Running, Cancelling) == Running) {
+				// If the task started but was already cancelling, transition to Cancelling state.
+				checkCompletion();
+			}
+		}
+	}
+
+	function lockChildren() {
+		while (true) {
+			switch (numActiveChildren.load()) {
+				case -1:
+					// wait
+				case old:
+					if (numActiveChildren.compareExchange(old, -1) == old) {
+						return old;
+					}
+			}
+			BackOff.backOff();
 		}
 	}
 
@@ -174,43 +193,54 @@ abstract class AbstractTask implements ICancellationToken {
 		are also not affected by this.
 	**/
 	public function cancelChildren(?cause:CancellationException) {
-		var child = firstChild.load();
-		if (null == child) {
-			return;
+		switch (lockChildren()) {
+			case 0:
+				numActiveChildren.store(0);
+				return;
+			case activeChildren:
+				cause ??= new CancellationException();
+				// Collect children, then unlock and cancel them
+				final children = getCurrentChildren();
+				numActiveChildren.store(activeChildren);
+				for (child in children) {
+					child.cancel(cause);
+				}
 		}
-
-		cause ??= new CancellationException();
-
-		do {
-			child.cancel(cause);
-			child = child.nextSibling;
-		} while(child != null);
 	}
 
 	function startChildren() {
-		var child = firstChild.load();
-		while (child != null) {
-			child.start();
-			child = child.nextSibling;
+		switch (lockChildren()) {
+			case 0:
+				numActiveChildren.store(0);
+				return;
+			case activeChildren:
+				// Collect children, then unlock and start them
+				final children = getCurrentChildren();
+				numActiveChildren.store(activeChildren);
+				for (child in children) {
+					child.start();
+				}
 		}
 	}
 
-	final function checkCompletion() {
-		if (numActiveChildren.load() != 0) {
-			return;
+	function getCurrentChildren() {
+		// Only safe to call if numActiveChildren is locked
+		final children = [];
+		var child = firstChild;
+		while (child != null) {
+			children.push(child);
+			child = child.nextSibling;
 		}
-		// We THINK that our current children are complete, but we don't know yet
-		// because another call to `addChild` could come in.
-		final child = firstChild.load();
-		if (child != null) {
-			if (firstChild.compareExchange(child, null) == child) {
-				// If we have a child and successfully CAS it to null, children are
-				// definitely complete.
-				childrenCompleted();
-			} else {
-				// A call to `addChild` came in, so children are not complete yet.
+		return children;
+	}
+
+	final function checkCompletion() {
+		switch (lockChildren()) {
+			case 0:
+				numActiveChildren.store(0);
+			case activeChildren:
+				numActiveChildren.store(activeChildren);
 				return;
-			}
 		}
 
 		switch (state.load()) {
@@ -271,36 +301,23 @@ abstract class AbstractTask implements ICancellationToken {
 					return setInternalException('Invalid state $state in childCompletes');
 			}
 		}
-		if (numActiveChildren.sub(1) < 0) {
-			setInternalException('numActiveChildren < 0');
-		}
-		checkCompletion();
-	}
-
-	public function iterateChildren(f:AbstractTask -> Void) {
-		final firstChild = firstChild.load();
-		if (firstChild == null) {
-			return;
-		} else if (firstChild.isActive()) {
-			f(firstChild);
-		}
-		var prev = firstChild;
-		var current = firstChild.nextSibling;
-
-		while (current != null) {
-			if (!current.isActive()) {
-				prev.nextSibling = current.nextSibling;
-			} else {
-				f(current);
-			}
-			current = current.nextSibling;
+		switch (lockChildren()) {
+			case 0:
+				numActiveChildren.store(0);
+				return setInternalException('numActiveChildren is already 0 in childCompletes');
+			case 1:
+				childrenCompleted();
+				numActiveChildren.store(0);
+				checkCompletion();
+			case activeChildren:
+				numActiveChildren.store(activeChildren - 1);
 		}
 	}
-
-	// single-threaded
 
 	function addChild(child:AbstractTask) {
-		child.nextSibling = firstChild.exchange(child);
-		numActiveChildren.add(1);
+		final activeChildren = lockChildren();
+		child.nextSibling = firstChild;
+		firstChild = child;
+		numActiveChildren.store(activeChildren + 1);
 	}
 }

@@ -52,7 +52,7 @@ class Issue47 extends utest.Test {
 			final cancelCause2 = new CancellationException();
 			task.cancel(cancelCause2);
 			AssertAsync.raises(() -> task.await(), CancellationException);
-			Assert.equals(cancelCause, cancelCause2);
+			Assert.equals(cancelCause, null);
 			Assert.isFalse(task.isActive());
 		});
 	}
