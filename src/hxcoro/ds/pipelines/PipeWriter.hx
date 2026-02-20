@@ -32,8 +32,18 @@ private class PendingData {
 		cursor += size;
 	}
 
-	public function commit(buffer:BytesBuffer) {
-		buffer.addBytes(backing, 0, cursor);
+	public function commit(state:State) {
+		if (state.buffer == null) {
+			state.buffer = backing.sub(0, cursor);
+
+		} else {
+			final increased = Bytes.alloc(state.buffer.length + cursor);
+
+			increased.blit(0, state.buffer, 0, state.buffer.length);
+			increased.blit(cursor, backing, 0, cursor);
+
+			state.buffer = increased;
+		}
 
 		cursor = 0;
 	}
@@ -87,9 +97,9 @@ class PipeWriter {
 	@:coroutine public function flush():Void {
 		state.lock.acquire();
 
-		pending.commit(state.buffer);
+		pending.commit(state);
 
-		if (state.buffer.length >= state.writerPauseThreshold) {
+		if (state.writerPauseThreshold != 0 && state.buffer.length >= state.writerPauseThreshold) {
 			suspendCancellable(cont -> {
 				state.suspendedWriter = cont;
 
@@ -102,9 +112,6 @@ class PipeWriter {
 		} else {
 			state.lock.release();
 		}
-
-
-		// TODO : suspend when some backpressure metric is reached
 	}
 
 	public function close() {

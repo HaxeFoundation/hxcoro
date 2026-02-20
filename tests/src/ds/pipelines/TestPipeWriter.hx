@@ -91,7 +91,7 @@ class TestPipeWriter extends Test {
 		scheduler.advanceBy(1);
 
 		Assert.isFalse(task.isActive());
-		Assert.equals(0, state.buffer.getBytes().compare(data));
+		Assert.equals(0, state.buffer.compare(data));
 	}
 
 	function test_flush_multi_write() {
@@ -120,7 +120,7 @@ class TestPipeWriter extends Test {
 		scheduler.advanceBy(1);
 
 		Assert.isFalse(task.isActive());
-		Assert.equals("HelloWorld", state.buffer.getBytes().toString());
+		Assert.equals("HelloWorld", state.buffer.toString());
 	}
 
 	function test_suspending_flush() {
@@ -142,7 +142,7 @@ class TestPipeWriter extends Test {
 		scheduler.advanceBy(1);
 
 		Assert.isTrue(task.isActive());
-		Assert.equals(0, state.buffer.getBytes().compare(data));
+		Assert.equals(0, state.buffer.compare(data));
 		Assert.notNull(state.suspendedWriter);
 	}
 }
