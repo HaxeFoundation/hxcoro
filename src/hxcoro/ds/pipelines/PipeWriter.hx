@@ -84,12 +84,25 @@ class PipeWriter {
 		}
 	}
 
-	public function flush() {
+	@:coroutine public function flush():Void {
 		state.lock.acquire();
 
 		pending.commit(state.buffer);
 
-		state.lock.release();
+		if (state.buffer.length >= state.writerPauseThreshold) {
+			suspendCancellable(cont -> {
+				state.suspendedWriter = cont;
+
+				state.lock.release();
+
+				_ -> {
+					state.suspendedWriter = null;
+				}
+			});
+		} else {
+			state.lock.release();
+		}
+
 
 		// TODO : suspend when some backpressure metric is reached
 	}

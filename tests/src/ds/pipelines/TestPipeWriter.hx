@@ -1,5 +1,7 @@
 package ds.pipelines;
 
+import hxcoro.dispatchers.TrampolineDispatcher;
+import hxcoro.schedulers.VirtualTimeScheduler;
 import haxe.io.Bytes;
 import haxe.exceptions.ArgumentException;
 import hxcoro.ds.pipelines.Pipe.State;
@@ -72,35 +74,75 @@ class TestPipeWriter extends Test {
 	function test_flush_single_write() {
 		final state  = new State();
 		final writer = new PipeWriter(state);
-		final size   = 16;
+		final data   = Bytes.ofString("Hello");
 
-		final view = writer.getBuffer(size);
-		final data = Bytes.ofString("Hello");
-		view.buffer.blit(view.byteOffset, data, 0, data.length);
+		final scheduler  = new VirtualTimeScheduler();
+		final dispatcher = new TrampolineDispatcher(scheduler);
+		final task       = CoroRun.with(dispatcher).createTask(_ -> {
+			final size   = 16;
+			final view = writer.getBuffer(size);
+			view.buffer.blit(view.byteOffset, data, 0, data.length);
 
-		writer.advance(data.length);
-		writer.flush();
+			writer.advance(data.length);
+			writer.flush();
+		});
 
+		task.start();
+		scheduler.advanceBy(1);
+
+		Assert.isFalse(task.isActive());
 		Assert.equals(0, state.buffer.getBytes().compare(data));
 	}
 
 	function test_flush_multi_write() {
 		final state  = new State();
 		final writer = new PipeWriter(state);
-		final size   = 16;
 
-		final view = writer.getBuffer(size);
-		final data = Bytes.ofString("Hello");
-		view.buffer.blit(view.byteOffset, data, 0, data.length);
-		writer.advance(data.length);
+		final scheduler  = new VirtualTimeScheduler();
+		final dispatcher = new TrampolineDispatcher(scheduler);
+		final task       = CoroRun.with(dispatcher).createTask(_ -> {
+			final size = 16;
+			
+			final view = writer.getBuffer(size);
+			final data = Bytes.ofString("Hello");
+			view.buffer.blit(view.byteOffset, data, 0, data.length);
+			writer.advance(data.length);
 
-		final view = writer.getBuffer(size);
-		final data = Bytes.ofString("World");
-		view.buffer.blit(view.byteOffset, data, 0, data.length);
-		writer.advance(data.length);
+			final view = writer.getBuffer(size);
+			final data = Bytes.ofString("World");
+			view.buffer.blit(view.byteOffset, data, 0, data.length);
+			writer.advance(data.length);
 
-		writer.flush();
+			writer.flush();
+		});
 
+		task.start();
+		scheduler.advanceBy(1);
+
+		Assert.isFalse(task.isActive());
 		Assert.equals("HelloWorld", state.buffer.getBytes().toString());
+	}
+
+	function test_suspending_flush() {
+		final state  = new State();
+		final writer = new PipeWriter(state);
+		final data   = Bytes.alloc(16_000);
+
+		final scheduler  = new VirtualTimeScheduler();
+		final dispatcher = new TrampolineDispatcher(scheduler);
+		final task       = CoroRun.with(dispatcher).createTask(_ -> {
+			final view = writer.getBuffer(data.length);
+			view.buffer.blit(view.byteOffset, data, 0, data.length);
+
+			writer.advance(data.length);
+			writer.flush();
+		});
+
+		task.start();
+		scheduler.advanceBy(1);
+
+		Assert.isTrue(task.isActive());
+		Assert.equals(0, state.buffer.getBytes().compare(data));
+		Assert.notNull(state.suspendedWriter);
 	}
 }
