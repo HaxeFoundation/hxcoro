@@ -46,11 +46,11 @@ class Coro {
 		}
 	}
 
-	@:coroutine @:coroutine.nothrow public static function delay(ms:Int):Void {
+	@:coroutine(nothrow) public static function delay(ms:Int):Void {
 		suspendCancellable(cont -> delayImpl(ms, cont));
 	}
 
-	@:coroutine @:coroutine.nothrow public static function yield():Void {
+	@:coroutine(nothrow) public static function yield():Void {
 		suspendCancellable(cont -> delayImpl(0, cont));
 	}
 
