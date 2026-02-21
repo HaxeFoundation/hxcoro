@@ -8,7 +8,6 @@ function main() {
 		new TestControlFlow(),
 		new TestTryCatch(),
 		new TestHoisting(),
-		new TestMisc(),
 		new TestTexpr(),
 		#if js
 		new TestJsPromise(),

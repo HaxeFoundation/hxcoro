@@ -3,7 +3,7 @@ package hxcoro.generators;
 import haxe.coro.Coroutine;
 import hxcoro.generators.Generator;
 
-@:coroutine.restrictedSuspension
+@:coroutine.scope(restrictedSuspension)
 abstract Es6Yield<T, R>(Generator<T, R>) to Generator<T, R> from Generator<T, R> {
 	@:coroutine public function next(value:T):R {
 		return this.yield(value);
