@@ -27,7 +27,7 @@ class RacingContinuation<T> extends SuspensionResult<T> implements IContinuation
 		super(Pending);
 		this.inputCont = inputCont;
 		resumeState = new AtomicInt(Active);
-		dispatcher = context.get(Dispatcher);
+		dispatcher = context.getOrRaise(Dispatcher);
 	}
 
 	inline function get_context() {

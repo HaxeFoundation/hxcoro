@@ -17,7 +17,7 @@ using cpp.luv.Timer;
 
 class AsyncDeque<T> {
 	final deque:Deque<T>;
-	var async:Null<LuvAsync>;
+	var async:LuvAsync;
 
 	public function new(loop:LuvLoop, f:() -> Void) {
 		this.deque = new Deque<T>();
@@ -69,6 +69,7 @@ private class LuvTimerEvent implements ISchedulerHandle implements IDispatchObje
 		timer = Timer.repeat(loop, Int64.toInt(delayMs), run);
 	}
 
+	@:nullSafety(Off)
 	public function stop() {
 		if (state.compareExchange(Created, Stopped) == Created) {
 			// Never started, nothing to do
@@ -92,7 +93,7 @@ private class LuvTimerEvent implements ISchedulerHandle implements IDispatchObje
 
 	function run() {
 		if (stop()) {
-			cont.context.get(Dispatcher).dispatch(this);
+			cont.context.getOrRaise(Dispatcher).dispatch(this);
 		}
 	}
 
@@ -138,8 +139,8 @@ class LuvScheduler implements IScheduler implements ILoop {
 	**/
 	public function new(uvLoop:LuvLoop) {
 		this.uvLoop = uvLoop;
-		eventQueue = new AsyncDeque(uvLoop, loopEvents);
-		closeQueue = new AsyncDeque(uvLoop, loopCloses);
+		eventQueue = new AsyncDeque(uvLoop, @:nullSafety(Off) loopEvents);
+		closeQueue = new AsyncDeque(uvLoop, @:nullSafety(Off) loopCloses);
 	}
 
 	@:inheritDoc

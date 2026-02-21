@@ -38,7 +38,7 @@ class Coro {
 	}
 
 	static function delayImpl<T>(ms:Int, cont:IContinuation<T>) {
-		final dispatcher = cont.context.get(Dispatcher);
+		final dispatcher = cont.context.getOrRaise(Dispatcher);
 		final handle = dispatcher.scheduler.schedule(ms, cont);
 
 		return _ -> {

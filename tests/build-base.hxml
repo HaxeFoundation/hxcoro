@@ -5,4 +5,4 @@
 -D UTEST-PRINT-TESTS
 # -D UTEST-PATTERN=Issue93
 -D use-vec-deque
-#--macro nullSafety("hxcoro")
+--macro nullSafety("hxcoro")

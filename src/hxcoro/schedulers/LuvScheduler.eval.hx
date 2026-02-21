@@ -14,7 +14,7 @@ import sys.thread.Deque;
 
 class AsyncDeque<T> {
 	final deque:Deque<T>;
-	var async:Null<Async>;
+	var async:Async;
 
 	public function new(loop:Loop, f:Async -> Void) {
 		this.deque = new Deque<T>();
@@ -69,6 +69,7 @@ private class LuvTimerEvent implements ISchedulerHandle implements IDispatchObje
 		timer.start(run, Int64.toInt(delayMs));
 	}
 
+	@:nullSafety(Off)
 	public function stop() {
 		if (state.compareExchange(Created, Stopped) == Created) {
 			// Never started, nothing to do
@@ -92,7 +93,7 @@ private class LuvTimerEvent implements ISchedulerHandle implements IDispatchObje
 
 	function run() {
 		if (stop()) {
-			cont.context.get(Dispatcher).dispatch(this);
+			cont.context.getOrRaise(Dispatcher).dispatch(this);
 		}
 	}
 
@@ -128,8 +129,8 @@ class LuvScheduler implements IScheduler implements ILoop {
 	**/
 	public function new(loop:Loop) {
 		uvLoop = loop;
-		eventQueue = new AsyncDeque(loop, loopEvents);
-		closeQueue = new AsyncDeque(loop, loopCloses);
+		eventQueue = new AsyncDeque(loop, @:nullSafety(Off) loopEvents);
+		closeQueue = new AsyncDeque(loop, @:nullSafety(Off) loopCloses);
 	}
 
 	public function schedule(ms:Int64, cont:IContinuation<Any>) {
@@ -161,11 +162,11 @@ class LuvScheduler implements IScheduler implements ILoop {
 		} while (true);
 	}
 
-	function loopEvents(_:Async) {
+	function loopEvents(_:Null<Async>) {
 		consumeDeque(eventQueue, event -> event.start(uvLoop));
 	}
 
-	function loopCloses(_:Async) {
+	function loopCloses(_:Null<Async>) {
 		consumeDeque(closeQueue, event -> event.stop());
 	}
 

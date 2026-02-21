@@ -80,7 +80,7 @@ abstract class AbstractTask implements ICancellationToken {
 		this.parent = parent;
 		state = new AtomicState(Created);
 		error = new AtomicObject(null);
-		cancellationManager = new TaskCancellationManager(this);
+		cancellationManager = @:nullSafety(Off) new TaskCancellationManager(this);
 		numActiveChildren = new AtomicInt(0);
 		if (parent != null) {
 			parent.addChild(this);
@@ -148,7 +148,7 @@ abstract class AbstractTask implements ICancellationToken {
 		return error.load() != null;
 	}
 
-	public function onCancellationRequested(callback:ICancellationCallback):ICancellationHandle {
+	public function onCancellationRequested(callback:ICancellationCallback):Null<ICancellationHandle> {
 		return cancellationManager.add(callback);
 	}
 
@@ -226,7 +226,7 @@ abstract class AbstractTask implements ICancellationToken {
 
 	function getCurrentChildren() {
 		// Only safe to call if numActiveChildren is locked
-		final children = [];
+		final children:Array<AbstractTask> = [];
 		var child = firstChild;
 		while (child != null) {
 			children.push(child);

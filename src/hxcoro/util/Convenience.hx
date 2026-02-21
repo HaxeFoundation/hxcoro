@@ -104,7 +104,7 @@ class ContinuationConvenience {
 		thread if the current dispatcher allows that.
 	**/
 	static public inline function resumeAsync<T>(cont:IContinuation<T>, result:Null<T>, error:Null<Exception>) {
-		cont.context.get(Dispatcher).dispatchContinuation(cont, result, error);
+		cont.context.getOrRaise(Dispatcher).dispatchContinuation(cont, result, error);
 	}
 
 }
@@ -114,7 +114,7 @@ class DispatcherConvenience {
 		return dispatcher.dispatch(new FunctionDispatchObject(f));
 	}
 
-	static public inline function dispatchContinuation<T>(dispatcher: Dispatcher, cont:IContinuation<T>, result:T, error:Exception) {
+	static public inline function dispatchContinuation<T>(dispatcher: Dispatcher, cont:IContinuation<T>, result:Null<T>, error:Null<Exception>) {
 		dispatcher.dispatch(new ContinuationDispatchObject(cont, result, error));
 	}
 }
@@ -126,7 +126,7 @@ class ContextConvenience {
 	}
 
 	static public inline function scheduleFunction(context:Context, ms:Int64, func:() -> Void) {
-		return context.get(Dispatcher).scheduler.schedule(ms, new FunctionContinuation(context, (_, _) -> func()));
+		return context.getOrRaise(Dispatcher).scheduler.schedule(ms, new FunctionContinuation(context, (_, _) -> func()));
 	}
 
 	static public function async<T>(context:Context, lambda:NodeLambda<T>):ICoroTask<T> {

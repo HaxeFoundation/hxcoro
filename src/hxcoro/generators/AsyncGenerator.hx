@@ -27,7 +27,7 @@ enum abstract AsyncGeneratorState(Int) to Int {
 	consumer (calling `hasNext`). It does not support multiple producers or consumers.
 **/
 class AsyncGenerator<T> extends SuspensionResult<Iterator<T>> implements IContinuation<Null<Iterable<T>>> implements YieldingGenerator<T, Unit> {
-	public var context(get, null):Context;
+	public var context(get, null):Null<Context>;
 
 	final f:Coroutine<AsyncGenerator<T> -> Null<Iterable<T>>>;
 	var gState:AtomicState<AsyncGeneratorState>;
@@ -112,7 +112,7 @@ class AsyncGenerator<T> extends SuspensionResult<Iterator<T>> implements IContin
 	public function next() {
 		final value = nextValue;
 		if (gState.compareExchange(ValueAvailable, Running) == ValueAvailable) {
-			cont.callAsync();
+			@:nullSafety(Off) cont.callAsync();
 		}
 		return value;
 	}
@@ -149,7 +149,7 @@ class AsyncGenerator<T> extends SuspensionResult<Iterator<T>> implements IContin
 				case AwaitingValue:
 					if (gState.compareExchange(AwaitingValue, Stopped) == AwaitingValue) {
 						// resume waiting hasNext
-						cont.callAsync();
+						@:nullSafety(Off) cont.callAsync();
 						return;
 					}
 				case Stopped:
@@ -186,7 +186,7 @@ class AsyncGenerator<T> extends SuspensionResult<Iterator<T>> implements IContin
 						final awaitCont = cont;
 						suspend(cont -> {
 							offerValue(cont);
-							awaitCont.callAsync();
+							@:nullSafety(Off) awaitCont.callAsync();
 						});
 						return Unit;
 					}

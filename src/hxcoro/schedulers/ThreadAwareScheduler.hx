@@ -6,7 +6,6 @@ import haxe.coro.IContinuation;
 import haxe.coro.schedulers.IScheduler;
 import haxe.coro.schedulers.ISchedulerHandle;
 import haxe.exceptions.ArgumentException;
-import hxcoro.concurrent.AtomicInt;
 import hxcoro.ds.CircularVector;
 import hxcoro.schedulers.ILoop;
 import sys.thread.Deque;
