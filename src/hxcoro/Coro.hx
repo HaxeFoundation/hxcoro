@@ -15,7 +15,7 @@ import hxcoro.continuations.TimeoutContinuation;
 private typedef SuspendCancellableFunc<T> = IContinuation<T> -> Null<(CancellationException -> Void)>;
 
 class Coro {
-	@:coroutine @:coroutine.transformed
+	@:coroutine(transformed)
 	public static function suspend<T>(completion:IContinuation<T>, func:IContinuation<T>->Void):SuspensionResult<T> {
 		var safe = new RacingContinuation(completion);
 		func(safe);
@@ -27,7 +27,7 @@ class Coro {
 	 * Suspends a coroutine which will be automatically resumed with a `haxe.exceptions.CancellationException` when cancelled.
 	 * If `func` returns a callback, it is registered to be invoked on cancellation allowing the easy cleanup of resources.
 	 */
-	@:coroutine @:coroutine.transformed public static function suspendCancellable<T>(completion:IContinuation<T>, func:SuspendCancellableFunc<T>):SuspensionResult<T> {
+	@:coroutine(transformed) public static function suspendCancellable<T>(completion:IContinuation<T>, func:SuspendCancellableFunc<T>):SuspensionResult<T> {
 		var safe = new CancellingContinuation(completion);
 		final onCancellationRequested = func(safe);
 		if (onCancellationRequested != null) {
