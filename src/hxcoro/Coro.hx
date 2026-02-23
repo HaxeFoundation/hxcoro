@@ -16,11 +16,11 @@ private typedef SuspendCancellableFunc<T> = IContinuation<T> -> Null<(Cancellati
 
 class Coro {
 	@:coroutine(transformed)
-	public static function suspend<T>(completion:IContinuation<T>, func:IContinuation<T>->Void):SuspensionResult<T> {
+	public static function suspend<T>(completion:IContinuation<T>, func:IContinuation<T>->Void):SuspensionResult<Any> {
 		var safe = new RacingContinuation(completion);
 		func(safe);
 		safe.resolve();
-		return safe;
+		return SuspensionResult.suspended;
 	}
 
 	/**
