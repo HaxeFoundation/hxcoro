@@ -2,6 +2,8 @@ package hxcoro.task;
 
 import haxe.Exception;
 import haxe.coro.IContinuation;
+import haxe.coro.IStackFrame;
+import haxe.CallStack.StackItem;
 import haxe.coro.cancellation.CancellationToken;
 import haxe.coro.context.Context;
 import haxe.coro.context.IElement;
@@ -29,7 +31,7 @@ class TaskContinuationManager extends ThreadSafeCallbacks<IContinuation<Any>, IC
 /**
 	CoroTask provides the basic functionality for coroutine tasks.
 **/
-abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode implements ICoroTask<T> implements IElement<CoroBaseTask<Any>> {
+abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode implements ICoroTask<T> implements IElement<CoroBaseTask<Any>> implements IStackFrame {
 	public static final key = new Key<CoroBaseTask<Any>>('Task');
 
 	/**
@@ -190,5 +192,14 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 
 	function childCancels(child:AbstractTask, cause:CancellationException) {
 		nodeStrategy.childCancels(this, child, cause);
+	}
+
+	// IStackFrame: tasks are the root of the continuation chain and contribute no stack item
+	public function getStackItem():Null<StackItem> {
+		return null;
+	}
+
+	public function callerFrame():Null<IStackFrame> {
+		return null;
 	}
 }

@@ -153,17 +153,21 @@ abstract class BaseContinuation<T> extends SuspensionResult<T> implements IConti
 		var stackItem = stackItem;
 
 		/*
-			Find first coro stack element.
-			Break if the caller chain ends without finding a stack item (e.g. when the
-			completion is not an IStackFrame due to tail-call optimization passing the
-			outer completion directly).
+			Walk the caller chain to find the first non-null stack item. Starting from
+			`this` ensures we properly traverse through intermediate frames that may
+			also have a null stack item (e.g. single-state non-suspending coroutines
+			that never call setClassFuncStackItem).
+			The loop terminates when a non-null stack item is found or when the chain
+			ends (callerFrame returns null, which happens when the completion is not
+			an IStackFrame such as CoroBaseTask).
 		*/
+		var currentFrame:Null<IStackFrame> = this;
 		while (stackItem == null) {
-			var callerFrame = callerFrame();
-			if (callerFrame == null) {
+			currentFrame = currentFrame.callerFrame();
+			if (currentFrame == null) {
 				break;
 			}
-			stackItem = callerFrame.getStackItem();
+			stackItem = currentFrame.getStackItem();
 		}
 
 		switch (stackItem) {
