@@ -37,6 +37,7 @@ class RacingContinuation<T> extends SuspensionResult<T> implements IContinuation
 	public function resume(result:T, error:Exception):Void {
 		this.result = result;
 		this.error = error;
+		this.state = error == null ? Returned : Thrown;
 		if (resumeState.compareExchange(Active, Resumed) != Active) {
 			dispatcher.dispatch(this);
 		}
@@ -46,11 +47,7 @@ class RacingContinuation<T> extends SuspensionResult<T> implements IContinuation
 		if (resumeState.compareExchange(Active, Resolved) == Active) {
 			state = Pending;
 		} else {
-			if (error != null) {
-				state = Thrown;
-			} else {
-				state = Returned;
-			}
+			dispatcher.dispatch(this);
 		}
 	}
 

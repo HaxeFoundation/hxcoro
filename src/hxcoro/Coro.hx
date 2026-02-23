@@ -20,7 +20,7 @@ class Coro {
 		var safe = new RacingContinuation(completion);
 		func(safe);
 		safe.resolve();
-		return safe;
+		return cast SuspensionResult.suspended;
 	}
 
 	/**
@@ -34,7 +34,7 @@ class Coro {
 			safe.onCancellationRequested = onCancellationRequested;
 		}
 		safe.resolve();
-		return safe;
+		return cast SuspensionResult.suspended;
 	}
 
 	static function delayImpl<T>(ms:Int, cont:IContinuation<T>) {
