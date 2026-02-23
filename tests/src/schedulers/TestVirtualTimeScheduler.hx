@@ -1,6 +1,6 @@
 package schedulers;
 
-import hxcoro.dispatchers.SelfDispatcher;
+import haxe.coro.dispatchers.SelfDispatcher;
 import haxe.coro.context.Context;
 import haxe.Int64;
 import hxcoro.schedulers.VirtualTimeScheduler;

@@ -8,7 +8,7 @@ import haxe.coro.context.IElement;
 import haxe.coro.context.Key;
 import haxe.exceptions.CancellationException;
 import hxcoro.concurrent.ThreadSafeCallbacks;
-import hxcoro.continuations.FunctionContinuation;
+import haxe.coro.continuations.FunctionContinuation;
 import hxcoro.elements.NonCancellable;
 import hxcoro.task.AbstractTask;
 import hxcoro.task.CoroTask;
