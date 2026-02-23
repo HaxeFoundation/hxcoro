@@ -16,25 +16,25 @@ private typedef SuspendCancellableFunc<T> = IContinuation<T> -> Null<(Cancellati
 
 class Coro {
 	@:coroutine(transformed)
-	public static function suspend<T>(completion:IContinuation<T>, func:IContinuation<T>->Void):SuspensionResult<Any> {
+	public static function suspend<T>(completion:IContinuation<T>, func:IContinuation<T>->Void):SuspensionResult<T> {
 		var safe = new RacingContinuation(completion);
 		func(safe);
 		safe.resolve();
-		return SuspensionResult.suspended;
+		return cast SuspensionResult.suspended;
 	}
 
 	/**
 	 * Suspends a coroutine which will be automatically resumed with a `haxe.exceptions.CancellationException` when cancelled.
 	 * If `func` returns a callback, it is registered to be invoked on cancellation allowing the easy cleanup of resources.
 	 */
-	@:coroutine(transformed) public static function suspendCancellable<T>(completion:IContinuation<T>, func:SuspendCancellableFunc<T>):SuspensionResult<Any> {
+	@:coroutine(transformed) public static function suspendCancellable<T>(completion:IContinuation<T>, func:SuspendCancellableFunc<T>):SuspensionResult<T> {
 		var safe = new CancellingContinuation(completion);
 		final onCancellationRequested = func(safe);
 		if (onCancellationRequested != null) {
 			safe.onCancellationRequested = onCancellationRequested;
 		}
 		safe.resolve();
-		return SuspensionResult.suspended;
+		return cast SuspensionResult.suspended;
 	}
 
 	static function delayImpl<T>(ms:Int, cont:IContinuation<T>) {

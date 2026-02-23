@@ -80,7 +80,7 @@ class Generator<T, R> extends SuspensionResult<Iterator<T>> implements IContinua
 		}
 	}
 
-	@:coroutine public function yield(value:T):R {
+	@:coroutine public function yield(value:T) {
 		nextValue = value;
 		return suspend(cont -> {
 			nextStep = cont;
