@@ -55,7 +55,7 @@ class CoroRun {
 	}
 
 	@:coroutine
-	static public function await<T>(p:js.lib.Promise<T>) {
+	static public function await<T>(p:js.lib.Promise<T>):T {
 		return suspend(cont -> {
 			p.then(
 				r -> cont.resume(r, null),
