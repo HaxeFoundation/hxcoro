@@ -27,14 +27,14 @@ class Coro {
 	 * Suspends a coroutine which will be automatically resumed with a `haxe.exceptions.CancellationException` when cancelled.
 	 * If `func` returns a callback, it is registered to be invoked on cancellation allowing the easy cleanup of resources.
 	 */
-	@:coroutine(transformed) public static function suspendCancellable<T>(completion:IContinuation<T>, func:SuspendCancellableFunc<T>):SuspensionResult<T> {
+	@:coroutine(transformed) public static function suspendCancellable<T>(completion:IContinuation<T>, func:SuspendCancellableFunc<T>):SuspensionResult<Any> {
 		var safe = new CancellingContinuation(completion);
 		final onCancellationRequested = func(safe);
 		if (onCancellationRequested != null) {
 			safe.onCancellationRequested = onCancellationRequested;
 		}
 		safe.resolve();
-		return safe;
+		return SuspensionResult.suspended;
 	}
 
 	static function delayImpl<T>(ms:Int, cont:IContinuation<T>) {
