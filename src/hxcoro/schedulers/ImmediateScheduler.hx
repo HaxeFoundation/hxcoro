@@ -5,8 +5,19 @@ import haxe.Int64;
 import haxe.coro.IContinuation;
 import haxe.coro.schedulers.IScheduler;
 import haxe.coro.schedulers.ISchedulerHandle;
+import haxe.coro.dispatchers.IDispatchObject;
 
-using hxcoro.util.Convenience;
+private class ContinuationDispatchObject implements IDispatchObject {
+	public final cont:IContinuation<Any>;
+
+	public function new(cont) {
+		this.cont = cont;
+	}
+
+	public function onDispatch() {
+		cont.resume(null, null);
+	}
+}
 
 /**
 	A scheduler that dispatches continuations immediately.
@@ -21,7 +32,7 @@ class ImmediateScheduler implements IScheduler implements ISchedulerHandle {
 		Dispatches `cont` immediately, ignoring `ms`.
 	**/
 	public function schedule(ms:Int64, cont:IContinuation<Any>) {
-		cont.context.get(Dispatcher).dispatchContinuation(cont, null, null);
+		cont.context.get(Dispatcher).dispatch(new ContinuationDispatchObject(cont));
 		return this;
 	}
 
