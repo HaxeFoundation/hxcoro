@@ -63,6 +63,12 @@ class CancellingContinuation<T> extends SuspensionResult<T> implements IContinua
 		}
 	}
 
+	function setState(result:T, error:Exception) {
+		this.result = result;
+		this.error = error;
+		this.state = error == null ? Returned : Thrown;
+	}
+
 	/**
 		Returning `true` means that we did update the state, so result and error are set.
 	**/
@@ -70,16 +76,14 @@ class CancellingContinuation<T> extends SuspensionResult<T> implements IContinua
 		return switch (resumeState.compareExchange(Active, Completing)) {
 			case Active:
 				// We're first, set for resolve
-				this.result = result;
-				this.error = error;
+				setState(result, error);
 				resumeState.store(Completed);
 				true;
 			case Resolved:
 				// Already resolved: set & schedule
 				// The CAS is here in case updateState gets called multiple times
 				if (resumeState.compareExchange(Resolved, Completing) == Resolved) {
-					this.result = result;
-					this.error = error;
+					setState(result, error);
 					resumeState.store(Completed);
 					context.get(Dispatcher).dispatch(this);
 					true;
@@ -111,9 +115,7 @@ class CancellingContinuation<T> extends SuspensionResult<T> implements IContinua
 	}
 
 	public function resolve():Void {
-		if (resumeState.compareExchange(Active, Resolved) == Active) {
-			state = Pending;
-		} else {
+		if (resumeState.compareExchange(Active, Resolved) != Active) {
 			while (resumeState.load() == Completing) {
 				BackOff.backOff();
 			}
@@ -122,7 +124,6 @@ class CancellingContinuation<T> extends SuspensionResult<T> implements IContinua
 			// BaseContinuation state machine or a plain lambda (where an inline Returned
 			// result would be silently discarded on multi-threaded targets).
 			context.get(Dispatcher).dispatch(this);
-			state = Pending;
 		}
 	}
 
