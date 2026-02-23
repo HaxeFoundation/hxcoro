@@ -1,16 +1,16 @@
 package hxcoro;
 
-import haxe.exceptions.CancellationException;
-import hxcoro.continuations.RacingContinuation;
-import hxcoro.continuations.CancellingContinuation;
 import haxe.coro.IContinuation;
 import haxe.coro.SuspensionResult;
 import haxe.coro.dispatchers.Dispatcher;
 import haxe.exceptions.ArgumentException;
-import hxcoro.task.NodeLambda;
-import hxcoro.task.CoroTask;
-import hxcoro.exceptions.TimeoutException;
+import haxe.exceptions.CancellationException;
+import hxcoro.continuations.CancellingContinuation;
+import hxcoro.continuations.RacingContinuation;
 import hxcoro.continuations.TimeoutContinuation;
+import hxcoro.exceptions.TimeoutException;
+import hxcoro.task.CoroTask;
+import hxcoro.task.NodeLambda;
 
 private typedef SuspendCancellableFunc<T> = IContinuation<T> -> Null<(CancellationException -> Void)>;
 
@@ -46,11 +46,11 @@ class Coro {
 		}
 	}
 
-	@:coroutine(nothrow) public static function delay(ms:Int):Void {
+	@:coroutine(nothrow, assert = { numStates: 1}) public static function delay(ms:Int):Void {
 		suspendCancellable(cont -> delayImpl(ms, cont));
 	}
 
-	@:coroutine(nothrow) public static function yield():Void {
+	@:coroutine(nothrow, assert = { numStates: 1}) public static function yield():Void {
 		suspendCancellable(cont -> delayImpl(0, cont));
 	}
 
