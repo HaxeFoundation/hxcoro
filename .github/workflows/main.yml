@@ -22,7 +22,7 @@ jobs:
       # - uses: krdlab/setup-haxe@v2
       - uses: kLabz/setup-haxe@neko-latest
         with:
-          haxe-version: "2026-02-23_copilot/add-asynciterator-and-asynciterable_206c058"
+          haxe-version: "2026-02-23_copilot/add-asynciterator-and-asynciterable_11afb96"
 
       - name: Setup hashlink
         if: matrix.target == 'hl'
