@@ -69,13 +69,10 @@ class CancellingContinuation<T> extends SuspensionResult<T> implements IContinua
 	function updateState(result:Null<T>, error:Null<Exception>) {
 		return switch (resumeState.compareExchange(Active, Completing)) {
 			case Active:
-				// We're first: set result and always dispatch so that cont.resume is
-				// guaranteed to be called even when resolve() hasn't run yet (which can
-				// happen on multi-threaded targets where the scheduler fires before resolve).
+				// We're first, set for resolve
 				this.result = result;
 				this.error = error;
 				resumeState.store(Completed);
-				context.get(Dispatcher).dispatch(this);
 				true;
 			case Resolved:
 				// Already resolved: set & schedule
@@ -117,11 +114,14 @@ class CancellingContinuation<T> extends SuspensionResult<T> implements IContinua
 		if (resumeState.compareExchange(Active, Resolved) == Active) {
 			state = Pending;
 		} else {
-			// resume (or cancellation) already won the race and has dispatched this
-			// continuation, so the caller must suspend and wait for the async dispatch.
 			while (resumeState.load() == Completing) {
 				BackOff.backOff();
 			}
+			// Resume (or cancellation) beat resolve(). Dispatch so that onDispatch() →
+			// cont.resume() is always called, regardless of whether the caller was a
+			// BaseContinuation state machine or a plain lambda (where an inline Returned
+			// result would be silently discarded on multi-threaded targets).
+			context.get(Dispatcher).dispatch(this);
 			state = Pending;
 		}
 	}
