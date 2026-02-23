@@ -9,7 +9,7 @@ import haxe.coro.context.Context;
 import haxe.coro.dispatchers.Dispatcher;
 import haxe.coro.dispatchers.IDispatchObject;
 import haxe.exceptions.CancellationException;
-import hxcoro.continuations.FunctionContinuation;
+import haxe.coro.continuations.FunctionContinuation;
 import hxcoro.task.CoroTask;
 import hxcoro.task.ICoroTask;
 import hxcoro.task.NodeLambda;

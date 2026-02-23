@@ -6,8 +6,8 @@ import haxe.coro.IContinuation;
 import haxe.coro.SuspensionResult;
 import haxe.coro.context.Context;
 import hxcoro.Coro.*;
-import hxcoro.dispatchers.SelfDispatcher;
-import hxcoro.schedulers.ImmediateScheduler;
+import haxe.coro.dispatchers.SelfDispatcher;
+import haxe.coro.schedulers.ImmediateScheduler;
 
 class Generator<T, R> extends SuspensionResult<Iterator<T>> implements IContinuation<Iterable<T>> implements YieldingGenerator<T, R>{
 	public var context(get, null):Context;
