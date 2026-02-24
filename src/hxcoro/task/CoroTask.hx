@@ -88,14 +88,6 @@ class CoroTaskWithLambda<T> extends CoroTask<T> implements IDispatchObject imple
 	**/
 	override public function doStart() {
 		super.doStart();
-		final result = lambda(this, this);
-		@:nullSafety(Off) switch result.state {
-			case Pending:
-				return;
-			case Returned:
-				this.succeedAsync(result.result);
-			case Thrown:
-				this.failAsync(result.error);
-		}
+		lambda(this, this);
 	}
 }

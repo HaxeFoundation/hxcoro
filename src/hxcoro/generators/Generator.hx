@@ -31,12 +31,7 @@ class Generator<T, R> extends SuspensionResult<Iterator<T>> implements IContinua
 		return switch (state) {
 			case Pending if (nextStep == null):
 				// Start the coro.
-				final result = f(this, this);
-				switch (result.state) {
-					case Pending:
-					case Returned | Thrown:
-						resume(result.result, result.error);
-				}
+				f(this, this);
 				hasNext(); // recurse
 			case Pending:
 				true;

@@ -37,15 +37,7 @@ class CoroChannelTask<T> extends CoroTask<haxe.Unit> implements IReceiver<T> imp
 function produce<T>(context:Context, lambda:Coroutine<ISender<T>->Void>):IReceiver<T> {
 	final channel = Channel.createBounded({ size : 3 });
 	final task = new CoroChannelTask(context, channel);
-	final result = lambda(task, task);
-	switch result.state {
-		case Pending:
-
-		case Returned:
-			task.resume(result.result, null);
-		case Thrown:
-			task.resume(null, result.error);
-	}
+	lambda(task, task);
 	return task;
 }
 
