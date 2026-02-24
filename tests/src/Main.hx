@@ -12,9 +12,7 @@ function main() {
 		#if js
 		new TestJsPromise(),
 		#end
-		#if false // need to run this single-threaded, but it depends on a hack in BaseContinuation...
 		new TestCallStack(),
-		#end
 	];
 
 	var runner = new utest.Runner();
