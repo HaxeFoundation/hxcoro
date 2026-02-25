@@ -79,24 +79,25 @@ class CoroRun {
 		used depends on the target.
 	**/
 	static public function runWith<T>(context:Context, lambda:NodeLambda<T>#if debug, ?callPos:haxe.PosInfos#end):T {
-		#if target.threaded
-		setupMutex.acquire();
-		final setup = if (setup == null) {
-			final setup = Setup.createDefault();
-			sys.thread.Thread.current().onExit(() -> setup.close());
-			setup;
-		} else {
-			setup;
-		}
-		setupMutex.release();
-		#else
+		// #if target.threaded
+		// setupMutex.acquire();
+		// final setup = if (setup == null) {
+		// 	final setup = Setup.createDefault();
+		// 	sys.thread.Thread.current().onExit(() -> setup.close());
+		// 	CoroRun.setup = setup;
+		// 	setup;
+		// } else {
+		// 	setup;
+		// }
+		// setupMutex.release();
+		// #else
 		final setup = Setup.createDefault();
-		#end
+		// #end
 		final context = setup.adaptContext(context);
 		final task = setup.loop.runTask(context, lambda#if debug, callPos#end);
-		#if !target.threaded
+		// #if !target.threaded
 		setup.close();
-		#end
+		// #end
 		return @:privateAccess ContextRun.resolveTask(task);
 	}
 }
