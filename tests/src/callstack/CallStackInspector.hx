@@ -72,7 +72,7 @@ class CallStackInspector {
 						fail(inspect, '$offset went out of bounds while skipping until $file');
 					}
 					switch (stack[offset]) {
-						case FilePos(Method(_), file2, _) if (file2.endsWith(file)):
+						case FilePos(Method(_) | LocalFunction(_), file2, _) if (file2.endsWith(file)):
 							expectedFile = file;
 							break;
 						case _:
