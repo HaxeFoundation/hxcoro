@@ -45,7 +45,10 @@ private class SynchronousRun implements IElement<SynchronousRun> implements ISyn
 	public var context(get, null):Context;
 
 	final entryPos:PosInfos;
-	final thrownException:Tls<StartedException>;
+
+	// Static so only one pthread TLS key is ever created (macOS has PTHREAD_KEYS_MAX=512;
+	// creating a new key per CoroRun.run() call exhausts the limit and causes failures).
+	static final thrownException = new Tls<StartedException>();
 
 	// Native call stack captured at construction time, used to detect nested coro scenarios
 	// and extract bridge frames between coro worlds.
@@ -55,7 +58,6 @@ private class SynchronousRun implements IElement<SynchronousRun> implements ISyn
 		this.context = context.with(this);
 		this.entryPos = entryPos;
 		capturedStack = CallStack.callStack();
-		thrownException = new Tls();
 	}
 
 	function get_context() {
