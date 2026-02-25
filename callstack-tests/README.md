@@ -56,18 +56,21 @@ differ (they are sequential integers and vary between targets/builds) — use
 
 ### hl (HashLink)
 
-Generally matches eval, with one documented quirk:
+Generally matches eval, with one documented quirk that affects **all** test
+cases: the position of the **first (innermost) coroutine frame** is
+OS-dependent.
 
-- **foobarbaz (`baz` coroutine)**: the position of the first (innermost) frame
-  varies by OS and HashLink version.  On Linux the throw line is reported;
-  on Windows and macOS the coroutine *definition* line may be reported
-  instead (probable JIT-related frame-omission).  The `foobarbaz` test uses
-  `AnyLine` for this frame to tolerate both values.
-- **toprecursion**: the innermost sync-bridge frame (`Top.hx:throwing`) may
-  be absent on Windows/macOS HL.  The test uses `Skip` to skip past the
-  uncertain top frames and assert from the first reliably-present frame.
-- All other cases tested (`directthrow`, `asyncscope`, `catchrethrow`) report
-  the exact throw line, matching eval.
+- **Linux HL**: the exact throw line is reported (matching eval).
+- **Windows and macOS HL**: the coroutine *definition* line is reported
+  instead (probable JIT-related frame-omission, same root cause as cpp).
+
+Because the line can be either the definition or the throw position depending
+on the OS, all tests use `AnyLine` for the innermost HL frame rather than
+asserting a specific line number.
+
+The `toprecursion` test has an additional quirk: the innermost sync-bridge
+frame (`Top.hx:throwing`) may be absent on Windows/macOS HL, so it uses
+`Skip` past that region.
 
 ### cpp
 
@@ -126,11 +129,11 @@ Identical stack shape to eval.
 
 | Quirk                                        | Targets affected         |
 |----------------------------------------------|--------------------------|
-| First frame = definition line, not throw line | cpp (always), hl (sometimes, OS-dependent) |
+| First frame = definition line, not throw line | cpp (always), hl (Windows/macOS — use `AnyLine`) |
 | Sync-bridge frames absent                    | js, python, neko, php (before first suspension point only; eval and cpp always expose them) |
 | Rethrow appends to stack instead of replacing | all targets              |
 | `scope.async()` exceptions propagate to parent `CoroRun.run()` | all targets |
-| Method-reference deduplication (framework bug) | jvm                   |
+| Method-reference deduplication (framework bug, see `jvm-issue/`) | jvm |
 
 ## Test cases
 

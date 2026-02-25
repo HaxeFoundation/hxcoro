@@ -18,6 +18,10 @@ class Test {
 			// cpp reports the coroutine function definition line rather than
 			// the exact throw position (known cpp frame-position inaccuracy).
 			Line(5),  // thrower() definition
+			#elseif hl
+			// HL first-frame position is OS-dependent: definition line on
+			// Windows/macOS, throw line on Linux (same JIT behaviour as foobarbaz).
+			AnyLine,  // thrower() (line varies by HL OS)
 			#else
 			Line(6),  // throw inside thrower()
 			#end
