@@ -37,16 +37,25 @@ as a reference when writing new `#if target` branches.
 The eval interpreter produces the most complete and accurate stacks.
 
 - The innermost frame reports the **exact throw line** inside the coroutine.
-- Every coroutine call site in the chain gets its own frame.
+- Every coroutine call site in the chain gets its own frame, including
+  intermediate coroutine-to-coroutine calls that do not themselves throw
+  (e.g. `foo → bar → baz`: all three functions appear in the stack).
 - Each coroutine entry lambda (`_ -> someFn()`) appears as a `LocalFunction`
   frame followed immediately by a `Method(…, coro)` frame at the same line.
-- Sync bridge frames (plain functions called from coroutines) are fully
-  included when they are on the native call stack at throw time; eval does
-  not see reconstructed frames before the first suspension point differently
-  from after it.
+- Sync bridge frames (plain functions called from **named** `@:coroutine`
+  functions) are fully included when they are on the native call stack at throw
+  time.
 - `throw e` (rethrowing a caught exception) **appends** the rethrow location
   and its continuation chain to the existing stack rather than replacing it,
   producing a doubled call path in the stack array.
+
+> **Inline-lambda limitation (all targets)**: when a plain (non-coroutine)
+> function is called from an **inline lambda** coroutine body
+> (`node -> { yield(); thrower(); }`) *after* a suspension point, the
+> resulting native call frame has no source position (it appears as
+> `LocalFunction(N) at ?:1:0`).  The continuation-chain frames that follow
+> are still correct.  This does not affect named `@:coroutine` functions,
+> which always show the call site accurately.
 
 ### js (Node.js)
 
@@ -95,22 +104,15 @@ Sync-bridge frames (`Top.hx`) are fully present on cpp, as on eval.
 
 ### jvm
 
-> ⚠️ **Known framework limitation on JVM**
->
-> The Haxe JVM backend deduplicates static-method-reference closures.
-> `CaseMacro` generates expressions like `directthrow.Test.run`,
-> `toprecursion.Test.run`, etc., but the JVM code generator emits a *single*
-> shared closure class for all of them, leaving every entry pointing to the
-> *last* discovered `Test.run` (currently `foobarbaz.Test.run`).  As a
-> result, the `directthrow`, `asyncscope`, and `catchrethrow` test cases are
-> **not actually executed on JVM** — they silently pass by running
-> `foobarbaz.Test.run` instead.
->
-> This is a limitation to keep in mind when interpreting JVM test results.
+Fixed in Haxe `f22c52b` (`coro-ExceptionHandler-rework_f22c52b`): the JVM backend
+now generates distinct closure classes for static method references in different
+packages, so all test cases execute correctly.
 
-When JVM tests do run correctly (e.g. `toprecursion` and `foobarbaz`, which
-happen to share behavior with the last-in-list case), the stack shape matches
-eval: exact throw lines, sync-bridge frames present.
+> The standalone `jvm-issue/` directory contains a minimal reproducer for
+> the pre-fix deduplication bug, for reference.
+
+Stack shape matches eval: exact throw lines, sync-bridge frames present,
+full intermediate coroutine call chain reconstructed.
 
 ### python
 
@@ -133,13 +135,13 @@ Identical stack shape to eval.
 | Sync-bridge frames absent                    | js, python, neko, php (before first suspension point only; eval and cpp always expose them) |
 | Rethrow appends to stack instead of replacing | all targets              |
 | `scope.async()` exceptions propagate to parent `CoroRun.run()` | all targets |
-| Method-reference deduplication (framework bug, see `jvm-issue/`) | jvm |
+| Inline-lambda coroutine body has no source pos after yield (`?:1:0`) | all targets (compiler limitation) |
 
 ## Test cases
 
 | Case           | What it tests                                                     |
 |----------------|-------------------------------------------------------------------|
-| `foobarbaz`    | Basic throw through a 3-deep coroutine chain after `yield()`     |
+| `foobarbaz`    | 3-deep coroutine chain after `yield()`; full chain including intermediate call sites |
 | `toprecursion` | Complex chain: sync → coro → recursive coro → sync bridge → throw |
 | `directthrow`  | Throw in a coroutine that never suspends (no `yield()`)          |
 | `catchrethrow` | Catching an exception in a coroutine and rethrowing it           |

@@ -1,5 +1,10 @@
 # JVM static method-reference deduplication bug
 
+> **Status: Fixed in Haxe `coro-ExceptionHandler-rework_f22c52b`.**
+> Running `haxe build.hxml` against that build (or any later build that
+> includes the fix) produces the correct output.  This directory is kept as a
+> standalone reproducer for the original bug.
+
 This is a minimal reproducer for a bug in the Haxe JVM backend where static
 method references with the **same simple class name and method name but
 different packages** are all collapsed into a single shared closure class,
