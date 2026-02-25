@@ -1,0 +1,4 @@
+build-base.hxml
+--library hxcpp
+-cpp bin/cpp
+-cmd bin/cpp/Main

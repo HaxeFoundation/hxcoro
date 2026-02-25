@@ -12,6 +12,9 @@ class TestCallStack extends utest.Test {
 			final stack = e.stack.asArray();
 			var inspector = new CallStackInspector(stack);
 			var r = inspector.inspect([
+				#if eval
+				// On eval the native exception stack carries the actual sync throw site,
+				// so we see the Top.hx frames followed by the patched coro position.
 				File('callstack/Top.hx'),
 					Line(4),
 					Line(8),
@@ -30,6 +33,25 @@ class TestCallStack extends utest.Test {
 					Line(6),
 				Skip('callstack/Bottom.hx'),
 					Line(4)
+				#else
+				// On other targets the native stack does not expose .hx source frames
+				// before invokeResume, so we only get the reconstructed coro chain.
+				// The first frame is unpatched (definition line), and sync bridge
+				// frames (Top.hx, SyncMiddle.syncFun1) are absent.
+				File('callstack/CoroUpper.hx'),
+					Line(3),
+					Line(6),
+					Line(6),
+					Line(6),
+					Line(6),
+					Line(15),
+				Skip('callstack/SyncMiddle.hx'),
+					Line(4),
+				Skip('callstack/CoroLower.hx'),
+					Line(3),
+				Skip('callstack/Bottom.hx'),
+					Line(4)
+				#end
 			]);
 			checkFailure(stack, r);
 		}

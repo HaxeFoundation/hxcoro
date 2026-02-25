@@ -1,8 +1,16 @@
 steps:
-  - name: Setup Haxe (nightly) and Neko
+  - name: Setup Neko
     uses: kLabz/setup-haxe@neko-latest
     with:
       haxe-version: "latest"
+
+  - name: Setup Haxe (coro-ExceptionHandler-rework)
+    run: |
+      curl -sL "https://build.haxe.org/builds/haxe/linux64/haxe_2026-02-25_coro-ExceptionHandler-rework_eab0fab.tar.gz" -o /tmp/haxe.tar.gz
+      tar xzf /tmp/haxe.tar.gz -C /tmp
+      HAXE_DIR=$(ls -d /tmp/haxe_*/  | head -1)
+      echo "HAXE_STD_PATH=${HAXE_DIR}std" >> $GITHUB_ENV
+      echo "${HAXE_DIR}" >> $GITHUB_PATH
 
   - name: Setup haxelib
     run: |

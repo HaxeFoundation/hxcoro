@@ -19,10 +19,33 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
-      # - uses: krdlab/setup-haxe@v2
       - uses: kLabz/setup-haxe@neko-latest
         with:
           haxe-version: "latest"
+
+      - name: Setup Haxe (coro-ExceptionHandler-rework)
+        shell: bash
+        run: |
+          if [ "$RUNNER_OS" == "Linux" ]; then
+            curl -sL "https://build.haxe.org/builds/haxe/linux64/haxe_2026-02-25_coro-ExceptionHandler-rework_eab0fab.tar.gz" -o /tmp/haxe.tar.gz
+            tar xzf /tmp/haxe.tar.gz -C /tmp
+          elif [ "$RUNNER_OS" == "macOS" ]; then
+            curl -sL "https://build.haxe.org/builds/haxe/mac/haxe_2026-02-25_coro-ExceptionHandler-rework_eab0fab.tar.gz" -o /tmp/haxe.tar.gz
+            tar xzf /tmp/haxe.tar.gz -C /tmp
+          fi
+          HAXE_DIR=$(ls -d /tmp/haxe_*/ | head -1)
+          echo "HAXE_STD_PATH=${HAXE_DIR}std" >> $GITHUB_ENV
+          echo "${HAXE_DIR}" >> $GITHUB_PATH
+
+      - name: Setup Haxe (coro-ExceptionHandler-rework, Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          Invoke-WebRequest "https://build.haxe.org/builds/haxe/windows64/haxe_2026-02-25_coro-ExceptionHandler-rework_eab0fab.zip" -OutFile "$env:TEMP\haxe.zip"
+          Expand-Archive "$env:TEMP\haxe.zip" -DestinationPath "$env:TEMP"
+          $haxeDir = Get-ChildItem "$env:TEMP\haxe_*" -Directory | Select-Object -First 1 -ExpandProperty FullName
+          echo "HAXE_STD_PATH=$haxeDir\std" >> $env:GITHUB_ENV
+          echo "$haxeDir" >> $env:GITHUB_PATH
 
       - name: Setup hashlink
         if: matrix.target == 'hl'
@@ -52,3 +75,7 @@ jobs:
           ${{ matrix.target == 'cpp' }} || haxe --cwd tests -debug build-${{ matrix.target }}.hxml
           haxe --cwd tests build-${{ matrix.target }}.hxml --hxb bin/test.hxb
           ${{ matrix.target == 'cpp' }} || haxe --cwd tests build-${{ matrix.target }}.hxml --hxb-lib bin/test.hxb
+
+      - name: Run callstack tests
+        if: matrix.target != 'cpp'
+        run: haxe --cwd callstack-tests build-${{ matrix.target }}.hxml
