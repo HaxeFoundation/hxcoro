@@ -12,7 +12,6 @@ function main() {
 		#if js
 		new TestJsPromise(),
 		#end
-		new TestCallStack(),
 	];
 
 	var runner = new utest.Runner();

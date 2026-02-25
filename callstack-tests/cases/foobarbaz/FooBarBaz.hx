@@ -1,7 +1,6 @@
-package callstack;
+package foobarbaz;
 
 import haxe.Exception;
-import hxcoro.Coro.*;
 
 @:coroutine function baz() {
 	throw new Exception('hello');

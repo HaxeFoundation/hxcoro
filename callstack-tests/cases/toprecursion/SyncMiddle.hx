@@ -1,4 +1,4 @@
-package callstack;
+package toprecursion;
 
 function syncFun2() {
 	CoroRun.run(_ -> CoroUpper.bar());
