@@ -8,7 +8,7 @@ class Test {
 		} catch (e:haxe.exceptions.NotImplementedException) {
 			final stack = e.stack.asArray();
 			final r = new Inspector(stack).inspect([
-				#if (eval || cpp)
+				#if (eval || cpp || jvm)
 				// On eval and cpp the native exception stack carries the sync throw
 				// site (Top.hx frames) and the invokeResume mechanism patches the
 				// first coro frame to its actual call position.

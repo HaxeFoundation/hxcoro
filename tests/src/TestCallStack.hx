@@ -12,7 +12,7 @@ class TestCallStack extends utest.Test {
 			final stack = e.stack.asArray();
 			var inspector = new CallStackInspector(stack);
 			var r = inspector.inspect([
-				#if (eval || cpp)
+				#if (eval || cpp || jvm)
 				// On eval and cpp the native exception stack carries the actual sync
 				// throw site (Top.hx frames) and invokeResume patches the first coro
 				// frame to its call position.
