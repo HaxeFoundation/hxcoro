@@ -54,11 +54,7 @@ private class SynchronousRun implements IElement<SynchronousRun> implements ISyn
 	public function new(context:Context, entryPos:PosInfos) {
 		this.context = context.with(this);
 		this.entryPos = entryPos;
-		#if sys
 		capturedStack = CallStack.callStack();
-		#else
-		capturedStack = null;
-		#end
 		thrownException = new Tls();
 	}
 
@@ -94,10 +90,6 @@ private class SynchronousRun implements IElement<SynchronousRun> implements ISyn
 			return;
 		}
 		thrownException.value = null;
-
-		#if sys
-		exception.dump();
-		#end
 
 		final newStack = [];
 		final coroStack = exception.coroStack;
