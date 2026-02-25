@@ -6,6 +6,8 @@ enum InspectDirective {
 	File(file:String);
 	/** Assert the next stack frame is in the current file at the given line. **/
 	Line(line:Int);
+	/** Assert the next stack frame is in the current file (any line). **/
+	AnyLine;
 	/** Advance past frames until one matching `file` is found. **/
 	Skip(file:String);
 }
@@ -71,6 +73,18 @@ class Inspector {
 							fail(directive, 'file "$file" should end with "$expectedFile"');
 						if (line != expectedLine)
 							fail(directive, 'line $line should be $expectedLine');
+					case v:
+						fail(directive, '$v should be FilePos');
+				}
+
+			case AnyLine:
+				final index = offset++;
+				switch (stack[index]) {
+					case null:
+						fail(directive, 'stack went out of bounds at index $index');
+					case FilePos(_, file, _):
+						if (!file.endsWith(expectedFile))
+							fail(directive, 'file "$file" should end with "$expectedFile"');
 					case v:
 						fail(directive, '$v should be FilePos');
 				}
