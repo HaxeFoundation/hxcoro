@@ -2,6 +2,7 @@ import haxe.CallStack;
 import haxe.Exception;
 import callstack.CallStackInspector;
 
+#if debug
 class TestCallStack extends utest.Test {
 	function test() {
 		try {
@@ -86,3 +87,4 @@ class TestCallStack extends utest.Test {
 		}
 	}
 }
+#end
