@@ -1,5 +1,7 @@
 package hxcoro.task;
 
+import haxe.coro.CoroStackItem;
+import haxe.coro.IStackFrame;
 import haxe.Exception;
 import haxe.coro.IContinuation;
 import haxe.coro.context.Context;
@@ -29,7 +31,7 @@ private class ResumeStatusTools {
 	}
 }
 
-class CoroTask<T> extends CoroBaseTask<T> implements IContinuation<T> {
+class CoroTask<T> extends CoroBaseTask<T> implements IContinuation<T> implements IStackFrame {
 	static public final CoroChildStrategy = new CoroChildStrategy();
 	static public final CoroScopeStrategy = new CoroScopeStrategy();
 	static public final CoroSupervisorStrategy = new CoroSupervisorStrategy();
@@ -51,6 +53,20 @@ class CoroTask<T> extends CoroBaseTask<T> implements IContinuation<T> {
 			beginCancelling(error);
 			checkCompletion();
 		}
+	}
+
+	/**
+		@see `IStackFrame.callerFrame`
+	**/
+	public function callerFrame():Null<IStackFrame> {
+		return null;
+	}
+
+	/**
+		@see `IStackFrame.callerFrame`
+	**/
+	public function getStackItem() {
+		return CoroStackItem.CoroEntrypoint;
 	}
 
 	#if sys

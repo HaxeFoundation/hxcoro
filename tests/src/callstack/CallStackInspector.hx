@@ -52,6 +52,8 @@ class CallStackInspector {
 			case Line(expectedLine):
 				final index = offset++;
 				switch (stack[index]) {
+					case null:
+						fail(inspect, 'stack $index went out of bounds');
 					case FilePos(_, file, line):
 						if (!file.endsWith(expectedFile)) {
 							fail(inspect, 'file $file should be $expectedFile');

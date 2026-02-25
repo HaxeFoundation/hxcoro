@@ -1,5 +1,5 @@
 package callstack;
 
 function entry() {
-	CoroRun.run(() -> CoroLower.foo());
+	CoroRun.run(_ -> CoroLower.foo());
 }

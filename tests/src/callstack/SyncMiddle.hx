@@ -1,7 +1,7 @@
 package callstack;
 
 function syncFun2() {
-	CoroRun.run(() -> CoroUpper.bar());
+	CoroRun.run(_ -> CoroUpper.bar());
 }
 
 function syncFun1() {
