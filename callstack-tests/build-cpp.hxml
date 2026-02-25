@@ -1,4 +1,6 @@
 build-base.hxml
---library hxcpp
+-D HXCPP_CATCH_SEGV
+-D HXCPP_CPP17
+--library hxcpp_luv_io
 -cpp bin/cpp
 -cmd bin/cpp/Main

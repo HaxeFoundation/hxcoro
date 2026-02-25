@@ -12,9 +12,10 @@ class TestCallStack extends utest.Test {
 			final stack = e.stack.asArray();
 			var inspector = new CallStackInspector(stack);
 			var r = inspector.inspect([
-				#if eval
-				// On eval the native exception stack carries the actual sync throw site,
-				// so we see the Top.hx frames followed by the patched coro position.
+				#if (eval || cpp)
+				// On eval and cpp the native exception stack carries the actual sync
+				// throw site (Top.hx frames) and invokeResume patches the first coro
+				// frame to its call position.
 				File('callstack/Top.hx'),
 					Line(4),
 					Line(8),
@@ -74,17 +75,17 @@ class TestCallStack extends utest.Test {
 			var r = inspector.inspect([
 				File('callstack/FooBarBaz.hx'),
 				#if cpp
-				// TODO: cpp has inaccurate positions which causes the top stack to be wrong
+				// cpp gives the coroutine definition line for the top frame instead
+				// of the actual throw position (inaccurate positions on cpp).
 				Line(6),
-				Line(12),
 				Line(12),
 				Line(16),
 				#else
 				Line(7),
 				Line(12),
-				#end
-				// TODO: sync stack doesn't work yet
+				// TODO: sync stack (foo calling bar) not reconstructed yet
 				// Line(16)
+				#end
 			]);
 			checkFailure(stack, r);
 		}

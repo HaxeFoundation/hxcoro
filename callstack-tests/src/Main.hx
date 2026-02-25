@@ -1,6 +1,3 @@
-import tests.FooBarBazTest;
-import tests.TopRecursionTest;
-
 function println(s:String) {
 	#if sys
 	Sys.println(s);
@@ -22,10 +19,7 @@ function exit(code:Int) {
 }
 
 function main() {
-	final suite:Array<{name:String, run:() -> Void}> = [
-		{name: "FooBarBaz", run: FooBarBazTest.run},
-		{name: "TopRecursion", run: TopRecursionTest.run},
-	];
+	final suite = CaseMacro.discoverCases();
 
 	var passed = 0;
 	var failed = 0;
@@ -48,4 +42,3 @@ function main() {
 	if (failed > 0)
 		exit(1);
 }
-

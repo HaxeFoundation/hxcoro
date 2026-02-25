@@ -53,5 +53,4 @@ jobs:
           ${{ matrix.target == 'cpp' }} || haxe --cwd tests build-${{ matrix.target }}.hxml --hxb-lib bin/test.hxb
 
       - name: Run callstack tests
-        if: matrix.target != 'cpp'
         run: haxe --cwd callstack-tests build-${{ matrix.target }}.hxml
