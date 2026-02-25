@@ -1,9 +1,9 @@
 package hxcoro.run;
 
-import haxe.coro.context.ExceptionHandler;
 import haxe.coro.context.Context;
 import haxe.coro.dispatchers.Dispatcher;
 import haxe.coro.schedulers.IScheduler;
+import hxcoro.elements.DefaultExceptionHandler;
 import hxcoro.schedulers.ILoop;
 
 class Setup {
