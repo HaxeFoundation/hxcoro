@@ -26,3 +26,9 @@ jobs:
           haxelib newrepo
           haxelib git utest https://github.com/haxe-utest/utest.git
           haxelib dev hxcoro .
+
+      - name: Setup hashlink
+        if: matrix.target == 'hl'
+        uses: HaxeFoundation/setup-hashlink@v1
+        with:
+          version: nightly
