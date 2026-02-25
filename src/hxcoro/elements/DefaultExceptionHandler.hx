@@ -42,7 +42,7 @@ private class StartedException {
 private class SynchronousRun implements IElement<SynchronousRun> implements ISynchronousRun {
 	public static final key = new Key<SynchronousRun>('SynchronousRun');
 
-	public final context(get, null):Context;
+	public var context(get, null):Context;
 
 	final entryPos:PosInfos;
 	final thrownException:Tls<StartedException>;
