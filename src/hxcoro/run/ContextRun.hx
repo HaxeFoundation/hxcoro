@@ -1,14 +1,14 @@
 package hxcoro.run;
 
-import haxe.coro.context.ExceptionHandler;
-import hxcoro.task.AbstractTask;
-import hxcoro.task.node.CoroScopeStrategy;
 import haxe.coro.context.Context;
+import haxe.coro.context.ExceptionHandler;
 import haxe.coro.dispatchers.Dispatcher;
 import hxcoro.schedulers.ILoop;
+import hxcoro.task.AbstractTask;
 import hxcoro.task.CoroTask;
 import hxcoro.task.ICoroTask;
 import hxcoro.task.NodeLambda;
+import hxcoro.task.node.CoroScopeStrategy;
 
 /**
 	This class provides static extensions for `Context` to work with `Task` instances.
@@ -75,7 +75,7 @@ class ContextRun {
 		the context and fails if there is none. It also checks if the dispatcher's
 		scheduler is an instance of `ILoop` and fails if it's not.
 	**/
-	static public function runTask<T>(context:Context, lambda:NodeLambda<T>):T {
+	static public function runTask<T>(context:Context, lambda:NodeLambda<T>#if debug, ?callPos:haxe.PosInfos#end):T {
 		final dispatcher = context.get(Dispatcher);
 		if (dispatcher == null) {
 			throw 'Cannot run a task without a Dispatcher element';
@@ -83,7 +83,7 @@ class ContextRun {
 		if (!(dispatcher.scheduler is ILoop)) {
 			throw 'Cannot run because ${dispatcher.scheduler} is not an instance of ILoop';
 		}
-		final task = LoopRun.runTask(cast dispatcher.scheduler, context, lambda);
+		final task = LoopRun.runTask(cast dispatcher.scheduler, context, lambda#if debug, callPos #end);
 		return resolveTask(task);
 	}
 }
