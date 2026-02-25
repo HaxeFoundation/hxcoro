@@ -1,6 +1,5 @@
 build-base.hxml
 -D HXCPP_CATCH_SEGV
 -D HXCPP_CPP17
---library hxcpp_luv_io
 --cpp bin/cpp
 --macro CppMacro.run()
