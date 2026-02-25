@@ -3,7 +3,6 @@
 --library hxcoro
 --main Main
 -D UTEST-PRINT-TESTS
--D UTEST-PATTERN=TestCallStack
+#-D UTEST-PATTERN=TestCallStack
 -D use-vec-deque
 #--macro nullSafety("hxcoro")
--debug
