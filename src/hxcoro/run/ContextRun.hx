@@ -17,7 +17,7 @@ import hxcoro.task.NodeLambda;
 **/
 class ContextRun {
 	static function createEntryTask<T>(context:Context, lambda:NodeLambda<T>, strategy:CoroScopeStrategy, initialState:TaskState#if debug, ?callPos:haxe.PosInfos#end) {
-		context.get(ExceptionHandler)?.registerSynchronousEntrypoint(callPos);
+		#if debug context.get(ExceptionHandler)?.registerSynchronousEntrypoint(callPos); #end
 		return new CoroTaskWithLambda(context, lambda, strategy, initialState#if debug, callPos #end);
 	}
 
