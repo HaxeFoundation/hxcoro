@@ -1,5 +1,8 @@
 package hxcoro.run;
 
+import haxe.coro.context.ExceptionHandler;
+import hxcoro.task.AbstractTask;
+import hxcoro.task.node.CoroScopeStrategy;
 import haxe.coro.context.Context;
 import haxe.coro.dispatchers.Dispatcher;
 import hxcoro.schedulers.ILoop;
@@ -13,6 +16,11 @@ import hxcoro.task.NodeLambda;
 	The intended usage is to add `using hxcoro.run.ContextRun`.
 **/
 class ContextRun {
+	static function createEntryTask<T>(context:Context, lambda:NodeLambda<T>, strategy:CoroScopeStrategy, initialState:TaskState#if debug, ?callPos:haxe.PosInfos#end) {
+		context.get(ExceptionHandler)?.registerSynchronousEntrypoint(callPos);
+		return new CoroTaskWithLambda(context, lambda, strategy, initialState#if debug, callPos #end);
+	}
+
 	/**
 		Resolves `task` by either returning its value or throwing
 		its error as an exception. This function does not check the
@@ -35,12 +43,12 @@ class ContextRun {
 		This function checks for the presence of a `Dispatcher` element in
 		the context and fails if there is none.
 	**/
-	static public function createTask<T>(context:Context, lambda:NodeLambda<T>):IStartableCoroTask<T> {
+	static public function createTask<T>(context:Context, lambda:NodeLambda<T>#if debug, ?callPos:haxe.PosInfos#end):IStartableCoroTask<T> {
 		final dispatcher = context.get(Dispatcher);
 		if (dispatcher == null) {
 			throw 'Cannot create a task without a Dispatcher element';
 		}
-		return new CoroTaskWithLambda(context, lambda, CoroTask.CoroScopeStrategy, Created);
+		return createEntryTask(context, lambda, CoroTask.CoroScopeStrategy, Created);
 	}
 
 	/**
@@ -50,12 +58,12 @@ class ContextRun {
 		This function checks for the presence of a `Dispatcher` element in
 		the context and fails if there is none.
 	**/
-	static public function launchTask<T>(context:Context, lambda:NodeLambda<T>):ICoroTask<T> {
+	static public function launchTask<T>(context:Context, lambda:NodeLambda<T>#if debug, ?callPos:haxe.PosInfos#end):ICoroTask<T> {
 		final dispatcher = context.get(Dispatcher);
 		if (dispatcher == null) {
 			throw 'Cannot launch a task without a Dispatcher element';
 		}
-		return new CoroTaskWithLambda(context, lambda, CoroTask.CoroScopeStrategy);
+		return createEntryTask(context, lambda, CoroTask.CoroScopeStrategy, Running#if debug, callPos #end);
 	}
 
 	/**

@@ -23,7 +23,7 @@ class LoopRun {
 		events in such a way that the loop processes them.
 	**/
 	static public function runTask<T>(loop:ILoop, context:Context, lambda:NodeLambda<T>#if debug, ?callPos:haxe.PosInfos#end):ICoroTask<T> {
-		final task = new CoroTaskWithLambda(context, lambda, CoroTask.CoroScopeStrategy#if debug, callPos#end);
+		final task = @:privateAccess ContextRun.createEntryTask(context, lambda, CoroTask.CoroScopeStrategy, Running#if debug, callPos#end);
 		awaitTaskCompletion(loop, task);
 		return task;
 	}
