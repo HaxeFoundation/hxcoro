@@ -67,14 +67,22 @@ class CoroTask<T> extends CoroBaseTask<T> implements IContinuation<T> implements
 		@see `IStackFrame.callerFrame`
 	**/
 	public function callerFrame():Null<IStackFrame> {
+		#if debug
 		return parent is IStackFrame ? cast parent : null;
+		#else
+		return null;
+		#end
 	}
 
 	/**
 		@see `IStackFrame.callerFrame`
 	**/
 	public function getStackItem() {
+		#if debug
 		return callPos == null ? null : CoroStackItem.PosInfo(callPos);
+		#else
+		return null;
+		#end
 	}
 
 	#if sys
