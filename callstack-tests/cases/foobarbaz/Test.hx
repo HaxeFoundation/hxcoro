@@ -6,7 +6,7 @@ class Test {
 	public static function run() {
 		// Simple invocation
 		try {
-			CoroRun.run(FooBarBaz.foo);
+			CoroRun.run(_ -> FooBarBaz.foo());
 			throw new Exception("Expected an exception from FooBarBaz.foo");
 		} catch (e:Exception) {
 			checkStack(e);

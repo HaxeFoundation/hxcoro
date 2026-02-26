@@ -4,7 +4,7 @@ import hxcoro.Coro.*;
 class TestHoisting extends utest.Test {
     function testLocalVariable() {
 
-        @:coroutine function foo() {
+        @:coroutine function foo(_) {
             var bar = 7;
 
             yield();
@@ -16,7 +16,7 @@ class TestHoisting extends utest.Test {
     }
 
     function testModifyingLocalVariable() {
-        @:coroutine function foo() {
+        @:coroutine function foo(_) {
             var bar = 7;
 
             yield();
@@ -38,13 +38,13 @@ class TestHoisting extends utest.Test {
     }
 
     function testArgument() {
-        Assert.equals(7, CoroRun.run(() -> {
+        Assert.equals(7, CoroRun.run((_) -> {
             return fooTestArgument(7);
         }));
     }
 
     function testLocalArgument() {
-        Assert.equals(7, CoroRun.run(() -> {
+        Assert.equals(7, CoroRun.run((_) -> {
             @:coroutine function foo(v:Int) {
                 yield();
 
@@ -66,13 +66,13 @@ class TestHoisting extends utest.Test {
     }
 
     function testModifyingArgument() {
-        Assert.equals(14, CoroRun.run(() -> {
+        Assert.equals(14, CoroRun.run((_) -> {
             return fooTestModifyingArgument(7);
         }));
     }
 
     function testModifyingLocalArgument() {
-        Assert.equals(14, CoroRun.run(() -> {
+        Assert.equals(14, CoroRun.run((_) -> {
             @:coroutine function foo(v:Int) {
                 yield();
 
@@ -90,7 +90,7 @@ class TestHoisting extends utest.Test {
     function testCapturingLocal() {
         var i = 0;
 
-        CoroRun.run(() -> {
+        CoroRun.run((_) -> {
             i = 7;
             yield();
             i *= 2;
@@ -100,7 +100,7 @@ class TestHoisting extends utest.Test {
     }
 
     function testMultiHoisting() {
-        Assert.equals(14, CoroRun.run(() -> {
+        Assert.equals(14, CoroRun.run((_) -> {
 
             var i = 0;
 
@@ -136,7 +136,7 @@ class TestHoisting extends utest.Test {
     }
 
     function testUninitialisedVariable() {
-        Assert.equals(7, CoroRun.run(() -> {
+        Assert.equals(7, CoroRun.run((_) -> {
             var i;
 
             yield();
@@ -154,7 +154,7 @@ class TestHoisting extends utest.Test {
         final actual   = [];
         final expected = [ for (i in 0...count) i + 1 ];
 
-        CoroRun.run(() -> {
+        CoroRun.run((_) -> {
             var num = 0;
             while (num++ < count) {
                 actual.push(num);
@@ -175,7 +175,7 @@ class TestHoisting extends utest.Test {
             return v;
         }
 
-        CoroRun.run(() -> {
+        CoroRun.run((_) -> {
             var num = 0;
             while (f(num++) < count) {
                 actual.push(num);

@@ -5,11 +5,11 @@ class CoroFile {
 		this.file = file;
 	}
 
-	@:coroutine public function write() {
+	@:coroutine public function write(_) {
 		return file;
 	}
 
-	@:coroutine public function almostWrite() {
+	@:coroutine public function almostWrite(_) {
 		return () -> file;
 	}
 }
