@@ -9,7 +9,7 @@ class MyCont {
 }
 
 @:coroutine
-private function await() {
+private function await(_) {
 	var safe = new MyCont();
 	return {
 		var this1 = safe.getOrThrow();

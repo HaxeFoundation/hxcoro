@@ -14,16 +14,7 @@ class CoroRun {
 		return Setup.defaultContext.with(...elements);
 	}
 
-	overload extern static public inline function run<T>(lambda:Coroutine<() -> T>#if debug, ?callPos:haxe.PosInfos#end):T {
-		return runWith(Setup.defaultContext, _ -> lambda()#if debug, callPos#end);
-	}
-
-	overload extern static public inline function run<T>(lambda:NodeLambda<T>#if debug, ?callPos:haxe.PosInfos#end):T {
-		return runWith(Setup.defaultContext, lambda#if debug, callPos#end);
-	}
-
-	@:deprecated("Use `CoroRun.run` instead")
-	static public function runScoped<T>(lambda:NodeLambda<T>#if debug, ?callPos:haxe.PosInfos#end):T {
+	static public inline function run<T>(lambda:NodeLambda<T>#if debug, ?callPos:haxe.PosInfos#end):T {
 		return runWith(Setup.defaultContext, lambda#if debug, callPos#end);
 	}
 

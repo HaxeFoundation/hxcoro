@@ -1,7 +1,9 @@
 package issues.hf;
 
+import hxcoro.task.ICoroNode;
+
 abstract class C {
-	@:coroutine abstract public function f():String;
+	@:coroutine abstract public function f(node:ICoroNode):String;
 }
 
 class C2 extends C {
@@ -11,7 +13,7 @@ class C2 extends C {
 		this.s = s;
 	}
 
-	@:coroutine public function f() {
+	@:coroutine public function f(_) {
 		return s;
 	}
 }
@@ -19,9 +21,9 @@ class C2 extends C {
 class Issue30 extends utest.Test {
 	function test() {
 		Assert.equals("ok", CoroRun.run(new C2("ok").f));
-		Assert.equals("ok", CoroRun.run(() -> {
+		Assert.equals("ok", CoroRun.run((node) -> {
 			final c:C = new C2("ok");
-			c.f();
+			c.f(node);
 		}));
 	}
 }
