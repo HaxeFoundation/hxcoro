@@ -51,11 +51,15 @@ jobs:
         run: |
           TARGET="${{ matrix.target }}"
 
+          run_release() {
+            haxe --cwd tests build-$TARGET.hxml --hxb bin/test.hxb
+          }
+
           # Run with the default dispatcher for this target
           run_default() {
-            [[ "$TARGET" != "cpp" ]] && haxe --cwd tests -debug build-$TARGET.hxml
-            haxe --cwd tests build-$TARGET.hxml --hxb bin/test.hxb
-            [[ "$TARGET" != "cpp" ]] && haxe --cwd tests build-$TARGET.hxml --hxb-lib bin/test.hxb
+            haxe --cwd tests -debug build-$TARGET.hxml
+            run_release
+            haxe --cwd tests build-$TARGET.hxml --hxb-lib bin/test.hxb
           }
 
           # Run again with an alternative dispatcher (env var read at runtime by Main.hx)
@@ -66,15 +70,22 @@ jobs:
             HXCORO_DISPATCHER=$1 haxe --cwd tests build-$TARGET.hxml
           }
 
-          run_default
-
           case "$TARGET" in
             eval)
+              run_default
               run_extra trampoline
               run_extra threadpool
               ;;
-            eval|hl|cpp|jvm)
+            cpp)
+              run_release
               run_extra trampoline
+              ;;
+            hl|jvm)
+              run_default
+              run_extra trampoline
+              ;;
+            *)
+              run_default
               ;;
           esac
 
