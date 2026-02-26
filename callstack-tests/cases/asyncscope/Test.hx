@@ -15,9 +15,9 @@ class Test {
 		final r = new Inspector(stack).inspect([
 			File('asyncscope/AsyncScope.hx'),
 			#if cpp
-			// cpp reports the coroutine function definition line rather than
-			// the exact throw position (known cpp frame-position inaccuracy).
-			Line(9),  // inner() definition
+			// On C++ the @:coroutine function's definition line is reported rather
+			// than the throw expression (see directthrow/Test.hx for the explanation).
+			Line(9),  // inner() definition (patchFirstCoroStack does not run on C++)
 			#elseif hl
 			// HL first-frame position is OS-dependent: definition line on
 			// Windows/macOS, throw line on Linux (same JIT behaviour as foobarbaz).

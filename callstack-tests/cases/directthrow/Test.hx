@@ -15,9 +15,16 @@ class Test {
 		final r = new Inspector(stack).inspect([
 			File('directthrow/DirectThrow.hx'),
 			#if cpp
-			// cpp reports the coroutine function definition line rather than
-			// the exact throw position (known cpp frame-position inaccuracy).
-			Line(6),  // thrower() definition
+			// On C++ the coroutine continuation's stackItem is initialized to the
+			// @:coroutine function's definition line.  The patchFirstCoroStack path
+			// (which would update it to the actual throw site) only runs when the
+			// native exception stack contains an invokeResume frame with a .hx
+			// source path; on C++ the native stack carries C++ file paths instead,
+			// so no patch is applied and the definition line is kept.
+			// Note: this limitation only affects @:coroutine functions — plain
+			// functions are captured correctly via hxcpp's HX_STACK_LINE macros
+			// (see the nestedplainthrow test case).
+			Line(6),  // thrower() definition (patchFirstCoroStack does not run on C++)
 			#elseif hl
 			// HL first-frame position is OS-dependent: definition line on
 			// Windows/macOS, throw line on Linux (same JIT behaviour as foobarbaz).

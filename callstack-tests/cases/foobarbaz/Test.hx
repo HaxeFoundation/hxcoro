@@ -32,9 +32,9 @@ class Test {
 		final r = new Inspector(stack).inspect([
 			File('foobarbaz/FooBarBaz.hx'),
 			#if cpp
-			// cpp reports the coroutine definition line rather than the exact
-			// throw position (inaccurate top-frame positions on cpp).
-			Line(5),  // baz definition
+			// On C++ the @:coroutine function's definition line is reported rather
+			// than the throw expression (see directthrow/Test.hx for the explanation).
+			Line(5),  // baz definition (patchFirstCoroStack does not run on C++)
 			Line(11), // baz() call in bar
 			Line(15), // bar() call in foo
 			#elseif hl
