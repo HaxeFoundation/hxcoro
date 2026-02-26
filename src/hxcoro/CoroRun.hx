@@ -1,6 +1,5 @@
 package hxcoro;
 
-import haxe.coro.Mutex;
 import haxe.coro.Coroutine;
 import haxe.coro.context.Context;
 import haxe.coro.context.IElement;
@@ -67,9 +66,6 @@ class CoroRun {
 
 	#end
 
-	static var setup:Null<LoopSetup>;
-	static final setupMutex = new Mutex();
-
 	/**
 		Executes `lambda` in context `context`, blocking until it returns or throws.
 
@@ -77,27 +73,15 @@ class CoroRun {
 		function always installs its own instance of `Dispatcher` into the context
 		and uses it to drive execution. The exact dispatcher implementation being
 		used depends on the target.
+
+		Each invocation creates its own independent `Setup` (scheduler + dispatcher),
+		so separate calls from different threads do not interfere with each other.
 	**/
 	static public function runWith<T>(context:Context, lambda:NodeLambda<T>#if debug, ?callPos:haxe.PosInfos#end):T {
-		// #if target.threaded
-		// setupMutex.acquire();
-		// final setup = if (setup == null) {
-		// 	final setup = Setup.createDefault();
-		// 	sys.thread.Thread.current().onExit(() -> setup.close());
-		// 	CoroRun.setup = setup;
-		// 	setup;
-		// } else {
-		// 	setup;
-		// }
-		// setupMutex.release();
-		// #else
 		final setup = Setup.createDefault();
-		// #end
 		final context = setup.adaptContext(context);
 		final task = setup.loop.runTask(context, lambda#if debug, callPos#end);
-		// #if !target.threaded
 		setup.close();
-		// #end
 		return @:privateAccess ContextRun.resolveTask(task);
 	}
 }
