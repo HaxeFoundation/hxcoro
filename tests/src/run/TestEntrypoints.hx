@@ -139,6 +139,50 @@ class TestEntrypoints extends utest.Test {
 		setup.close();
 	}
 
+	/**
+		Two threads share a single `ThreadAwareScheduler` loop and each awaits its own
+		task.  Without the "stolen wakeup" fix in `awaitTaskCompletion` this test hangs:
+		the `wakeUp()` emitted when one task completes can be consumed by the other
+		waiting thread, leaving that thread's `loop.loop(Once)` permanently blocked
+		inside `semaphore.acquire()`.
+
+		`TrampolineDispatcher` is used here so that continuations are resumed inline by
+		whichever thread drives the loop, avoiding the need for pool-TLS registration
+		that `ThreadPoolDispatcher` requires.
+	**/
+	public function testSharedLoopConcurrentWaits() {
+		final scheduler = new ThreadAwareScheduler();
+		final dispatcher = new TrampolineDispatcher(scheduler);
+		final setup = new hxcoro.run.LoopSetup(scheduler, dispatcher);
+		final context = setup.createContext();
+
+		final done = new sys.thread.Semaphore(0);
+		var result1:Null<String> = null;
+		var result2:Null<String> = null;
+
+		sys.thread.Thread.create(() -> {
+			result1 = setup.loop.runTask(context, _ -> {
+				helloAndGoodbyeAfter("T1");
+				return "r1";
+			}).get();
+			done.release();
+		});
+
+		sys.thread.Thread.create(() -> {
+			result2 = setup.loop.runTask(context, _ -> {
+				helloAndGoodbyeAfter("T2");
+				return "r2";
+			}).get();
+			done.release();
+		});
+
+		done.acquire();
+		done.acquire();
+
+		Assert.equals("r1", result1);
+		Assert.equals("r2", result2);
+	}
+
 	#end
 
 	#if (cpp && hxcpp_luv_io)
