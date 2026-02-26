@@ -37,14 +37,10 @@ class CoroTask<T> extends CoroBaseTask<T> implements IContinuation<T> implements
 	static public final CoroScopeStrategy = new CoroScopeStrategy();
 	static public final CoroSupervisorStrategy = new CoroSupervisorStrategy();
 
-	#if debug
-	final callPos:Null<PosInfos>;
-	#end
-
-	public function new(context:Context, nodeStrategy:INodeStrategy, initialState:TaskState = Running#if debug, ?callPos:PosInfos#end) {
+	public function new(context:Context, nodeStrategy:INodeStrategy, initialState:TaskState = Running#if debug, ?startPos:PosInfos#end) {
 		super(context, nodeStrategy, initialState);
 		#if debug
-		this.callPos = callPos;
+		this.startPos = startPos;
 		#end
 	}
 
@@ -79,7 +75,7 @@ class CoroTask<T> extends CoroBaseTask<T> implements IContinuation<T> implements
 	**/
 	public function getStackItem() {
 		#if debug
-		return callPos == null ? null : CoroStackItem.PosInfo(callPos);
+		return startPos == null ? null : CoroStackItem.PosInfo(startPos);
 		#else
 		return null;
 		#end
@@ -103,16 +99,16 @@ class CoroTaskWithLambda<T> extends CoroTask<T> implements IDispatchObject imple
 	/**
 		Creates a new task using the provided `context` in order to execute `lambda`.
 	**/
-	public function new(context:Context, lambda:NodeLambda<T>, nodeStrategy:INodeStrategy, initialState:TaskState = Running#if debug, ?callPos:PosInfos#end) {
+	public function new(context:Context, lambda:NodeLambda<T>, nodeStrategy:INodeStrategy, initialState:TaskState = Running#if debug, ?startPos:PosInfos#end) {
 		this.lambda = lambda;
-		super(context, nodeStrategy, Created#if debug,callPos#end);
+		super(context, nodeStrategy, Created#if debug,startPos#end);
 		if (initialState == Running) {
 			context.get(Dispatcher).dispatch(this);
 		}
 	}
 
 	public function onDispatch() {
-		start();
+		start(#if debug null #end);
 	}
 
 	/**

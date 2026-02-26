@@ -37,6 +37,10 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 	**/
 	public var context(get, null):Context;
 
+	#if debug
+	var startPos:Null<haxe.PosInfos>;
+	#end
+
 	final nodeStrategy:INodeStrategy;
 	final awaitingContinuations:TaskContinuationManager;
 	var awaitingChildContinuation:Null<IContinuation<Any>>;
@@ -72,15 +76,15 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 		Creates a lazy child task to execute `lambda`. The child task does not execute until its `start`
 		method is called. This occurrs automatically once this task has finished execution.
 	**/
-	public function lazy<T>(lambda:NodeLambda<T>#if debug, ?callPos:haxe.PosInfos#end):IStartableCoroTask<T> {
-		return new CoroTaskWithLambda(context, lambda, CoroTask.CoroChildStrategy, Created#if debug, callPos#end);
+	public function lazy<T>(lambda:NodeLambda<T>):IStartableCoroTask<T> {
+		return new CoroTaskWithLambda(context, lambda, CoroTask.CoroChildStrategy, Created#if debug, null#end);
 	}
 
 	/**
 		Creates a child task to execute `lambda` and starts it automatically.
 	**/
-	public function async<T>(lambda:NodeLambda<T>#if debug, ?callPos:haxe.PosInfos#end):ICoroTask<T> {
-		return new CoroTaskWithLambda<T>(context, lambda, CoroTask.CoroChildStrategy#if debug, callPos#end);
+	public function async<T>(lambda:NodeLambda<T>#if debug, ?startPos:haxe.PosInfos#end):ICoroTask<T> {
+		return new CoroTaskWithLambda<T>(context, lambda, CoroTask.CoroChildStrategy#if debug, startPos#end);
 	}
 
 	/**
@@ -107,7 +111,16 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 	**/
 	public function awaitContinuation(cont:IContinuation<T>) {
 		awaitingContinuations.add(cont);
-		start();
+		start(#if debug null #end);
+	}
+
+	override public function start(#if debug ?startPos:haxe.PosInfos #end) {
+		#if debug
+		if (this.startPos == null && startPos != null) {
+			this.startPos = startPos;
+		}
+		#end
+		super.start(#if debug null #end);
 	}
 
 	override function doCancel(error:Exception) {
@@ -144,7 +157,12 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 	/**
 		Suspends this task until it completes.
 	**/
-	@:coroutine public function await():T {
+	@:coroutine public function await(#if debug ?startPos:haxe.PosInfos #end):T {
+		#if debug
+		if (this.startPos == null && startPos != null) {
+			this.startPos = startPos;
+		}
+		#end
 		return Coro.suspend(awaitContinuation);
 	}
 
