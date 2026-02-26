@@ -7,7 +7,7 @@ class Issue61 extends utest.Test {
 		CoroRun.run(foo);
 	}
 
-    @:coroutine function foo() {
+    @:coroutine function foo(_) {
         var a = 2;
         yield();
         Assert.equals(2, a);
