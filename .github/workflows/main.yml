@@ -21,7 +21,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: kLabz/setup-haxe@neko-latest
         with:
-          haxe-version: "latest"
+          haxe-version: "2026-02-26_development_8b6abc2"
 
       - name: Setup hashlink
         if: matrix.target == 'hl'
