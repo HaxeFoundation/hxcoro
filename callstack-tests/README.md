@@ -49,8 +49,13 @@ The eval interpreter produces the most complete and accurate stacks.
   and its continuation chain to the existing stack rather than replacing it,
   producing a doubled call path in the stack array.
 - The `task.await()` call site does **not** appear as a stack frame when a
-  child task's exception propagates through it; the child task's exception
-  stack is attached directly to the continuation chain.
+  child task's exception propagates through it.  The child task's continuation
+  chain links back to where the child was **created** (`node.async()` call
+  site) rather than where the parent is currently *waiting* (`task.await()`
+  call site), so the awaiting position is not captured.
+- `scope()` and `supervisor()` now include their **call-site frame** in the
+  chain (as of hxcoro commit fd8002c, which passes `callPos` to the scope
+  task).  No `Skip` or internal `hxcoro/Coro.hx` frame is needed.
 
 ### js (Node.js)
 
@@ -113,20 +118,21 @@ Identical stack shape to eval.
 | First frame = definition line, not throw line | hl (Windows/macOS — use `AnyLine`) |
 | Sync-bridge frames absent                    | js, python, neko, php (before first suspension point only; eval and cpp always expose them) |
 | Rethrow appends to stack instead of replacing | all targets              |
-| `scope.async()` exceptions propagate to parent `CoroRun.run()` | all targets |
-| `task.await()` call site absent from stack   | all targets (child exception attached directly) |
-| `supervisor()` contributes a `hxcoro/Coro.hx` frame | all targets (use `Skip` to navigate past it) |
+| `task.await()` call site absent from stack   | all targets (child creation-site shown; await-site not captured) |
+| `scope()` / `supervisor()` call-site frame present | all targets (since fd8002c; use `Line(N)` directly) |
 | `CancellationException` from `cancel()` has no user-code frames | all targets (coroStack is empty; raw runtime frames only) |
 
 ## Test cases
 
-| Case             | What it tests                                                     |
-|------------------|-------------------------------------------------------------------|
-| `foobarbaz`      | 3-deep coroutine chain after `yield()`; full chain including intermediate call sites |
-| `toprecursion`   | Complex chain: sync → coro → recursive coro → sync bridge → throw |
-| `directthrow`    | Throw in a coroutine that never suspends (no `yield()`)          |
-| `catchrethrow`   | Catching an exception in a coroutine and rethrowing it           |
-| `asyncscope`     | Exception thrown from a `scope.async()` child coroutine          |
+| Case               | What it tests                                                     |
+|--------------------|-------------------------------------------------------------------|
+| `foobarbaz`        | 3-deep coroutine chain after `yield()`; full chain including intermediate call sites |
+| `toprecursion`     | Complex chain: sync → coro → recursive coro → sync bridge → throw |
+| `directthrow`      | Throw in a coroutine that never suspends (no `yield()`)          |
+| `catchrethrow`     | Catching an exception in a coroutine and rethrowing it           |
+| `asyncscope`       | Exception thrown from a `scope.async()` child coroutine          |
 | `nestedplainthrow` | Plain (non-`@:coroutine`) function called from deeply-nested `node.async()` lambdas |
-| `awaittask`      | Child task throws; parent explicitly awaits it with `task.await()` |
-| `supervisortask` | Child task throws inside a `supervisor()` scope; parent awaits child |
+| `awaittask`        | Child task throws; parent explicitly awaits it with `task.await()` |
+| `supervisortask`   | Child task throws inside a `supervisor()` scope; parent awaits child |
+| `scopetask`        | Child task throws inside a `scope()` call; scope call-site frame visible |
+| `cancellation`     | Child task throws; exception propagates via scope cancellation (no explicit await) |
