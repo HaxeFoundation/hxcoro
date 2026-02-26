@@ -48,14 +48,19 @@ The eval interpreter produces the most complete and accurate stacks.
 - `throw e` (rethrowing a caught exception) **appends** the rethrow location
   and its continuation chain to the existing stack rather than replacing it,
   producing a doubled call path in the stack array.
-
-> **Inline-lambda limitation (all targets)**: when a plain (non-coroutine)
-> function is called from an **inline lambda** coroutine body
-> (`node -> { yield(); thrower(); }`) *after* a suspension point, the
-> resulting native call frame has no source position (it appears as
-> `LocalFunction(N) at ?:1:0`).  The continuation-chain frames that follow
-> are still correct.  This does not affect named `@:coroutine` functions,
-> which always show the call site accurately.
+- The `task.await()` call site does **not** appear as a stack frame when a
+  child task's exception propagates through it.  The child task's continuation
+  chain links back to where the child was **created** (`node.async()` call
+  site) rather than where the parent is currently *waiting* (`task.await()`
+  call site), so the awaiting position is not captured.
+- `scope()` and `supervisor()` now include their **call-site frame** in the
+  chain (as of hxcoro commit fd8002c, which passes `callPos` to the scope
+  task).  No `Skip` or internal `hxcoro/Coro.hx` frame is needed.
+- When a child task throws and cancels its siblings, each sibling's
+  `CancellationException` carries the **original thrower's stack** (as of
+  hxcoro 0b56e3a, which propagates the error stack through
+  `AbstractTask.cancelChildren`).  The sibling's own suspension point does not
+  appear — only where the original exception was raised.
 
 ### js (Node.js)
 
@@ -63,15 +68,21 @@ Identical stack shape to eval in all observed cases.  LocalFunction IDs
 differ (they are sequential integers and vary between targets/builds) — use
 `Skip` or `AnyLine` if the exact integer matters.
 
+One limitation: `Exception.stack` assignment (`e.stack = other.stack`) is not
+supported on JS.  As a result, sibling `CancellationException` instances do not
+inherit the original thrower's stack on JS; they instead contain only internal
+JS runtime frames.  Tests that assert sibling cancellation stacks should use
+`#if !js` guards.
+
 ### hl (HashLink)
 
-Generally matches eval, with one documented quirk that affects **all** test
+Generally matches eval, with one documented quirk that affects all test
 cases: the position of the **first (innermost) coroutine frame** is
 OS-dependent.
 
 - **Linux HL**: the exact throw line is reported (matching eval).
 - **Windows and macOS HL**: the coroutine *definition* line is reported
-  instead (probable JIT-related frame-omission, same root cause as cpp).
+  instead (probable JIT-related frame-omission).
 
 Because the line can be either the definition or the throw position depending
 on the OS, all tests use `AnyLine` for the innermost HL frame rather than
@@ -81,26 +92,17 @@ The `toprecursion` test has an additional quirk: the innermost sync-bridge
 frame (`Top.hx:throwing`) may be absent on Windows/macOS HL, so it uses
 `Skip` past that region.
 
+Plain (non-`@:coroutine`) functions called from inside a coroutine lambda use
+`OptionalLine` for their frame, since that frame may also be absent on
+Windows/macOS HL (same JIT root cause as above).
+
 ### cpp
 
-The only target where the first (innermost) coroutine frame consistently
-reports the **coroutine function definition line** instead of the exact throw
-or suspension line.  All subsequent frames (call sites further up the chain)
-are reported accurately.
+Produces the same stack shape as eval: the innermost frame reports the
+**exact throw line** (as of Haxe commit e63e9897, which fixed the `HXDLIN`
+annotation in generated coroutine state machines).
 
-| Test case    | First-frame line (eval) | First-frame line (cpp) |
-|--------------|------------------------|------------------------|
-| foobarbaz    | 6 (throw)              | 5 (definition)         |
-| directthrow  | 7 (throw)              | 6 (definition)         |
-| asyncscope   | 11 (throw)             | 9 (definition)         |
-| catchrethrow | 6 (throw)              | 5 (definition)         |
-
-The pattern is: cpp's top frame is 1–2 lines earlier than eval's, landing on
-the `@:coroutine function foo() {` opening brace rather than the actual
-throw.  This is a known limitation; use `#if cpp … #else … #end` guards in
-assertions.
-
-Sync-bridge frames (`Top.hx`) are fully present on cpp, as on eval.
+Sync-bridge frames (`Top.hx`) are fully present, as on eval.
 
 ### jvm
 
@@ -124,18 +126,26 @@ Identical stack shape to eval.
 
 | Quirk                                        | Targets affected         |
 |----------------------------------------------|--------------------------|
-| First frame = definition line, not throw line | cpp (always), hl (Windows/macOS — use `AnyLine`) |
+| First frame = definition line, not throw line | hl (Windows/macOS — use `AnyLine`) |
 | Sync-bridge frames absent                    | js, python, neko, php (before first suspension point only; eval and cpp always expose them) |
 | Rethrow appends to stack instead of replacing | all targets              |
-| `scope.async()` exceptions propagate to parent `CoroRun.run()` | all targets |
-| Inline-lambda coroutine body has no source pos after yield (`?:1:0`) | all targets (compiler limitation) |
+| `task.await()` call site absent from stack   | all targets (child creation-site shown; await-site not captured) |
+| `scope()` / `supervisor()` call-site frame present | all targets (since fd8002c; use `Line(N)` directly) |
+| `CancellationException` from `cancel()` has no user-code frames | all targets (coroStack is empty; raw runtime frames only) |
+| Sibling `CancellationException` stack mirrors the original exception | all targets except JS (stack assignment not supported on JS; internal frames only) |
 
 ## Test cases
 
-| Case           | What it tests                                                     |
-|----------------|-------------------------------------------------------------------|
-| `foobarbaz`    | 3-deep coroutine chain after `yield()`; full chain including intermediate call sites |
-| `toprecursion` | Complex chain: sync → coro → recursive coro → sync bridge → throw |
-| `directthrow`  | Throw in a coroutine that never suspends (no `yield()`)          |
-| `catchrethrow` | Catching an exception in a coroutine and rethrowing it           |
-| `asyncscope`   | Exception thrown from a `scope.async()` child coroutine          |
+| Case               | What it tests                                                     |
+|--------------------|-------------------------------------------------------------------|
+| `foobarbaz`        | 3-deep coroutine chain after `yield()`; full chain including intermediate call sites |
+| `toprecursion`     | Complex chain: sync → coro → recursive coro → sync bridge → throw |
+| `directthrow`      | Throw in a coroutine that never suspends (no `yield()`)          |
+| `catchrethrow`     | Catching an exception in a coroutine and rethrowing it           |
+| `asyncscope`       | Exception thrown from a `scope.async()` child coroutine          |
+| `nestedplainthrow` | Plain (non-`@:coroutine`) function called from deeply-nested `node.async()` lambdas |
+| `awaittask`        | Child task throws; parent explicitly awaits it with `task.await()` |
+| `supervisortask`   | Child task throws inside a `supervisor()` scope; parent awaits child |
+| `scopetask`        | Child task throws inside a `scope()` call; scope call-site frame visible |
+| `cancellation`       | Child task throws; exception propagates via scope cancellation (no explicit await) |
+| `siblingcancellation` | Child1 throws; sibling child2 receives `CancellationException` with child1's original stack |

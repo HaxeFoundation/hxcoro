@@ -37,11 +37,15 @@ class CoroTask<T> extends CoroBaseTask<T> implements IContinuation<T> implements
 	static public final CoroScopeStrategy = new CoroScopeStrategy();
 	static public final CoroSupervisorStrategy = new CoroSupervisorStrategy();
 
+	#if debug
 	final callPos:Null<PosInfos>;
+	#end
 
-	public function new(context:Context, nodeStrategy:INodeStrategy, initialState:TaskState = Running, ?callPos:PosInfos) {
+	public function new(context:Context, nodeStrategy:INodeStrategy, initialState:TaskState = Running#if debug, ?callPos:PosInfos#end) {
 		super(context, nodeStrategy, initialState);
+		#if debug
 		this.callPos = callPos;
+		#end
 	}
 
 	public function doStart() {}
@@ -63,14 +67,22 @@ class CoroTask<T> extends CoroBaseTask<T> implements IContinuation<T> implements
 		@see `IStackFrame.callerFrame`
 	**/
 	public function callerFrame():Null<IStackFrame> {
+		#if debug
 		return parent is IStackFrame ? cast parent : null;
+		#else
+		return null;
+		#end
 	}
 
 	/**
 		@see `IStackFrame.callerFrame`
 	**/
 	public function getStackItem() {
+		#if debug
 		return callPos == null ? null : CoroStackItem.PosInfo(callPos);
+		#else
+		return null;
+		#end
 	}
 
 	#if sys

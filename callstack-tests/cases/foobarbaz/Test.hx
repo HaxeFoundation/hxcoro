@@ -31,13 +31,7 @@ class Test {
 		final stack = e.stack.asArray();
 		final r = new Inspector(stack).inspect([
 			File('foobarbaz/FooBarBaz.hx'),
-			#if cpp
-			// cpp reports the coroutine definition line rather than the exact
-			// throw position (inaccurate top-frame positions on cpp).
-			Line(5),  // baz definition
-			Line(11), // baz() call in bar
-			Line(15), // bar() call in foo
-			#elseif hl
+			#if hl
 			// HL baz position varies by OS: line 5 (definition) on Windows/macOS,
 			// line 6 (throw) on Linux. Accept either with AnyLine.
 			AnyLine,  // baz (line varies by HL OS/JIT behaviour)

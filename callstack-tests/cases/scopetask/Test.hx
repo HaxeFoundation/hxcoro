@@ -1,10 +1,10 @@
-package directthrow;
+package scopetask;
 
 class Test {
 	public static function run() {
 		try {
-			DirectThrow.entry();
-			throw new haxe.Exception("Expected an exception from DirectThrow");
+			ScopeTask.entry();
+			throw new haxe.Exception("Expected an exception from ScopeTask");
 		} catch (e:haxe.Exception) {
 			checkStack(e);
 		}
@@ -13,17 +13,18 @@ class Test {
 	static function checkStack(e:haxe.Exception) {
 		final stack = e.stack.asArray();
 		final r = new Inspector(stack).inspect([
-			File('directthrow/DirectThrow.hx'),
+			File('scopetask/ScopeTask.hx'),
 			#if hl
 			// HL first-frame position is OS-dependent: definition line on
 			// Windows/macOS, throw line on Linux (same JIT behaviour as foobarbaz).
 			AnyLine,  // thrower() (line varies by HL OS)
 			#else
-			Line(7),  // throw inside thrower()
+			Line(13), // throw inside thrower()
 			#end
-			Line(12), // thrower() call inside caller()
-			Line(17), // entry lambda: _ -> caller()
-			Line(17), // enclosing coro frame at the same entry line
+			Line(19), // _ -> thrower() child-task entry lambda (at node.async() call)
+			Line(19), // coro frame for the node.async() call (same position)
+			Line(18), // coro frame for the scope() call site (callPos added in fd8002c)
+			Line(17), // coro frame for the outer CoroRun.run() entry lambda
 		]);
 		if (r != null)
 			throw r;

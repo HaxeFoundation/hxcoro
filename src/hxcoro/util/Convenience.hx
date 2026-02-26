@@ -140,7 +140,15 @@ class ContextConvenience {
 
 class OtherConvenience {
 	static public inline function orCancellationException(exc:Exception):CancellationException {
-		return exc is CancellationException ? cast exc : new CancellationException();
+		return if (exc is CancellationException) {
+			cast exc;
+		 } else {
+			final cancellationException = new CancellationException();
+			#if !js
+			cancellationException.stack = exc.stack;
+			#end
+			cancellationException;
+		 }
 	}
 
 	static public inline function isCancellationRequested(ct:ICancellationToken) {

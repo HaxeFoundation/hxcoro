@@ -8,6 +8,11 @@ enum InspectDirective {
 	Line(line:Int);
 	/** Assert the next stack frame is in the current file (any line). **/
 	AnyLine;
+	/**
+		Consume the next stack frame if it is in the current file at the given line,
+		otherwise do nothing. Useful when a frame may be absent on some platforms.
+	**/
+	OptionalLine(line:Int);
 	/** Advance past frames until one matching `file` is found. **/
 	Skip(file:String);
 }
@@ -87,6 +92,16 @@ class Inspector {
 							fail(directive, 'file "$file" should end with "$expectedFile"');
 					case v:
 						fail(directive, '$v should be FilePos');
+				}
+
+			case OptionalLine(expectedLine):
+				// Consume the frame only if it matches the current expected file and the
+				// given line; silently skip otherwise. `expectedFile` is the file context
+				// set by the most recent File(...) directive, the same as for Line/AnyLine.
+				switch (stack[offset]) {
+					case FilePos(_, file, line) if (file.endsWith(expectedFile) && line == expectedLine):
+						offset++;
+					case _:
 				}
 
 			case Skip(file):
