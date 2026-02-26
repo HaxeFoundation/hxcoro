@@ -107,13 +107,30 @@ private class SynchronousRun implements IElement<SynchronousRun> implements ISyn
 			}
 		}
 
+		// Extract the current source line recorded in coroStack[0] by setStackItem.
+		// Used to avoid a retrograde patch: on C++ the invokeResume frame carries the
+		// state-machine's static entry position (the function definition line), while
+		// setStackItem (since Haxe a0b7594) already holds the actual throw/call-site
+		// position.  On eval/JVM the invokeResume frame is dynamically updated to the
+		// actual execution point, so it is always >= the setStackItem line.
+		final currentCoroLine:Null<Int> = switch (coroStack[0]) {
+			case ClassFunction(_, _, _, l, _): l;
+			case LocalFunction(_, _, l, _): l;
+			case PosInfo(p): p.lineNumber;
+			case _: null;
+		}
+
 		for (item in exceptionStack) {
 			switch (item) {
 				case FilePos(StackItem.Method(_, "invokeResume"), file, line, column):
 					// Only patch the coro stack position when we have actual Haxe source info.
 					// On PHP, Python etc. the invokeResume file is a compiled target path, not
 					// a .hx source file, so patching would overwrite the correct coro stack info.
-					if (file != null && file.endsWith(".hx")) {
+					// Additionally, only patch when the invokeResume line is at least as large
+					// as the current coroStack[0] line: on C++ the invokeResume frame position
+					// is the static function-definition line, which would overwrite the more
+					// precise throw-expression position already set by setStackItem.
+					if (file != null && file.endsWith(".hx") && (currentCoroLine == null || line >= currentCoroLine)) {
 						patchFirstCoroStack(file, line, column);
 					}
 					break;
