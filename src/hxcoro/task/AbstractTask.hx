@@ -120,12 +120,7 @@ abstract class AbstractTask implements ICancellationToken {
 			checkCompletion();
 			return;
 		}
-		final cause:CancellationException =
-			if (error is CancellationException) {
-				cast error;
-			} else {
-				new CancellationException();
-			}
+		final cause = error.orCancellationException();
 		cancellationManager.run();
 		cancelChildren();
 		checkCompletion();
