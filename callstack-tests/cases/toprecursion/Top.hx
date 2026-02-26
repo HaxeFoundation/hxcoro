@@ -1,4 +1,4 @@
-package callstack;
+package toprecursion;
 
 function throwing() {
 	throw new haxe.exceptions.NotImplementedException();

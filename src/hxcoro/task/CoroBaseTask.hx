@@ -6,9 +6,9 @@ import haxe.coro.cancellation.CancellationToken;
 import haxe.coro.context.Context;
 import haxe.coro.context.IElement;
 import haxe.coro.context.Key;
+import haxe.coro.continuations.FunctionContinuation;
 import haxe.exceptions.CancellationException;
 import hxcoro.concurrent.ThreadSafeCallbacks;
-import haxe.coro.continuations.FunctionContinuation;
 import hxcoro.elements.NonCancellable;
 import hxcoro.task.AbstractTask;
 import hxcoro.task.CoroTask;
@@ -72,15 +72,15 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 		Creates a lazy child task to execute `lambda`. The child task does not execute until its `start`
 		method is called. This occurrs automatically once this task has finished execution.
 	**/
-	public function lazy<T>(lambda:NodeLambda<T>):IStartableCoroTask<T> {
-		return new CoroTaskWithLambda(context, lambda, CoroTask.CoroChildStrategy, Created);
+	public function lazy<T>(lambda:NodeLambda<T>#if debug, ?callPos:haxe.PosInfos#end):IStartableCoroTask<T> {
+		return new CoroTaskWithLambda(context, lambda, CoroTask.CoroChildStrategy, Created#if debug, callPos#end);
 	}
 
 	/**
 		Creates a child task to execute `lambda` and starts it automatically.
 	**/
-	public function async<T>(lambda:NodeLambda<T>):ICoroTask<T> {
-		return new CoroTaskWithLambda<T>(context, lambda, CoroTask.CoroChildStrategy);
+	public function async<T>(lambda:NodeLambda<T>#if debug, ?callPos:haxe.PosInfos#end):ICoroTask<T> {
+		return new CoroTaskWithLambda<T>(context, lambda, CoroTask.CoroChildStrategy#if debug, callPos#end);
 	}
 
 	/**

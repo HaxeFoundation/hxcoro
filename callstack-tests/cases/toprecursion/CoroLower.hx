@@ -1,4 +1,4 @@
-package callstack;
+package toprecursion;
 
 @:coroutine function foo() {
 	yield();

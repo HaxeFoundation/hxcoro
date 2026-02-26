@@ -1,0 +1,5 @@
+--class-path src
+--class-path cases
+--library hxcoro
+--main Main
+-debug

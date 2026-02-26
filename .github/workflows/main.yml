@@ -19,10 +19,9 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
-      # - uses: krdlab/setup-haxe@v2
       - uses: kLabz/setup-haxe@neko-latest
         with:
-          haxe-version: "latest"
+          haxe-version: "2026-02-25_coro-ExceptionHandler-rework_f22c52b"
 
       - name: Setup hashlink
         if: matrix.target == 'hl'
@@ -52,3 +51,6 @@ jobs:
           ${{ matrix.target == 'cpp' }} || haxe --cwd tests -debug build-${{ matrix.target }}.hxml
           haxe --cwd tests build-${{ matrix.target }}.hxml --hxb bin/test.hxb
           ${{ matrix.target == 'cpp' }} || haxe --cwd tests build-${{ matrix.target }}.hxml --hxb-lib bin/test.hxb
+
+      - name: Run callstack tests
+        run: haxe --cwd callstack-tests build-${{ matrix.target }}.hxml

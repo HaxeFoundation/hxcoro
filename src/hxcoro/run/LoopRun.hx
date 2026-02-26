@@ -22,8 +22,8 @@ class LoopRun {
 		example, this function does not verify that the dispatcher's scheduler handles
 		events in such a way that the loop processes them.
 	**/
-	static public function runTask<T>(loop:ILoop, context:Context, lambda:NodeLambda<T>):ICoroTask<T> {
-		final task = new CoroTaskWithLambda(context, lambda, CoroTask.CoroScopeStrategy);
+	static public function runTask<T>(loop:ILoop, context:Context, lambda:NodeLambda<T>#if debug, ?callPos:haxe.PosInfos#end):ICoroTask<T> {
+		final task = @:privateAccess ContextRun.createEntryTask(context, lambda, CoroTask.CoroScopeStrategy, Running#if debug, callPos#end);
 		awaitTaskCompletion(loop, task);
 		return task;
 	}

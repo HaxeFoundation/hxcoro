@@ -8,8 +8,8 @@ import hxcoro.task.ICoroTask;
 
 interface ICoroNodeWith {
 	var context(get, null):Context;
-	function async<T>(lambda:NodeLambda<T>):ICoroTask<T>;
-	function lazy<T>(lambda:NodeLambda<T>):IStartableCoroTask<T>;
+	function async<T>(lambda:NodeLambda<T>#if debug, ?callPos:haxe.PosInfos#end):ICoroTask<T>;
+	function lazy<T>(lambda:NodeLambda<T>#if debug, ?callPos:haxe.PosInfos#end):IStartableCoroTask<T>;
 	function with(...elements:IElement<Any>):Context;
 	function without(...keys:Key<Any>):Context;
 }
