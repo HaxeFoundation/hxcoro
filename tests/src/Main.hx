@@ -2,10 +2,14 @@ import yield.*;
 import hxcoro.run.Setup;
 
 function main() {
-	#if (dispatcher == "trampoline")
-	TestRun.setupFactory = Setup.createEventLoopTrampoline;
-	#elseif (dispatcher == "threadpool")
-	TestRun.setupFactory = () -> Setup.createThreadPool(10);
+	#if sys
+	switch (Sys.getEnv("HXCORO_DISPATCHER")) {
+		case "trampoline": TestRun.setupFactory = Setup.createEventLoopTrampoline;
+		#if target.threaded
+		case "threadpool": TestRun.setupFactory = () -> Setup.createThreadPool(10);
+		#end
+		case _: // use the default dispatcher for this target
+	}
 	#end
 
 	var cases = [

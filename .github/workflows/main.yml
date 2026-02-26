@@ -12,20 +12,10 @@ jobs:
       matrix:
         os: [macos-latest, ubuntu-latest, windows-latest]
         target: [eval, js, hl, cpp, jvm, php, python, neko]
-        dispatcher: ['', trampoline]
         exclude:
           # php is not available by default for macos runners, probably not worth bothering
           - os: macos-latest
             target: php
-          # These targets already use trampoline as their default dispatcher
-          - target: js
-            dispatcher: trampoline
-          - target: php
-            dispatcher: trampoline
-          - target: python
-            dispatcher: trampoline
-          - target: neko
-            dispatcher: trampoline
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -57,13 +47,32 @@ jobs:
           neko -version
 
       - name: Run tests
-        env:
-          DISPATCHER_FLAG: ${{ matrix.dispatcher != '' && format('-D dispatcher={0}', matrix.dispatcher) || '' }}
         shell: bash
         run: |
-          ${{ matrix.target == 'cpp' }} || haxe --cwd tests -debug build-${{ matrix.target }}.hxml $DISPATCHER_FLAG
-          haxe --cwd tests build-${{ matrix.target }}.hxml $DISPATCHER_FLAG --hxb bin/test.hxb
-          ${{ matrix.target == 'cpp' }} || haxe --cwd tests build-${{ matrix.target }}.hxml $DISPATCHER_FLAG --hxb-lib bin/test.hxb
+          TARGET="${{ matrix.target }}"
+
+          # Run with the default dispatcher for this target
+          run_default() {
+            [[ "$TARGET" != "cpp" ]] && haxe --cwd tests -debug build-$TARGET.hxml
+            haxe --cwd tests build-$TARGET.hxml --hxb bin/test.hxb
+            [[ "$TARGET" != "cpp" ]] && haxe --cwd tests build-$TARGET.hxml --hxb-lib bin/test.hxb
+          }
+
+          # Run again with an alternative dispatcher (env var read at runtime by Main.hx)
+          # For cpp: hxcpp incremental compilation skips the C++ rebuild and re-runs the
+          # existing binary with the new HXCORO_DISPATCHER value inherited from the environment.
+          # For other targets: a quick recompile and re-run.
+          run_extra() {
+            HXCORO_DISPATCHER=$1 haxe --cwd tests build-$TARGET.hxml
+          }
+
+          run_default
+
+          case "$TARGET" in
+            eval|hl|cpp|jvm)
+              run_extra trampoline
+              ;;
+          esac
 
       - name: Run callstack tests
         run: haxe --cwd callstack-tests build-${{ matrix.target }}.hxml
