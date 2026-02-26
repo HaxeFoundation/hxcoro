@@ -5,7 +5,7 @@ import hxcoro.schedulers.VirtualTimeScheduler;
 
 class TestSupervisorScopes extends utest.Test {
 	function testChildThrow() {
-		final result = CoroRun.run(node -> {
+		final result = run(node -> {
 			supervisor(node -> {
 				final throwingChild = node.async(_ -> throw "oh no");
 				node.awaitChildren();
@@ -16,7 +16,7 @@ class TestSupervisorScopes extends utest.Test {
 	}
 
 	function testChildThrowAwaitChildren() {
-		final result = CoroRun.run(node -> {
+		final result = run(node -> {
 			supervisor(node -> {
 				final throwingChild = node.async(_ -> throw "oh no");
 				node.awaitChildren();
@@ -27,7 +27,7 @@ class TestSupervisorScopes extends utest.Test {
 	}
 
 	function testChildThrowAwait() {
-		CoroRun.run(node -> {
+		run(node -> {
 			AssertAsync.raises(() -> {
 				supervisor(node -> {
 					final throwingChild = node.async(_ -> throw "oh no");
@@ -38,7 +38,7 @@ class TestSupervisorScopes extends utest.Test {
 	}
 
 	function testChildThrowAwaitTransitive() {
-		CoroRun.run(node -> {
+		run(node -> {
 			AssertAsync.raises(() -> {
 				supervisor(node -> {
 					final throwingChild = node.async(_ -> throw "oh no");
@@ -50,7 +50,7 @@ class TestSupervisorScopes extends utest.Test {
 	}
 
 	function testThrowSelf() {
-		CoroRun.run(node -> {
+		run(node -> {
 			AssertAsync.raises(() -> {
 				supervisor(node -> {
 					throw "oh no";

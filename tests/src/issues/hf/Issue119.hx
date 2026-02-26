@@ -17,7 +17,7 @@ class Issue119 extends utest.Test {
 	**/
 	@:timeout(5000)
 	function test(async:utest.Async) {
-		CoroRun.run((_) -> {
+		run((_) -> {
 			@:coroutine function g() {
 				yield();
 			}
@@ -57,7 +57,7 @@ class Issue119 extends utest.Test {
 	**/
 	@:timeout(5000)
 	function testRacingContinuation(async:utest.Async) {
-		CoroRun.run((_) -> {
+		run((_) -> {
 			@:coroutine function f() {
 				final log = [];
 

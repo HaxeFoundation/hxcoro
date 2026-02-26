@@ -76,7 +76,7 @@ class TestAsyncGenerator extends utest.Test {
 	}
 
 	static public function generatorToArray<T>(gen:AsyncGenerator<T>) {
-		return CoroRun.run(node -> {
+		return run(node -> {
 			[for (v in gen) v];
 		});
 	}
@@ -93,7 +93,7 @@ class TestAsyncGenerator extends utest.Test {
 
 	function testException() {
 		final result = [];
-		CoroRun.run(node -> {
+		run(node -> {
 			AssertAsync.raises(() -> {
 				final gen = AsyncGenerator.create(yield -> {
 					yield(1);

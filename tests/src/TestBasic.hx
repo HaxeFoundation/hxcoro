@@ -4,13 +4,13 @@ import hxcoro.dispatchers.TrampolineDispatcher;
 
 class TestBasic extends utest.Test {
 	function testSimple() {
-		Assert.equals(42, CoroRun.run(@:coroutine function run(_) {
+		Assert.equals(42, run(@:coroutine function run(_) {
 			return simple(42);
 		}));
 	}
 
 	function testErrorDirect() {
-		Assert.raises(() -> CoroRun.run(error), String);
+		Assert.raises(() -> run(error), String);
 	}
 
 	function testErrorPropagation() {
@@ -18,7 +18,7 @@ class TestBasic extends utest.Test {
 			error(node);
 		}
 
-		Assert.raises(() -> CoroRun.run(propagate), String);
+		Assert.raises(() -> run(propagate), String);
 	}
 
 	function testResumeWithError() {
@@ -28,7 +28,7 @@ class TestBasic extends utest.Test {
 			});
 		}
 
-		Assert.raises(() -> CoroRun.run(foo), Exception);
+		Assert.raises(() -> run(foo), Exception);
 	}
 
 	function testUnnamedLocalCoroutines() {
@@ -38,11 +38,11 @@ class TestBasic extends utest.Test {
 			return 10;
 		};
 
-		Assert.equals(10, CoroRun.run(c1));
+		Assert.equals(10, run(c1));
 	}
 
 	function testLocalTypeParameters() {
-		CoroRun.run(@:coroutine function f<T>(_):T {
+		run(@:coroutine function f<T>(_):T {
 			return null;
 		});
 		Assert.pass(); // The test is that this doesn't cause an unbound type parameter

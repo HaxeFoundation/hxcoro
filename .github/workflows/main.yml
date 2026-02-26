@@ -21,7 +21,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: kLabz/setup-haxe@neko-latest
         with:
-          haxe-version: "latest"
+          haxe-version: "2026-02-26_development_8b6abc2"
 
       - name: Setup hashlink
         if: matrix.target == 'hl'
@@ -47,10 +47,47 @@ jobs:
           neko -version
 
       - name: Run tests
+        shell: bash
         run: |
-          ${{ matrix.target == 'cpp' }} || haxe --cwd tests -debug build-${{ matrix.target }}.hxml
-          haxe --cwd tests build-${{ matrix.target }}.hxml --hxb bin/test.hxb
-          ${{ matrix.target == 'cpp' }} || haxe --cwd tests build-${{ matrix.target }}.hxml --hxb-lib bin/test.hxb
+          TARGET="${{ matrix.target }}"
+
+          run_release() {
+            haxe --cwd tests build-$TARGET.hxml --hxb bin/test.hxb
+          }
+
+          # Run with the default dispatcher for this target
+          run_default() {
+            haxe --cwd tests -debug build-$TARGET.hxml
+            run_release
+            haxe --cwd tests build-$TARGET.hxml --hxb-lib bin/test.hxb
+          }
+
+          # Run again with an alternative dispatcher (env var read at runtime by Main.hx)
+          # For cpp: hxcpp incremental compilation skips the C++ rebuild and re-runs the
+          # existing binary with the new HXCORO_DISPATCHER value inherited from the environment.
+          # For other targets: a quick recompile and re-run.
+          run_extra() {
+            HXCORO_DISPATCHER=$1 haxe --cwd tests build-$TARGET.hxml
+          }
+
+          case "$TARGET" in
+            eval)
+              run_default
+              run_extra trampoline
+              run_extra threadpool
+              ;;
+            cpp)
+              run_release
+              run_extra trampoline
+              ;;
+            hl|jvm)
+              run_default
+              run_extra trampoline
+              ;;
+            *)
+              run_default
+              ;;
+          esac
 
       - name: Run callstack tests
         run: haxe --cwd callstack-tests build-${{ matrix.target }}.hxml

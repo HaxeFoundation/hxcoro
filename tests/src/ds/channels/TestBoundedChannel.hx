@@ -243,7 +243,7 @@ class TestBoundedChannel extends utest.Test {
 		final actual   = [];
 		final mutex    = new Mutex();
 
-		CoroRun.run(node -> {
+		run(node -> {
 			timeout(30000, node -> {
 				node.async(_ -> {
 					for (v in expected) {

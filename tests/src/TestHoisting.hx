@@ -12,7 +12,7 @@ class TestHoisting extends utest.Test {
             return bar;
         }
 
-        Assert.equals(7, CoroRun.run(foo));
+        Assert.equals(7, run(foo));
     }
 
     function testModifyingLocalVariable() {
@@ -28,7 +28,7 @@ class TestHoisting extends utest.Test {
             return bar;
         }
 
-        Assert.equals(14, CoroRun.run(foo));
+        Assert.equals(14, run(foo));
     }
 
     @:coroutine function fooTestArgument(v:Int) {
@@ -38,13 +38,13 @@ class TestHoisting extends utest.Test {
     }
 
     function testArgument() {
-        Assert.equals(7, CoroRun.run((_) -> {
+        Assert.equals(7, run((_) -> {
             return fooTestArgument(7);
         }));
     }
 
     function testLocalArgument() {
-        Assert.equals(7, CoroRun.run((_) -> {
+        Assert.equals(7, run((_) -> {
             @:coroutine function foo(v:Int) {
                 yield();
 
@@ -66,13 +66,13 @@ class TestHoisting extends utest.Test {
     }
 
     function testModifyingArgument() {
-        Assert.equals(14, CoroRun.run((_) -> {
+        Assert.equals(14, run((_) -> {
             return fooTestModifyingArgument(7);
         }));
     }
 
     function testModifyingLocalArgument() {
-        Assert.equals(14, CoroRun.run((_) -> {
+        Assert.equals(14, run((_) -> {
             @:coroutine function foo(v:Int) {
                 yield();
 
@@ -90,7 +90,7 @@ class TestHoisting extends utest.Test {
     function testCapturingLocal() {
         var i = 0;
 
-        CoroRun.run((_) -> {
+        run((_) -> {
             i = 7;
             yield();
             i *= 2;
@@ -100,7 +100,7 @@ class TestHoisting extends utest.Test {
     }
 
     function testMultiHoisting() {
-        Assert.equals(14, CoroRun.run((_) -> {
+        Assert.equals(14, run((_) -> {
 
             var i = 0;
 
@@ -122,7 +122,7 @@ class TestHoisting extends utest.Test {
         final actual   = [];
 		final mutex    = new Mutex();
 
-        CoroRun.run(node -> {
+        run(node -> {
             for (x in expected) {
                 node.async(_ -> {
 					mutex.acquire();
@@ -136,7 +136,7 @@ class TestHoisting extends utest.Test {
     }
 
     function testUninitialisedVariable() {
-        Assert.equals(7, CoroRun.run((_) -> {
+        Assert.equals(7, run((_) -> {
             var i;
 
             yield();
@@ -154,7 +154,7 @@ class TestHoisting extends utest.Test {
         final actual   = [];
         final expected = [ for (i in 0...count) i + 1 ];
 
-        CoroRun.run((_) -> {
+        run((_) -> {
             var num = 0;
             while (num++ < count) {
                 actual.push(num);
@@ -175,7 +175,7 @@ class TestHoisting extends utest.Test {
             return v;
         }
 
-        CoroRun.run((_) -> {
+        run((_) -> {
             var num = 0;
             while (f(num++) < count) {
                 actual.push(num);

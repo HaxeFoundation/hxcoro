@@ -4,7 +4,7 @@ function someCall(v:Dynamic) {}
 
 class Issue79 extends utest.Test {
 	function test() {
-		CoroRun.run(function(_) {
+		run(function(_) {
 			someCall({
 				var a = 1;
 				someCall(a);

@@ -1,4 +1,3 @@
-import hxcoro.task.NodeLambda;
 import hxcoro.Coro.*;
 
 private class C<T> {
@@ -16,10 +15,6 @@ private class C<T> {
 		yield();
 		return value;
 	}
-}
-
-function run<T>(f:NodeLambda<T>) {
-	return CoroRun.run(f);
 }
 
 class TestTexpr extends utest.Test {

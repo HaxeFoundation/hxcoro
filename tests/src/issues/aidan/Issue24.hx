@@ -19,6 +19,6 @@ private function await(_) {
 
 class Issue24 extends utest.Test {
 	function test() {
-		Assert.equals("foo", CoroRun.run(await));
+		Assert.equals("foo", run(await));
 	}
 }
