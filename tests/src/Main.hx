@@ -45,6 +45,6 @@ function main() {
 	runner.addCases("schedulers");
 	runner.addCases("structured");
 
-    utest.ui.Report.create(runner);
+    utest.ui.Report.create(runner, NeverShowSuccessResults, AlwaysShowHeader);
     runner.run();
 }
