@@ -36,11 +36,6 @@ class LoopRun {
 
 		This function does not start the task, so it should only be called with tasks
 		that are already running.
-
-		When the same `loop` is shared by multiple concurrent callers, a `wakeUp()`
-		signal emitted by one task's completion may be consumed by a different waiting
-		thread.  After exiting the wait loop we therefore emit an additional `wakeUp()`
-		so that any thread whose signal was stolen will eventually be unblocked.
 	**/
 	static function awaitTaskCompletion<T>(loop:ILoop, task:ICoroTask<T>) {
 		#if target.threaded
@@ -56,11 +51,6 @@ class LoopRun {
 		}
 
 		#if target.threaded
-		// Re-issue a wakeUp in case we consumed a signal that was meant for another
-		// thread sharing this loop (the "stolen wakeup" problem).  The extra credit is
-		// harmless: a thread that picks it up will find its task already complete and
-		// exit immediately.
-		loop.wakeUp();
 		semaphore.acquire();
 		#end
 	}
