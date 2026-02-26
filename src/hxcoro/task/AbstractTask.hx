@@ -88,7 +88,7 @@ abstract class AbstractTask implements ICancellationToken {
 		switch (initialState) {
 			case Created:
 			case Running:
-				start(#if debug null #end);
+				activate();
 			case _:
 				setInternalException('Invalid initial state $initialState');
 		}
@@ -154,7 +154,7 @@ abstract class AbstractTask implements ICancellationToken {
 	/**
 		Starts executing this task. Has no effect if the task is already active or has completed.
 	**/
-	public function start(#if debug ?startPos:haxe.PosInfos #end) {
+	function activate() {
 		if (state.compareExchange(Created, Running) == Created) {
 			// Check if parent is cancelling and attempt to cancel this task before starting.
 			// If the task has NonCancellable context, doCancel() will return early and
@@ -218,7 +218,7 @@ abstract class AbstractTask implements ICancellationToken {
 				final children = getCurrentChildren();
 				numActiveChildren.store(activeChildren);
 				for (child in children) {
-					child.start(#if debug null #end);
+					child.activate();
 				}
 		}
 	}

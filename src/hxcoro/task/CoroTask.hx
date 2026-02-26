@@ -108,7 +108,7 @@ class CoroTaskWithLambda<T> extends CoroTask<T> implements IDispatchObject imple
 	}
 
 	public function onDispatch() {
-		start(#if debug null #end);
+		activate();
 	}
 
 	/**

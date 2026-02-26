@@ -111,16 +111,19 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 	**/
 	public function awaitContinuation(cont:IContinuation<T>) {
 		awaitingContinuations.add(cont);
-		start(#if debug null #end);
+		activate();
 	}
 
-	override public function start(#if debug ?startPos:haxe.PosInfos #end) {
+	/**
+		Starts executing this task. Has no effect if the task is already active or has completed.
+	**/
+	public function start(#if debug ?startPos:haxe.PosInfos #end) {
 		#if debug
 		if (this.startPos == null && startPos != null) {
 			this.startPos = startPos;
 		}
 		#end
-		super.start(#if debug null #end);
+		activate();
 	}
 
 	override function doCancel(error:Exception) {
