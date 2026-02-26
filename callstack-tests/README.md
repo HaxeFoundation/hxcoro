@@ -56,12 +56,23 @@ The eval interpreter produces the most complete and accurate stacks.
 - `scope()` and `supervisor()` now include their **call-site frame** in the
   chain (as of hxcoro commit fd8002c, which passes `callPos` to the scope
   task).  No `Skip` or internal `hxcoro/Coro.hx` frame is needed.
+- When a child task throws and cancels its siblings, each sibling's
+  `CancellationException` carries the **original thrower's stack** (as of
+  hxcoro 0b56e3a, which propagates the error stack through
+  `AbstractTask.cancelChildren`).  The sibling's own suspension point does not
+  appear — only where the original exception was raised.
 
 ### js (Node.js)
 
 Identical stack shape to eval in all observed cases.  LocalFunction IDs
 differ (they are sequential integers and vary between targets/builds) — use
 `Skip` or `AnyLine` if the exact integer matters.
+
+One limitation: `Exception.stack` assignment (`e.stack = other.stack`) is not
+supported on JS.  As a result, sibling `CancellationException` instances do not
+inherit the original thrower's stack on JS; they instead contain only internal
+JS runtime frames.  Tests that assert sibling cancellation stacks should use
+`#if !js` guards.
 
 ### hl (HashLink)
 
@@ -121,6 +132,7 @@ Identical stack shape to eval.
 | `task.await()` call site absent from stack   | all targets (child creation-site shown; await-site not captured) |
 | `scope()` / `supervisor()` call-site frame present | all targets (since fd8002c; use `Line(N)` directly) |
 | `CancellationException` from `cancel()` has no user-code frames | all targets (coroStack is empty; raw runtime frames only) |
+| Sibling `CancellationException` stack mirrors the original exception | all targets except JS (stack assignment not supported on JS; internal frames only) |
 
 ## Test cases
 
@@ -135,4 +147,5 @@ Identical stack shape to eval.
 | `awaittask`        | Child task throws; parent explicitly awaits it with `task.await()` |
 | `supervisortask`   | Child task throws inside a `supervisor()` scope; parent awaits child |
 | `scopetask`        | Child task throws inside a `scope()` call; scope call-site frame visible |
-| `cancellation`     | Child task throws; exception propagates via scope cancellation (no explicit await) |
+| `cancellation`       | Child task throws; exception propagates via scope cancellation (no explicit await) |
+| `siblingcancellation` | Child1 throws; sibling child2 receives `CancellationException` with child1's original stack |
