@@ -4,7 +4,7 @@ import haxe.Unit;
 import haxe.coro.Coroutine;
 import hxcoro.generators.Generator;
 
-@:coroutine.restrictedSuspension
+@:coroutine.scope(restrictedSuspension)
 abstract HaxeYield<T>(Generator<T, Unit>) to Generator<T, Unit> from Generator<T, Unit> {
 	@:op(a()) @:coroutine function next(value:T):Void {
 		this.yield(value);

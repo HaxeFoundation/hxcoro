@@ -3,6 +3,6 @@
 --library hxcoro
 --main Main
 -D UTEST-PRINT-TESTS
-# -D UTEST-PATTERN=Issue93
+#-D UTEST-PATTERN=TestCallStack
 -D use-vec-deque
 #--macro nullSafety("hxcoro")

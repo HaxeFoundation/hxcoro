@@ -1,6 +1,20 @@
-import yield.*;
+import hxcoro.run.Setup;
 
 function main() {
+	#if sys
+	switch (Sys.getEnv("HXCORO_DISPATCHER")) {
+		case "trampoline":
+			Sys.println("Using trampoline dispatcher");
+			TestRun.setupFactory = Setup.createEventLoopTrampoline;
+		#if target.threaded
+		case "threadpool":
+			Sys.println("Using threadpool dispatcher");
+			TestRun.setupFactory = () -> Setup.createThreadPool(10);
+		#end
+		case _:
+			Sys.println("Using default dispatcher");
+	}
+	#end
 
 	var cases = [
 		new TestBasic(),
@@ -8,13 +22,9 @@ function main() {
 		new TestControlFlow(),
 		new TestTryCatch(),
 		new TestHoisting(),
-		new TestMisc(),
 		new TestTexpr(),
 		#if js
 		new TestJsPromise(),
-		#end
-		#if false // need to run this single-threaded, but it depends on a hack in BaseContinuation...
-		new TestCallStack(),
 		#end
 	];
 
@@ -35,6 +45,6 @@ function main() {
 	runner.addCases("schedulers");
 	runner.addCases("structured");
 
-    utest.ui.Report.create(runner);
+    utest.ui.Report.create(runner, NeverShowSuccessResults, AlwaysShowHeader);
     runner.run();
 }

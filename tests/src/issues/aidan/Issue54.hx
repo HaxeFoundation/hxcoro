@@ -5,7 +5,7 @@ package issues.aidan;
 	throw "fail";
 }
 
-@:coroutine function f() {
+@:coroutine function f(_) {
 	try {
 		suspendThenThrow();
 		return "wrong";
@@ -16,6 +16,6 @@ package issues.aidan;
 
 class Issue54 extends utest.Test {
 	public function test() {
-		Assert.equals("caught: fail", CoroRun.run(f));
+		Assert.equals("caught: fail", run(f));
 	}
 }

@@ -1,7 +1,10 @@
 package hxcoro.task;
 
 import haxe.Exception;
+import haxe.PosInfos;
+import haxe.coro.CoroStackItem;
 import haxe.coro.IContinuation;
+import haxe.coro.IStackFrame;
 import haxe.coro.context.Context;
 import haxe.coro.dispatchers.Dispatcher;
 import haxe.coro.dispatchers.IDispatchObject;
@@ -29,13 +32,20 @@ private class ResumeStatusTools {
 	}
 }
 
-class CoroTask<T> extends CoroBaseTask<T> implements IContinuation<T> {
+class CoroTask<T> extends CoroBaseTask<T> implements IContinuation<T> implements IStackFrame {
 	static public final CoroChildStrategy = new CoroChildStrategy();
 	static public final CoroScopeStrategy = new CoroScopeStrategy();
 	static public final CoroSupervisorStrategy = new CoroSupervisorStrategy();
 
-	public function new(context:Context, nodeStrategy:INodeStrategy, initialState:TaskState = Running) {
+	#if debug
+	final callPos:Null<PosInfos>;
+	#end
+
+	public function new(context:Context, nodeStrategy:INodeStrategy, initialState:TaskState = Running#if debug, ?callPos:PosInfos#end) {
 		super(context, nodeStrategy, initialState);
+		#if debug
+		this.callPos = callPos;
+		#end
 	}
 
 	public function doStart() {}
@@ -51,6 +61,28 @@ class CoroTask<T> extends CoroBaseTask<T> implements IContinuation<T> {
 			beginCancelling(error);
 			checkCompletion();
 		}
+	}
+
+	/**
+		@see `IStackFrame.callerFrame`
+	**/
+	public function callerFrame():Null<IStackFrame> {
+		#if debug
+		return parent is IStackFrame ? cast parent : null;
+		#else
+		return null;
+		#end
+	}
+
+	/**
+		@see `IStackFrame.callerFrame`
+	**/
+	public function getStackItem() {
+		#if debug
+		return callPos == null ? null : CoroStackItem.PosInfo(callPos);
+		#else
+		return null;
+		#end
 	}
 
 	#if sys
@@ -71,9 +103,9 @@ class CoroTaskWithLambda<T> extends CoroTask<T> implements IDispatchObject imple
 	/**
 		Creates a new task using the provided `context` in order to execute `lambda`.
 	**/
-	public function new(context:Context, lambda:NodeLambda<T>, nodeStrategy:INodeStrategy, initialState:TaskState = Running) {
+	public function new(context:Context, lambda:NodeLambda<T>, nodeStrategy:INodeStrategy, initialState:TaskState = Running#if debug, ?callPos:PosInfos#end) {
 		this.lambda = lambda;
-		super(context, nodeStrategy, Created);
+		super(context, nodeStrategy, Created#if debug,callPos#end);
 		if (initialState == Running) {
 			context.get(Dispatcher).dispatch(this);
 		}
@@ -88,14 +120,6 @@ class CoroTaskWithLambda<T> extends CoroTask<T> implements IDispatchObject imple
 	**/
 	override public function doStart() {
 		super.doStart();
-		final result = lambda(this, this);
-		@:nullSafety(Off) switch result.state {
-			case Pending:
-				return;
-			case Returned:
-				this.succeedAsync(result.result);
-			case Thrown:
-				this.failAsync(result.error);
-		}
+		lambda(this, this);
 	}
 }

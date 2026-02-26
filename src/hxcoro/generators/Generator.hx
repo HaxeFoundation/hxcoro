@@ -6,8 +6,8 @@ import haxe.coro.IContinuation;
 import haxe.coro.SuspensionResult;
 import haxe.coro.context.Context;
 import hxcoro.Coro.*;
-import hxcoro.dispatchers.SelfDispatcher;
-import hxcoro.schedulers.ImmediateScheduler;
+import haxe.coro.dispatchers.SelfDispatcher;
+import haxe.coro.schedulers.ImmediateScheduler;
 
 class Generator<T, R> extends SuspensionResult<Iterator<T>> implements IContinuation<Iterable<T>> implements YieldingGenerator<T, R>{
 	public var context(get, null):Context;
@@ -31,12 +31,7 @@ class Generator<T, R> extends SuspensionResult<Iterator<T>> implements IContinua
 		return switch (state) {
 			case Pending if (nextStep == null):
 				// Start the coro.
-				final result = f(this, this);
-				switch (result.state) {
-					case Pending:
-					case Returned | Thrown:
-						resume(result.result, result.error);
-				}
+				f(this, this);
 				hasNext(); // recurse
 			case Pending:
 				true;

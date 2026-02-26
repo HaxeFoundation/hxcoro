@@ -1,0 +1,4 @@
+build-base.hxml
+--library hxjava
+-jvm bin/test.jar
+-cmd java -jar bin/test.jar

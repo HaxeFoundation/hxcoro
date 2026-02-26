@@ -1,40 +1,41 @@
 package hxcoro;
 
-import haxe.exceptions.CancellationException;
-import hxcoro.continuations.RacingContinuation;
-import hxcoro.continuations.CancellingContinuation;
 import haxe.coro.IContinuation;
 import haxe.coro.SuspensionResult;
 import haxe.coro.dispatchers.Dispatcher;
 import haxe.exceptions.ArgumentException;
-import hxcoro.task.NodeLambda;
-import hxcoro.task.CoroTask;
-import hxcoro.exceptions.TimeoutException;
+import haxe.exceptions.CancellationException;
+import hxcoro.continuations.CancellingContinuation;
+import hxcoro.continuations.RacingContinuation;
 import hxcoro.continuations.TimeoutContinuation;
+import hxcoro.exceptions.TimeoutException;
+import hxcoro.task.CoroTask;
+import hxcoro.task.NodeLambda;
 
 private typedef SuspendCancellableFunc<T> = IContinuation<T> -> Null<(CancellationException -> Void)>;
 
 class Coro {
-	@:coroutine @:coroutine.transformed
+	@:coroutine(transformed, outcome = { noThrow: true, noReturn: true })
 	public static function suspend<T>(completion:IContinuation<T>, func:IContinuation<T>->Void):SuspensionResult<T> {
 		var safe = new RacingContinuation(completion);
 		func(safe);
 		safe.resolve();
-		return safe;
+		return cast SuspensionResult.suspended;
 	}
 
 	/**
 	 * Suspends a coroutine which will be automatically resumed with a `haxe.exceptions.CancellationException` when cancelled.
 	 * If `func` returns a callback, it is registered to be invoked on cancellation allowing the easy cleanup of resources.
 	 */
-	@:coroutine @:coroutine.transformed public static function suspendCancellable<T>(completion:IContinuation<T>, func:SuspendCancellableFunc<T>):SuspensionResult<T> {
+	@:coroutine(transformed, outcome = { noThrow: true, noReturn: true })
+	public static function suspendCancellable<T>(completion:IContinuation<T>, func:SuspendCancellableFunc<T>):SuspensionResult<T> {
 		var safe = new CancellingContinuation(completion);
 		final onCancellationRequested = func(safe);
 		if (onCancellationRequested != null) {
 			safe.onCancellationRequested = onCancellationRequested;
 		}
 		safe.resolve();
-		return safe;
+		return cast SuspensionResult.suspended;
 	}
 
 	static function delayImpl<T>(ms:Int, cont:IContinuation<T>) {
@@ -46,18 +47,20 @@ class Coro {
 		}
 	}
 
-	@:coroutine @:coroutine.nothrow public static function delay(ms:Int):Void {
+	@:coroutine(outcome = { noThrow: true, noReturn: true }, assert = { numStates: 1})
+	public static function delay(ms:Int):Void {
 		suspendCancellable(cont -> delayImpl(ms, cont));
 	}
 
-	@:coroutine @:coroutine.nothrow public static function yield():Void {
+	@:coroutine(outcome = { noThrow: true, noReturn: true }, assert = { numStates: 1})
+	public static function yield():Void {
 		suspendCancellable(cont -> delayImpl(0, cont));
 	}
 
-	@:coroutine static public function scope<T>(lambda:NodeLambda<T>):T {
+	@:coroutine static public function scope<T>(lambda:NodeLambda<T>#if debug, ?callPos:haxe.PosInfos#end):T {
 		return suspend(cont -> {
 			final context = cont.context;
-			final scope = new CoroTaskWithLambda(context, lambda, CoroTask.CoroScopeStrategy);
+			final scope = new CoroTaskWithLambda(context, lambda, CoroTask.CoroScopeStrategy, Running#if debug,callPos#end);
 			scope.awaitContinuation(cont);
 		});
 	}
@@ -68,10 +71,10 @@ class Coro {
 		The task itself can still raise an exception. This is also true when calling
 		`child.await()` on a child that raises an exception.
 	**/
-	@:coroutine static public function supervisor<T>(lambda:NodeLambda<T>):T {
+	@:coroutine static public function supervisor<T>(lambda:NodeLambda<T>#if debug, ?callPos:haxe.PosInfos#end):T {
 		return suspend(cont -> {
 			final context = cont.context;
-			final scope = new CoroTaskWithLambda(context, lambda, CoroTask.CoroSupervisorStrategy);
+			final scope = new CoroTaskWithLambda(context, lambda, CoroTask.CoroSupervisorStrategy, Running#if debug,callPos#end);
 			scope.awaitContinuation(cont);
 		});
 	}
@@ -84,7 +87,7 @@ class Coro {
 	 * @throws `hxcoro.exceptions.TimeoutException` If the timeout is exceeded.
 	 * @throws `haxe.ArgumentException` If the `ms` parameter is less than zero.
 	 */
-	@:coroutine public static function timeout<T>(ms:Int, lambda:NodeLambda<T>):T {
+	@:coroutine public static function timeout<T>(ms:Int, lambda:NodeLambda<T>#if debug, ?callPos:haxe.PosInfos#end):T {
 		if (ms < 0) {
 			throw new ArgumentException('timeout must be positive');
 		}
@@ -95,7 +98,7 @@ class Coro {
 		return suspend(cont -> {
 
 			final context = cont.context;
-			final scope = new CoroTaskWithLambda(context, lambda, CoroTask.CoroScopeStrategy);
+			final scope = new CoroTaskWithLambda(context, lambda, CoroTask.CoroScopeStrategy, Running#if debug,callPos#end);
 			final handle = context.scheduleFunction(ms, () -> {
 				scope.cancel(new TimeoutException());
 			});

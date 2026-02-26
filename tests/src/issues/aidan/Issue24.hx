@@ -9,7 +9,7 @@ class MyCont {
 }
 
 @:coroutine
-private function await() {
+private function await(_) {
 	var safe = new MyCont();
 	return {
 		var this1 = safe.getOrThrow();
@@ -19,6 +19,6 @@ private function await() {
 
 class Issue24 extends utest.Test {
 	function test() {
-		Assert.equals("foo", CoroRun.run(await));
+		Assert.equals("foo", run(await));
 	}
 }

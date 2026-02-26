@@ -1,13 +1,13 @@
 package hxcoro.run;
 
-import haxe.coro.BaseContinuation;
 import haxe.coro.context.Context;
 import haxe.coro.dispatchers.Dispatcher;
 import haxe.coro.schedulers.IScheduler;
+import hxcoro.elements.DefaultExceptionHandler;
 import hxcoro.schedulers.ILoop;
 
 class Setup {
-	static public final defaultContext = Context.empty.with(new StackTraceManager());
+	static public final defaultContext = Context.empty.with(new DefaultExceptionHandler());
 
 	public final dispatcher:Dispatcher;
 	final finalize:Null<() -> Void>;
@@ -19,7 +19,7 @@ class Setup {
 
 	/**
 		Returns a new context containing this setup's `Dispatcher` instance as an
-		element, and the default context's `StackTraceManager` if no such element
+		element, and the default context's `ExceptionHandler` if no such element
 		exists in `context`.
 	**/
 	public function adaptContext(context:Context) {
@@ -28,7 +28,7 @@ class Setup {
 
 	/**
 		Returns a new context containing this setup's `Dispatcher` instance as an
-		element, and the default context's `StackTraceManager`.
+		element, and the default context's `ExceptionHandler`.
 	**/
 	public function createContext() {
 		return defaultContext.with(dispatcher);

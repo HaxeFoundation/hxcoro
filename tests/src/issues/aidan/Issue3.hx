@@ -15,30 +15,30 @@ class Issue3 extends utest.Test {
 		f0_lambda = f0;
 		f1_lambda = f1;
 
-		Assert.equals(20, CoroRun.run(() -> f0()));
-		Assert.equals(40, CoroRun.run(() -> f0(20)));
-		Assert.equals(20, CoroRun.run(() -> f0_lambda()));
-		Assert.equals(40, CoroRun.run(() -> f0_lambda(20)));
+		Assert.equals(20, run((_) -> f0()));
+		Assert.equals(40, run((_) -> f0(20)));
+		Assert.equals(20, run((_) -> f0_lambda()));
+		Assert.equals(40, run((_) -> f0_lambda(20)));
 
-		Assert.equals(20, CoroRun.run(() -> f1(2)));
-		Assert.equals(40, CoroRun.run(() -> f1(2, 20)));
-		Assert.equals(20, CoroRun.run(() -> f1_lambda(2)));
-		Assert.equals(40, CoroRun.run(() -> f1_lambda(2, 20)));
+		Assert.equals(20, run((_) -> f1(2)));
+		Assert.equals(40, run((_) -> f1(2, 20)));
+		Assert.equals(20, run((_) -> f1_lambda(2)));
+		Assert.equals(40, run((_) -> f1_lambda(2, 20)));
 	}
 
 	function test_optional_args() {
 		f2_lambda = f2;
 		f3_lambda = f3;
 
-		Assert.equals(null, CoroRun.run(() -> f2()));
-		Assert.equals(10, CoroRun.run(() -> f2(10)));
-		Assert.equals(null, CoroRun.run(() -> f2_lambda()));
-		Assert.equals(10, CoroRun.run(() -> f2_lambda(10)));
+		Assert.equals(null, run((_) -> f2()));
+		Assert.equals(10, run((_) -> f2(10)));
+		Assert.equals(null, run((_) -> f2_lambda()));
+		Assert.equals(10, run((_) -> f2_lambda(10)));
 
-		Assert.equals(null, CoroRun.run(() -> f3()));
-		Assert.same(Option.None, CoroRun.run(() -> f3(Option.None)));
-		Assert.equals(null, CoroRun.run(() -> f3_lambda()));
-		Assert.same(Option.None, CoroRun.run(() -> f3_lambda(Option.None)));
+		Assert.equals(null, run((_) -> f3()));
+		Assert.same(Option.None, run((_) -> f3(Option.None)));
+		Assert.equals(null, run((_) -> f3_lambda()));
+		Assert.same(Option.None, run((_) -> f3_lambda(Option.None)));
 	}
 
 	@:coroutine function f0(n0 : Int = 10) {

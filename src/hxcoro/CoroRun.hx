@@ -14,17 +14,8 @@ class CoroRun {
 		return Setup.defaultContext.with(...elements);
 	}
 
-	overload extern static public inline function run<T>(lambda:Coroutine<() -> T>):T {
-		return runWith(Setup.defaultContext, _ -> lambda());
-	}
-
-	overload extern static public inline function run<T>(lambda:NodeLambda<T>):T {
-		return runWith(Setup.defaultContext, lambda);
-	}
-
-	@:deprecated("Use `CoroRun.run` instead")
-	static public function runScoped<T>(lambda:NodeLambda<T>):T {
-		return runWith(Setup.defaultContext, lambda);
+	static public inline function run<T>(lambda:NodeLambda<T>#if debug, ?callPos:haxe.PosInfos#end):T {
+		return runWith(Setup.defaultContext, lambda#if debug, callPos#end);
 	}
 
 	#if js
@@ -73,11 +64,14 @@ class CoroRun {
 		function always installs its own instance of `Dispatcher` into the context
 		and uses it to drive execution. The exact dispatcher implementation being
 		used depends on the target.
+
+		Each invocation creates its own independent `Setup` (scheduler + dispatcher),
+		so separate calls from different threads do not interfere with each other.
 	**/
-	static public function runWith<T>(context:Context, lambda:NodeLambda<T>):T {
+	static public function runWith<T>(context:Context, lambda:NodeLambda<T>#if debug, ?callPos:haxe.PosInfos#end):T {
 		final setup = Setup.createDefault();
 		final context = setup.adaptContext(context);
-		final task = setup.loop.runTask(context, lambda);
+		final task = setup.loop.runTask(context, lambda#if debug, callPos#end);
 		setup.close();
 		return @:privateAccess ContextRun.resolveTask(task);
 	}

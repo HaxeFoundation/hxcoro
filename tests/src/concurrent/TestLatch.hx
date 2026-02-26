@@ -13,7 +13,7 @@ class TestLatch extends utest.Test {
 		final workVector = new Vector(numTasks);
 		final cleanUpVector = new Vector(numTasks);
 
-		CoroRun.run(node -> {
+		run(node -> {
 			final startWork = new CoroLatch(1);
 			final workerDone = new CoroLatch(numTasks);
 			final startCleanUp = new CoroLatch(1);

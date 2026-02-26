@@ -11,7 +11,7 @@ package issues.aidan;
 
 class Issue145 extends utest.Test {
 	function testSurprisinglySimple1() {
-		final result = CoroRun.run(() -> try {
+		final result = run((_) -> try {
 			throwing();
 			"oh no";
 		} catch(s:String) {
@@ -21,7 +21,7 @@ class Issue145 extends utest.Test {
 
 	}
 	function testSurprisinglySimple2() {
-		final result = CoroRun.run(() -> try {
+		final result = run((_) -> try {
 			throwingAfterYield();
 			"oh no";
 		} catch (s:String) {

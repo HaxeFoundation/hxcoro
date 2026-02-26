@@ -15,10 +15,7 @@ hxcoro is a coroutine library for Haxe that provides generators, async generator
 
 Nightly Haxe, Neko, and haxelib are **pre-installed** in the agent environment via `.github/workflows/copilot-setup-steps.yml`, so you do not need to install them manually. The `utest` library and `hxcoro` dev library are also pre-configured.
 
-For target-specific builds:
-- **HashLink (hl):** Requires HashLink runtime (the CI uses nightly version as specified in the workflow)
-- **C++ (cpp):** Requires hxcpp library and hxcpp_luv_io
-- **JVM (jvm):** Requires hxjava library
+All 8 targets are available to run tests.
 
 ### Environment Setup
 
@@ -27,20 +24,6 @@ The haxelib setup is handled automatically. You can verify with:
 ```bash
 haxe -version
 haxelib list
-```
-
-For target-specific dependencies:
-
-**C++ target:**
-```bash
-haxelib git hxcpp https://github.com/HaxeFoundation/hxcpp.git
-haxe --cwd .haxelib/hxcpp/git/tools/hxcpp compile.hxml
-haxelib git hxcpp_luv_io https://github.com/Aidan63/hxcpp_luv_io
-```
-
-**JVM target:**
-```bash
-haxelib install hxjava
 ```
 
 ### Running Tests
@@ -180,7 +163,7 @@ The repository uses GitHub Actions for CI (`.github/workflows/main.yml`). The CI
 
 2. **Never skip haxelib setup:** ALWAYS run `haxelib newrepo` and install dependencies before building or testing.
 
-3. **Target-specific considerations:** 
+3. **Target-specific considerations:**
    - C++ builds require additional setup time for hxcpp compilation
    - Some targets may not be available on all platforms (e.g., PHP on macOS)
    - Use conditional compilation for target-specific code
