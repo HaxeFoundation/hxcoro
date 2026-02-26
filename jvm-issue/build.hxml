@@ -1,6 +1,0 @@
---class-path src
---class-path cases
---library hxjava
---main Main
--jvm bin/test.jar
--cmd java -jar bin/test.jar

@@ -104,13 +104,6 @@ Sync-bridge frames (`Top.hx`) are fully present on cpp, as on eval.
 
 ### jvm
 
-Fixed in Haxe `f22c52b` (`coro-ExceptionHandler-rework_f22c52b`): the JVM backend
-now generates distinct closure classes for static method references in different
-packages, so all test cases execute correctly.
-
-> The standalone `jvm-issue/` directory contains a minimal reproducer for
-> the pre-fix deduplication bug, for reference.
-
 Stack shape matches eval: exact throw lines, sync-bridge frames present,
 full intermediate coroutine call chain reconstructed.
 
