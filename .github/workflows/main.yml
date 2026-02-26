@@ -12,10 +12,20 @@ jobs:
       matrix:
         os: [macos-latest, ubuntu-latest, windows-latest]
         target: [eval, js, hl, cpp, jvm, php, python, neko]
+        dispatcher: ['', trampoline]
         exclude:
           # php is not available by default for macos runners, probably not worth bothering
           - os: macos-latest
             target: php
+          # These targets already use trampoline as their default dispatcher
+          - target: js
+            dispatcher: trampoline
+          - target: php
+            dispatcher: trampoline
+          - target: python
+            dispatcher: trampoline
+          - target: neko
+            dispatcher: trampoline
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -47,10 +57,13 @@ jobs:
           neko -version
 
       - name: Run tests
+        env:
+          DISPATCHER_FLAG: ${{ matrix.dispatcher != '' && format('-D dispatcher={0}', matrix.dispatcher) || '' }}
+        shell: bash
         run: |
-          ${{ matrix.target == 'cpp' }} || haxe --cwd tests -debug build-${{ matrix.target }}.hxml
-          haxe --cwd tests build-${{ matrix.target }}.hxml --hxb bin/test.hxb
-          ${{ matrix.target == 'cpp' }} || haxe --cwd tests build-${{ matrix.target }}.hxml --hxb-lib bin/test.hxb
+          ${{ matrix.target == 'cpp' }} || haxe --cwd tests -debug build-${{ matrix.target }}.hxml $DISPATCHER_FLAG
+          haxe --cwd tests build-${{ matrix.target }}.hxml $DISPATCHER_FLAG --hxb bin/test.hxb
+          ${{ matrix.target == 'cpp' }} || haxe --cwd tests build-${{ matrix.target }}.hxml $DISPATCHER_FLAG --hxb-lib bin/test.hxb
 
       - name: Run callstack tests
         run: haxe --cwd callstack-tests build-${{ matrix.target }}.hxml

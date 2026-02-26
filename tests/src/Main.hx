@@ -1,6 +1,12 @@
 import yield.*;
+import hxcoro.run.Setup;
 
 function main() {
+	#if (dispatcher == "trampoline")
+	TestRun.setupFactory = Setup.createEventLoopTrampoline;
+	#elseif (dispatcher == "threadpool")
+	TestRun.setupFactory = () -> Setup.createThreadPool(10);
+	#end
 
 	var cases = [
 		new TestBasic(),

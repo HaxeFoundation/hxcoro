@@ -8,6 +8,6 @@ package issues.aidan;
 
 class Issue38 extends utest.Test {
 	function test() {
-		Assert.equals("Hello, World!", CoroRun.run(foo));
+		Assert.equals("Hello, World!", run(foo));
 	}
 }

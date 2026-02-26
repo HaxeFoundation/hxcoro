@@ -3,43 +3,43 @@ import Helper;
 
 class TestTryCatch extends utest.Test {
 	function testTryCatch() {
-		Assert.same(["e1", "e2"], CoroRun.run(@:coroutine function run(_) {
+		Assert.same(["e1", "e2"], run(@:coroutine function run(_) {
 			return mapCalls([new E1(), new E2()], tryCatch);
 		}));
 	}
 
 	function testTryCatchFail() {
-		Assert.raises(() -> CoroRun.run(@:coroutine function run(_) {
+		Assert.raises(() -> run(@:coroutine function run(_) {
 			return tryCatch(new E3());
 		}), E3);
 	}
 
 	function testTryCatchNonExc() {
-		Assert.same(["ne1", "ne2"], CoroRun.run(@:coroutine function run(_) {
+		Assert.same(["ne1", "ne2"], run(@:coroutine function run(_) {
 			return mapCalls([new NE1(), new NE2()], tryCatchNonExc);
 		}));
 	}
 
 	function testTryCatchNonExcFail() {
-		Assert.raises(() -> CoroRun.run(@:coroutine function run(_) {
+		Assert.raises(() -> run(@:coroutine function run(_) {
 			return tryCatchNonExc(new NE3());
 		}), NE3);
 	}
 
 	function testTryCatchMixed() {
-		Assert.same(["e1", "e2", "ne1", "ne2"], CoroRun.run(@:coroutine function run(_) {
+		Assert.same(["e1", "e2", "ne1", "ne2"], run(@:coroutine function run(_) {
 			return mapCalls(([new E1(), new E2(), new NE1(), new NE2()] : Array<Dynamic>), tryCatchMixed);
 		}));
 	}
 
 	function testTryCatchMixedFail() {
-		Assert.raises(() -> CoroRun.run(@:coroutine function run(_) {
+		Assert.raises(() -> run(@:coroutine function run(_) {
 			return tryCatchMixed("foo");
 		}), String);
-		Assert.raises(() -> CoroRun.run(@:coroutine function run(_) {
+		Assert.raises(() -> run(@:coroutine function run(_) {
 			return tryCatchMixed(new E3());
 		}), E3);
-		Assert.raises(() -> CoroRun.run(@:coroutine function run(_) {
+		Assert.raises(() -> run(@:coroutine function run(_) {
 			return tryCatchMixed(new NE3());
 		}), NE3);
 	}
@@ -58,10 +58,10 @@ class TestTryCatch extends utest.Test {
 			return dummy;
 		}
 		var a = [];
-		Assert.equals("1235", CoroRun.run((_) -> f(i -> a.push(i))));
+		Assert.equals("1235", run((_) -> f(i -> a.push(i))));
 		Assert.same([10], a);
 		a = [];
-		Assert.equals("1245", CoroRun.run((_) -> f(i -> throw i)));
+		Assert.equals("1245", run((_) -> f(i -> throw i)));
 		Assert.same([], a);
 	}
 
@@ -81,7 +81,7 @@ class TestTryCatch extends utest.Test {
 			return dummy;
 		}
 		var a = [];
-		Assert.equals("12456", CoroRun.run((_) -> f(i -> a.push(i))));
+		Assert.equals("12456", run((_) -> f(i -> a.push(i))));
 		Assert.same([10], a);
 	}
 
@@ -105,10 +105,10 @@ class TestTryCatch extends utest.Test {
 			return dummy;
 		}
 		var a = [];
-		Assert.equals("12458", CoroRun.run((_) -> f(i -> a.push(i), 'Error')));
+		Assert.equals("12458", run((_) -> f(i -> a.push(i), 'Error')));
 		Assert.same([10], a);
 		a = [];
-		Assert.equals("12678", CoroRun.run((_) -> f(i -> a.push(i), 123)));
+		Assert.equals("12678", run((_) -> f(i -> a.push(i), 123)));
 		Assert.same([20], a);
 	}
 
@@ -135,26 +135,26 @@ class TestTryCatch extends utest.Test {
 			return dummy;
 		}
 		var a = [];
-		Assert.equals("124569", CoroRun.run((_) -> f(i -> a.push(i), 1)));
+		Assert.equals("124569", run((_) -> f(i -> a.push(i), 1)));
 		Assert.same(["10"], a);
 		a = [];
-		Assert.equals("12789", CoroRun.run((_) -> f(i -> a.push(i), "foo")));
+		Assert.equals("12789", run((_) -> f(i -> a.push(i), "foo")));
 		Assert.same(["caught: foo, dummy: 127"], a);
 		a = [];
-		Assert.equals("124789", CoroRun.run((_) -> f(i -> i == "10"?throw i:a.push(i), 1)));
+		Assert.equals("124789", run((_) -> f(i -> i == "10"?throw i:a.push(i), 1)));
 		Assert.same(["caught: 10, dummy: 1247"], a);
 		final yieldThrow = @:coroutine i -> throw i;
 		// TODO: gives "Cannot use Void as value" without the explicit :Void type-hint
-		final yieldThrowInChildCoro = @:coroutine function(i):Void return CoroRun.run((_) -> throw i);
+		final yieldThrowInChildCoro = @:coroutine function(i):Void return run((_) -> throw i);
 		for (yield in [yieldThrow, yieldThrowInChildCoro]) {
 			try {
-				CoroRun.run((_) -> f(yield, "foo"));
+				run((_) -> f(yield, "foo"));
 				Assert.fail();
 			} catch (e:String) {
 				Assert.equals('caught: foo, dummy: 127', e);
 			}
 			try {
-				CoroRun.run((_) -> f(yield, 1));
+				run((_) -> f(yield, 1));
 				Assert.fail();
 			} catch (e:String) {
 				Assert.equals('caught: 10, dummy: 1247', e);
@@ -178,7 +178,7 @@ class TestTryCatch extends utest.Test {
 			return dummy;
 		}
 		try {
-			CoroRun.run((_) -> f(i -> Assert.fail()));
+			run((_) -> f(i -> Assert.fail()));
 			Assert.fail();
 		} catch (e:String) {
 			Assert.equals('Error!', e);
@@ -202,7 +202,7 @@ class TestTryCatch extends utest.Test {
 			return dummy;
 		}
 		var a = [];
-		Assert.equals("12456", CoroRun.run((_) -> f(i -> a.push(i))));
+		Assert.equals("12456", run((_) -> f(i -> a.push(i))));
 		Assert.same([10], a);
 	}
 

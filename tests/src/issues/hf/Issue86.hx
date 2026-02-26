@@ -6,7 +6,7 @@ class Issue86 extends utest.Test {
 	function test() {
 		final channel = Channel.createUnbounded({});
 		final numTasks = 50;
-		CoroRun.run(node -> {
+		run(node -> {
 			for (i in 0...numTasks) {
 				node.async(node -> {
 					channel.write(1);

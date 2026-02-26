@@ -17,12 +17,12 @@ class CoroFile {
 class TestTricky extends utest.Test {
 	function testCapturedThis() {
 		final file = new CoroFile("value");
-		Assert.equals("value", cast CoroRun.run(file.write));
+		Assert.equals("value", cast run(file.write));
 	}
 
 	function testPreviouslyCapturedThis() {
 		final file = new CoroFile("value");
-		final func : ()->String = cast CoroRun.run(file.almostWrite);
+		final func : ()->String = cast run(file.almostWrite);
 		Assert.equals("value", func());
 	}
 }

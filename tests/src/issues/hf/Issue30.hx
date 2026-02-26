@@ -20,8 +20,8 @@ class C2 extends C {
 
 class Issue30 extends utest.Test {
 	function test() {
-		Assert.equals("ok", CoroRun.run(new C2("ok").f));
-		Assert.equals("ok", CoroRun.run((node) -> {
+		Assert.equals("ok", run(new C2("ok").f));
+		Assert.equals("ok", run((node) -> {
 			final c:C = new C2("ok");
 			c.f(node);
 		}));

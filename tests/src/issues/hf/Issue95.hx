@@ -31,7 +31,7 @@ private class Child extends Parent {
 class Issue95 extends utest.Test {
 	public function test() {
 		final child = new Child();
-		CoroRun.run((_) -> child.test());
+		run((_) -> child.test());
 		Assert.same([
 			"Child.test() 1",
 			"Parent.test() 1",

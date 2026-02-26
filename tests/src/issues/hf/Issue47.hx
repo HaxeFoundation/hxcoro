@@ -9,7 +9,7 @@ import haxe.ValueException;
 
 class Issue47 extends utest.Test {
 	function testTaskActiveAfterCancellation() {
-		CoroRun.run(node -> {
+		run(node -> {
 			var cancelCause = null;
 			final sem = new CoroSemaphore(0, 1);
 			final task = node.async(node -> {
@@ -33,7 +33,7 @@ class Issue47 extends utest.Test {
 	}
 
 	function testCancellableTaskFromCancelledTask() {
-		CoroRun.run(node -> {
+		run(node -> {
 			var cancelCause = null;
 			final sem = new CoroSemaphore(0, 1);
 			final task = node.async(node -> {
@@ -61,7 +61,7 @@ class Issue47 extends utest.Test {
 	}
 
 	function testNonCancellableTaskFromCancelledTask() {
-		CoroRun.run(node -> {
+		run(node -> {
 			var cancelCause = null;
 			final sem = new CoroSemaphore(0, 1);
 			final task = node.async(node -> {
@@ -88,7 +88,7 @@ class Issue47 extends utest.Test {
 	}
 
 	function testLazyNonCancellableTaskFromCancelledTask() {
-		CoroRun.run(node -> {
+		run(node -> {
 			var cancelCause = null;
 			final sem = new CoroSemaphore(0, 1);
 			final task = node.async(node -> {

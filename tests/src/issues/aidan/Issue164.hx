@@ -7,6 +7,6 @@ class Issue164 extends utest.Test {
 	}
 
 	function test() {
-		Assert.raises(() -> CoroRun.run(f), String);
+		Assert.raises(() -> run(f), String);
 	}
 }

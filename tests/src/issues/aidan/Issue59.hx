@@ -16,6 +16,6 @@ function throwing() {
 }
 class Issue59 extends utest.Test {
 	public function test() {
-		Assert.raises(() -> CoroRun.run((_) -> recursion(2, 0)), NotImplementedException);
+		Assert.raises(() -> run((_) -> recursion(2, 0)), NotImplementedException);
 	}
 }
