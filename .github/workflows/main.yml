@@ -21,7 +21,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: kLabz/setup-haxe@neko-latest
         with:
-          haxe-version: "2026-02-25_coro-ExceptionHandler-rework_f22c52b"
+          haxe-version: "latest"
 
       - name: Setup hashlink
         if: matrix.target == 'hl'
