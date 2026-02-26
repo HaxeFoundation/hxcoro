@@ -144,7 +144,9 @@ class OtherConvenience {
 			cast exc;
 		 } else {
 			final cancellationException = new CancellationException();
+			#if !js
 			cancellationException.stack = exc.stack;
+			#end
 			cancellationException;
 		 }
 	}
