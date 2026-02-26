@@ -1,14 +1,18 @@
-import yield.*;
 import hxcoro.run.Setup;
 
 function main() {
 	#if sys
 	switch (Sys.getEnv("HXCORO_DISPATCHER")) {
-		case "trampoline": TestRun.setupFactory = Setup.createEventLoopTrampoline;
+		case "trampoline":
+			Sys.println("Using trampoline dispatcher");
+			TestRun.setupFactory = Setup.createEventLoopTrampoline;
 		#if target.threaded
-		case "threadpool": TestRun.setupFactory = () -> Setup.createThreadPool(10);
+		case "threadpool":
+			Sys.println("Using threadpool dispatcher");
+			TestRun.setupFactory = () -> Setup.createThreadPool(10);
 		#end
-		case _: // use the default dispatcher for this target
+		case _:
+			Sys.println("Using default dispatcher");
 	}
 	#end
 
