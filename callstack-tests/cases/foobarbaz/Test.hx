@@ -36,15 +36,17 @@ class Test {
 			// throw position (inaccurate top-frame positions on cpp).
 			Line(5),  // baz definition
 			Line(11), // baz() call in bar
+			Line(15), // bar() call in foo
 			#elseif hl
 			// HL baz position varies by OS: line 5 (definition) on Windows/macOS,
 			// line 6 (throw) on Linux. Accept either with AnyLine.
 			AnyLine,  // baz (line varies by HL OS/JIT behaviour)
 			Line(11), // baz() call in bar
+			Line(15), // bar() call in foo
 			#else
 			Line(6),  // throw in baz
 			Line(11), // baz() call in bar
-			// TODO: sync stack (foo calling bar at line 15) not reconstructed yet
+			Line(15), // bar() call in foo
 			#end
 		]);
 		if (r != null)
