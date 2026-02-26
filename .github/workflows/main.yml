@@ -69,6 +69,10 @@ jobs:
           run_default
 
           case "$TARGET" in
+            eval)
+              run_extra trampoline
+              run_extra threadpool
+              ;;
             eval|hl|cpp|jvm)
               run_extra trampoline
               ;;
