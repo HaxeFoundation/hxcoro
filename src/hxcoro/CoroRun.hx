@@ -76,18 +76,6 @@ class CoroRun {
 
 		Each invocation creates its own independent `Setup` (scheduler + dispatcher),
 		so separate calls from different threads do not interfere with each other.
-
-		**This function is not re-entrant with respect to its event loop.**  Calling
-		`runWith` (or `CoroRun.run`) from inside a coroutine that is itself executing
-		under a `runWith` call would require both the outer and the inner call to drive
-		the *same* loop concurrently.  On threaded targets this leads to a deadlock:
-		both threads end up blocked on the same scheduler semaphore waiting to be
-		woken by each other's task completion, but each task completion releases the
-		semaphore only once — the signal can be consumed by the wrong thread,
-		permanently blocking the other one (the "stolen wakeup" problem).
-
-		Nested coroutine calls should use structured concurrency primitives such as
-		`Coro.scope`, `Coro.supervisor`, or child tasks instead.
 	**/
 	static public function runWith<T>(context:Context, lambda:NodeLambda<T>#if debug, ?callPos:haxe.PosInfos#end):T {
 		final setup = Setup.createDefault();
