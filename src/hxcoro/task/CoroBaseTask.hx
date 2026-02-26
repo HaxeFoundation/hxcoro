@@ -2,6 +2,7 @@ package hxcoro.task;
 
 import haxe.Exception;
 import haxe.coro.IContinuation;
+import haxe.coro.IStackFrame;
 import haxe.coro.cancellation.CancellationToken;
 import haxe.coro.context.Context;
 import haxe.coro.context.IElement;
@@ -39,6 +40,7 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 
 	#if debug
 	var startPos:Null<haxe.PosInfos>;
+	var callerTask:Null<IStackFrame>;
 	#end
 
 	final nodeStrategy:INodeStrategy;
@@ -111,6 +113,14 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 	**/
 	public function awaitContinuation(cont:IContinuation<T>) {
 		awaitingContinuations.add(cont);
+		#if debug
+		if (callerTask == null) {
+			final caller = cont.context.get(CoroBaseTask);
+			if (caller != null && caller != parent && caller != this && caller is IStackFrame) {
+				callerTask = cast caller;
+			}
+		}
+		#end
 		activate();
 	}
 
