@@ -123,7 +123,7 @@ class Setup {
 		return createLuv();
 		#elseif (cpp && hxcpp_luv_io)
 		return createLuvThreadPool();
-		#elseif (jvm || cpp || hl)
+		#elseif (jvm || cpp || hl || python)
 		return createThreadPool(10);
 		#else
 		return createEventLoopTrampoline();

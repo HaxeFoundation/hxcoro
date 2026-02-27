@@ -130,7 +130,7 @@ class TestEntrypoints extends utest.Test {
 	}
 
 	// Python hates this for some other reason that needs investigation
-	#if (target.threaded && !python)
+	#if target.threaded
 
 	public function testThreadPool() {
 		final setup = Setup.createThreadPool(10);
