@@ -92,7 +92,11 @@ class Coro {
 			throw new ArgumentException('timeout must be positive');
 		}
 		if (ms == 0) {
-			throw new TimeoutException();
+			final e = new TimeoutException();
+			#if !js
+			e.stack = [];
+			#end
+			throw e;
 		}
 
 		return suspend(cont -> {
@@ -100,7 +104,11 @@ class Coro {
 			final context = cont.context;
 			final scope = new CoroTaskWithLambda(context, lambda, CoroTask.CoroScopeStrategy, Running#if debug, startPos#end);
 			final handle = context.scheduleFunction(ms, () -> {
-				scope.cancel(new TimeoutException());
+				final e = new TimeoutException();
+				#if !js
+				e.stack = [];
+				#end
+				scope.cancel(e);
 			});
 
 			scope.awaitContinuation(new TimeoutContinuation(cont, handle));

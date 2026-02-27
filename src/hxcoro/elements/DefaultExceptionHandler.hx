@@ -87,8 +87,30 @@ private class SynchronousRun implements IElement<SynchronousRun> implements ISyn
 	}
 
 	public function buildCallStack(cont:BaseContinuation<Any>):Void {
-		final exception = thrownException.value;
-		if (exception == null || exception.coroStack.length == 0) {
+		var exception = thrownException.value;
+		if (exception == null) {
+			#if debug
+			// No startException was called — exception arrived via the suspension-error path
+			// (e.g. a TimeoutException propagated through a @:coroutine suspension point).
+			// If the exception's native stack was explicitly cleared, lazily collect the
+			// coroutine call chain from the continuation so the user sees their call site.
+			final err = cont.error;
+			if (err == null || err.stack.asArray().length != 0) return;
+			var chainFrames = [];
+			var currentFrame:Null<IStackFrame> = cont;
+			while (currentFrame != null) {
+				final item = currentFrame.getStackItem();
+				if (item != null) chainFrames.push(item);
+				currentFrame = currentFrame.callerFrame();
+			}
+			if (chainFrames.length == 0) return;
+			exception = new StartedException(err, chainFrames);
+			thrownException.value = exception;
+			#else
+			return;
+			#end
+		}
+		if (exception.coroStack.length == 0) {
 			return;
 		}
 		thrownException.value = null;
@@ -136,7 +158,14 @@ private class SynchronousRun implements IElement<SynchronousRun> implements ISyn
 		// directly into newStack, so the outer run's buildCallStack can process them via
 		// the normal invokeResume mechanism. This avoids any cross-thread data passing.
 		final lastIndex = coroStack.length - 1;
+		// Skip the first frame when it belongs to an internal hxcoro API method
+		// (e.g. hxcoro.Coro.timeout). These frames add no useful context for the user.
+		final startIndex = switch (coroStack[0]) {
+			case ClassFunction(cls, _, _, _, _) if (cls == "hxcoro.Coro"): 1;
+			case _: 0;
+		}
 		for (i => frame in coroStack) {
+			if (i < startIndex) continue;
 			switch (frame) {
 				case ClassFunction(cls, func, file, line, column):
 					newStack.push(StackItem.FilePos(StackItem.Method(cls, func), file, line, column));
