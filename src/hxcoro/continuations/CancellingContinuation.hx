@@ -75,7 +75,7 @@ class CancellingContinuation<T> extends StackFrameContinuation<T> implements ICa
 				if (resumeState.compareExchange(Resolved, Completing) == Resolved) {
 					setState(result, error);
 					resumeState.store(Completed);
-					context.getOrRaise(Dispatcher).dispatch(this);
+					context.dispatchOrCall(this);
 					true;
 				} else {
 					false;
@@ -113,7 +113,7 @@ class CancellingContinuation<T> extends StackFrameContinuation<T> implements ICa
 			// cont.resume() is always called, regardless of whether the caller was a
 			// BaseContinuation state machine or a plain lambda (where an inline Returned
 			// result would be silently discarded on multi-threaded targets).
-			context.getOrRaise(Dispatcher).dispatch(this);
+			context.dispatchOrCall(this);
 		}
 	}
 

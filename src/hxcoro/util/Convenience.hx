@@ -153,6 +153,15 @@ class ContextConvenience {
 			handler.buildCallStack(context, frame);
 		}
 	}
+
+	static public inline function dispatchOrCall(context:Context, obj:IDispatchObject) {
+		final dispatcher = context.get(Dispatcher);
+		if (dispatcher != null) {
+			dispatcher.dispatch(obj);
+		} else {
+			obj.onDispatch();
+		}
+	}
 }
 
 class OtherConvenience {

@@ -20,7 +20,7 @@ private class TimerEvent implements ISchedulerHandle implements IDispatchObject{
 
 	function run() {
 		timer.stop();
-		cont.context.getOrRaise(Dispatcher).dispatch(this);
+		cont.context.dispatchOrCall(this);
 	}
 
 	public function onDispatch() {
