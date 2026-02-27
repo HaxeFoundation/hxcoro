@@ -39,16 +39,8 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 	public var context(get, null):Context;
 
 	#if debug
-	// The potential frame values updated in various places
-
 	var startPos:Null<haxe.PosInfos>;
 	var callerTask:Null<IStackFrame>;
-
-	// The definitive frame values set exactly once by `doStart`
-
-	var actualStartPos:Null<haxe.PosInfos>;
-	var actualCallerFrame:Null<IStackFrame>;
-
 	#end
 
 	final nodeStrategy:INodeStrategy;
@@ -65,7 +57,9 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 		this.nodeStrategy = nodeStrategy;
 		awaitingContinuations = new TaskContinuationManager(this);
 		#if debug
-		this.startPos = startPos;
+		if (initialState == Running) {
+			this.startPos = startPos;
+		}
 		#end
 		super(parent, initialState);
 	}
@@ -91,7 +85,13 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 	**/
 	public function callerFrame():Null<IStackFrame> {
 		#if debug
-		return actualCallerFrame;
+		if (callerTask != null) {
+			return callerTask;
+		} else if (parent is IStackFrame) {
+			return cast parent;
+		} else {
+			return null;
+		}
 		#else
 		return null;
 		#end
@@ -102,20 +102,9 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 	**/
 	public function getStackItem() {
 		#if debug
-		return actualStartPos == null ? null : haxe.coro.CoroStackItem.PosInfo(actualStartPos);
+		return startPos == null ? null : haxe.coro.CoroStackItem.PosInfo(startPos);
 		#else
 		return null;
-		#end
-	}
-
-	public function doStart() {
-		#if debug
-		actualStartPos = startPos;
-		if (callerTask != null) {
-			actualCallerFrame = callerTask;
-		} else if (parent is IStackFrame) {
-			actualCallerFrame = cast parent;
-		}
 		#end
 	}
 
@@ -159,8 +148,10 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 	public function awaitContinuation(cont:IContinuation<T>#if debug, ?startPos:haxe.PosInfos #end) {
 		awaitingContinuations.add(cont);
 		#if debug
-		callerTask = cont.context.get(CoroBaseTask);
-		this.startPos = startPos;
+		if (this.startPos == null) {
+			callerTask = cont.context.get(CoroBaseTask);
+			this.startPos = startPos;
+		}
 		#end
 		activate();
 	}
@@ -173,10 +164,12 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 	**/
 	public function start(?caller:ICoroNode#if debug, ?startPos:haxe.PosInfos #end) {
 		#if debug
-		if (caller is IStackFrame) {
-			callerTask = cast caller;
+		if (this.startPos == null) {
+			if (caller is IStackFrame) {
+				callerTask = cast caller;
+			}
+			this.startPos = startPos;
 		}
-		this.startPos = startPos;
 		#end
 		activate();
 	}
