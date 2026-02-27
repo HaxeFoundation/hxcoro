@@ -1,16 +1,16 @@
 package hxcoro.concurrent;
 
 import haxe.coro.IContinuation;
-import haxe.coro.cancellation.CancellationToken;
 import haxe.exceptions.ArgumentException;
 import hxcoro.concurrent.exceptions.SemaphoreFullException;
 import hxcoro.ds.PagedDeque;
 
 class CoroSemaphore {
-	final maxFree:Int;
+	@:nullSafety(Off) final maxFree:Int;
 	var deque:PagedDeque<IContinuation<Any>>;
 	var free:AtomicInt;
 
+	@:nullSafety(Off)
 	public function new(free:Int, ?maxFree:Int) {
 		if (free < 0) {
 			throw new ArgumentException("free", "Value of free must be >= 0");

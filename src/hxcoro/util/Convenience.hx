@@ -106,7 +106,7 @@ class ContinuationConvenience {
 		thread if the current dispatcher allows that.
 	**/
 	static public inline function resumeAsync<T>(cont:IContinuation<T>, result:Null<T>, error:Null<Exception>) {
-		cont.context.get(Dispatcher).dispatchContinuation(cont, result, error);
+		cont.context.getOrRaise(Dispatcher).dispatchContinuation(cont, result, error);
 	}
 
 	static public inline function asStackFrame<T>(cont:IContinuation<T>):Null<IStackFrame> {
@@ -123,7 +123,7 @@ class DispatcherConvenience {
 		return dispatcher.dispatch(new FunctionDispatchObject(f));
 	}
 
-	static public inline function dispatchContinuation<T>(dispatcher: Dispatcher, cont:IContinuation<T>, result:T, error:Exception) {
+	static public inline function dispatchContinuation<T>(dispatcher: Dispatcher, cont:IContinuation<T>, result:Null<T>, error:Null<Exception>) {
 		dispatcher.dispatch(new ContinuationDispatchObject(cont, result, error));
 	}
 }
@@ -135,7 +135,7 @@ class ContextConvenience {
 	}
 
 	static public inline function scheduleFunction(context:Context, ms:Int64, func:() -> Void) {
-		return context.get(Dispatcher).scheduler.schedule(ms, new FunctionContinuation(context, (_, _) -> func()));
+		return context.getOrRaise(Dispatcher).scheduler.schedule(ms, new FunctionContinuation(context, (_, _) -> func()));
 	}
 
 	static public function async<T>(context:Context, lambda:NodeLambda<T>):ICoroTask<T> {
@@ -153,16 +153,27 @@ class ContextConvenience {
 			handler.buildCallStack(context, frame);
 		}
 	}
+
+	static public inline function dispatchOrCall(context:Context, obj:IDispatchObject) {
+		final dispatcher = context.get(Dispatcher);
+		if (dispatcher != null) {
+			dispatcher.dispatch(obj);
+		} else {
+			obj.onDispatch();
+		}
+	}
 }
 
 class OtherConvenience {
-	static public inline function orCancellationException(exc:Exception):CancellationException {
+	static public inline function orCancellationException(exc:Null<Exception>):CancellationException {
 		return if (exc is CancellationException) {
 			cast exc;
 		 } else {
 			final cancellationException = new CancellationException();
 			#if !js
-			cancellationException.stack = exc.stack;
+			if (exc != null) {
+				cancellationException.stack = exc.stack;
+			}
 			#end
 			cancellationException;
 		 }

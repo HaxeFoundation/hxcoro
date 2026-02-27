@@ -1,3 +1,4 @@
 build-base.hxml
 --python bin/coro.py
+--macro nullSafety("hxcoro", Off)
 --cmd python bin/coro.py

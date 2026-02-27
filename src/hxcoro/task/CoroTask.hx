@@ -76,7 +76,7 @@ class CoroTaskWithLambda<T> extends CoroTask<T> implements IDispatchObject imple
 			#if debug
 			callFrameLocked = true;
 			#end
-			context.get(Dispatcher).dispatch(this);
+			context.dispatchOrCall(this);
 		}
 	}
 

@@ -21,7 +21,7 @@ class ContextRun {
 	static function createEntryTask<T>(context:Context, lambda:NodeLambda<T>, strategy:CoroScopeStrategy, initialState:TaskState, ?callPos:haxe.PosInfos) {
 		final exceptionHandler = context.get(ExceptionHandler);
 		if (exceptionHandler != null) {
-			final run = exceptionHandler.startSynchronousRun(context, callPos);
+			@:nullSafety(Off) final run = exceptionHandler.startSynchronousRun(context, callPos);
 			final task = new CoroTaskWithLambda(run.context, lambda, strategy, initialState, callPos);
 			task.onCompletion((_, _) -> run.complete());
 			return task;

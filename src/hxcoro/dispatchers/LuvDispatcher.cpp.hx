@@ -23,7 +23,7 @@ class LuvDispatcher extends Dispatcher
 	public function new(loop:LuvLoop, ?scheduler:IScheduler) {
 		this.loop = loop;
 
-		workQueue  = new AsyncDeque(loop, loopWork);
+		workQueue  = new AsyncDeque(loop, @:nullSafety(Off) loopWork);
 		if (scheduler == null) {
 			final scheduler = new LuvScheduler(loop);
 			s = scheduler;
