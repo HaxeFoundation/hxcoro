@@ -2,6 +2,7 @@ package hxcoro;
 
 import haxe.coro.IContinuation;
 import haxe.coro.SuspensionResult;
+import haxe.coro.context.ExceptionHandler;
 import haxe.coro.dispatchers.Dispatcher;
 import haxe.exceptions.ArgumentException;
 import haxe.exceptions.CancellationException;
@@ -91,16 +92,13 @@ class Coro {
 		if (ms < 0) {
 			throw new ArgumentException('timeout must be positive');
 		}
-		if (ms == 0) {
-			throw new TimeoutException();
-		}
-
+		final exception = new TimeoutException();
 		return suspend(cont -> {
-
 			final context = cont.context;
 			final scope = new CoroTaskWithLambda(context, lambda, CoroTask.CoroScopeStrategy, Running#if debug, startPos#end);
 			final handle = context.scheduleFunction(ms, () -> {
-				scope.cancel(new TimeoutException());
+				context.setExceptionStack(scope, exception);
+				scope.cancel(exception);
 			});
 
 			scope.awaitContinuation(new TimeoutContinuation(cont, handle));

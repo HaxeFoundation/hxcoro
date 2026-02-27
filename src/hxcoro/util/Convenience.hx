@@ -3,13 +3,15 @@ package hxcoro.util;
 import haxe.Exception;
 import haxe.Int64;
 import haxe.coro.IContinuation;
+import haxe.coro.IStackFrame;
 import haxe.coro.cancellation.CancellationToken;
 import haxe.coro.cancellation.ICancellationToken;
 import haxe.coro.context.Context;
+import haxe.coro.context.ExceptionHandler;
+import haxe.coro.continuations.FunctionContinuation;
 import haxe.coro.dispatchers.Dispatcher;
 import haxe.coro.dispatchers.IDispatchObject;
 import haxe.exceptions.CancellationException;
-import haxe.coro.continuations.FunctionContinuation;
 import hxcoro.task.CoroTask;
 import hxcoro.task.ICoroTask;
 import hxcoro.task.NodeLambda;
@@ -135,6 +137,14 @@ class ContextConvenience {
 
 	static public function lazy<T>(context:Context, lambda:NodeLambda<T>):IStartableCoroTask<T> {
 		return new CoroTaskWithLambda(context, lambda, CoroTask.CoroChildStrategy, Created);
+	}
+
+	static public function setExceptionStack(context:Context, frame:IStackFrame, exc:Exception) {
+		final handler = context.get(ExceptionHandler);
+		if (handler != null) {
+			handler.startException(context, frame, exc);
+			handler.buildCallStack(context, frame);
+		}
 	}
 }
 
