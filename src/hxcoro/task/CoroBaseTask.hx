@@ -113,14 +113,6 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 	**/
 	public function awaitContinuation(cont:IContinuation<T>) {
 		awaitingContinuations.add(cont);
-		#if debug
-		if (callerTask == null) {
-			final caller = cont.context.get(CoroBaseTask);
-			if (caller != null && caller != parent && caller != this && caller is IStackFrame) {
-				callerTask = cast caller;
-			}
-		}
-		#end
 		activate();
 	}
 
@@ -172,11 +164,22 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 	**/
 	@:coroutine public function await(#if debug ?startPos:haxe.PosInfos #end):T {
 		#if debug
-		if (this.startPos == null && startPos != null) {
+		final isFirstPosition = this.startPos == null;
+		if (isFirstPosition && startPos != null) {
 			this.startPos = startPos;
 		}
 		#end
-		return Coro.suspend(awaitContinuation);
+		return Coro.suspend(cont -> {
+			#if debug
+			if (isFirstPosition) {
+				final caller = cont.context.get(CoroBaseTask);
+				if (caller != null && caller != parent && caller != this && caller is IStackFrame) {
+					callerTask = cast caller;
+				}
+			}
+			#end
+			awaitContinuation(cont);
+		});
 	}
 
 	function handleAwaitingContinuations() {
