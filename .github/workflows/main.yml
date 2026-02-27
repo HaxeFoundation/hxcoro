@@ -85,6 +85,7 @@ jobs:
             cpp)
               run_release
               run_extra trampoline
+              run_extra threadpool
               ;;
             hl|jvm)
               run_default
