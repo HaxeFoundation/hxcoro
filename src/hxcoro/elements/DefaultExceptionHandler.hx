@@ -3,7 +3,6 @@ package hxcoro.elements;
 import haxe.CallStack;
 import haxe.Exception;
 import haxe.PosInfos;
-import haxe.coro.BaseContinuation;
 import haxe.coro.CoroStackItem;
 import haxe.coro.IStackFrame;
 import haxe.coro.Tls;
@@ -64,8 +63,8 @@ private class SynchronousRun implements IElement<SynchronousRun> implements ISyn
 		return context;
 	}
 
-	public function startException(cont:BaseContinuation<Any>, exception:Exception) {
-		var frameItem = cont.getStackItem();
+	public function startException(frame:IStackFrame, exception:Exception) {
+		var frameItem = frame.getStackItem();
 		if (frameItem == null) {
 			// If we have no frame item on our continuation, just bail.
 			return exception;
@@ -73,7 +72,7 @@ private class SynchronousRun implements IElement<SynchronousRun> implements ISyn
 
 		// Collect coro frames from the continuation chain.
 		var chainFrames = [];
-		var currentFrame:Null<IStackFrame> = cont;
+		var currentFrame = frame;
 		while (currentFrame != null) {
 			final item = currentFrame.getStackItem();
 			if (item != null) {
@@ -86,7 +85,7 @@ private class SynchronousRun implements IElement<SynchronousRun> implements ISyn
 		return exception;
 	}
 
-	public function buildCallStack(cont:BaseContinuation<Any>):Void {
+	public function buildCallStack(frame:IStackFrame):Void {
 		final exception = thrownException.value;
 		if (exception == null || exception.coroStack.length == 0) {
 			return;
@@ -224,11 +223,11 @@ class DefaultExceptionHandler extends ExceptionHandler {
 		return new SynchronousRun(context, p);
 	}
 
-	public function startException(cont:BaseContinuation<Any>, exception:Exception):Exception {
-		return cont.context.get(SynchronousRun).startException(cont, exception);
+	public function startException(context:Context, frame:IStackFrame, exception:Exception):Exception {
+		return context.get(SynchronousRun).startException(frame, exception);
 	}
 
-	public function buildCallStack(cont:BaseContinuation<Any>):Void {
-		cont.context.get(SynchronousRun).buildCallStack(cont);
+	public function buildCallStack(context:Context, frame:IStackFrame):Void {
+		context.get(SynchronousRun).buildCallStack(frame);
 	}
 }
