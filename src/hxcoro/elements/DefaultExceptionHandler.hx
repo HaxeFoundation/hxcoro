@@ -94,9 +94,9 @@ private class SynchronousRun implements IElement<SynchronousRun> implements ISyn
 		function patchFirstCoroStack(file:String, line:Int, column:Null<Int>) {
 			switch (coroStack[0]) {
 				case ClassFunction(cls, func, _, _, _):
-					coroStack[0] = ClassFunction(cls, func, file, line, column);
+					coroStack[0] = ClassFunction(cls, func, file, line, cast column); // TODO: need Haxe update
 				case LocalFunction(id, _, _, _):
-					coroStack[0] = LocalFunction(id, file, line, column);
+					coroStack[0] = LocalFunction(id, file, line, cast column);
 				case PosInfo(_):
 			}
 		}
