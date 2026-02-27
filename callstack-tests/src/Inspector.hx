@@ -55,8 +55,8 @@ class Inspector {
 		}
 	}
 
-	function fail(directive:InspectDirective, reason:String) {
-		final lines = ['Failure at stack[${offset}] / directive[${inspectOffset}] ($directive): $reason'];
+	function fail(index:Int, directive:InspectDirective, reason:String) {
+		final lines = ['Failure at stack[${index}] / directive[${inspectOffset}] ($directive): $reason'];
 		for (i => item in stack)
 			lines.push('\t[$i] $item');
 		throw new InspectorFailure(lines.join("\n"));
@@ -72,26 +72,26 @@ class Inspector {
 				final index = offset++;
 				switch (stack[index]) {
 					case null:
-						fail(directive, 'stack went out of bounds at index $index');
+						fail(index, directive, 'stack went out of bounds at index $index');
 					case FilePos(_, file, line):
 						if (!file.endsWith(expectedFile))
-							fail(directive, 'file "$file" should end with "$expectedFile"');
+							fail(index, directive, 'file "$file" should end with "$expectedFile"');
 						if (line != expectedLine)
-							fail(directive, 'line $line should be $expectedLine');
+							fail(index, directive, 'line $line should be $expectedLine');
 					case v:
-						fail(directive, '$v should be FilePos');
+						fail(index, directive, '$v should be FilePos');
 				}
 
 			case AnyLine:
 				final index = offset++;
 				switch (stack[index]) {
 					case null:
-						fail(directive, 'stack went out of bounds at index $index');
+						fail(index, directive, 'stack went out of bounds at index $index');
 					case FilePos(_, file, _):
 						if (!file.endsWith(expectedFile))
-							fail(directive, 'file "$file" should end with "$expectedFile"');
+							fail(index, directive, 'file "$file" should end with "$expectedFile"');
 					case v:
-						fail(directive, '$v should be FilePos');
+						fail(index, directive, '$v should be FilePos');
 				}
 
 			case OptionalLine(expectedLine):
@@ -107,7 +107,7 @@ class Inspector {
 			case Skip(file):
 				while (true) {
 					if (offset == stack.length)
-						fail(directive, 'ran out of stack frames while skipping to "$file"');
+						fail(offset, directive, 'ran out of stack frames while skipping to "$file"');
 					switch (stack[offset]) {
 						case FilePos(Method(_) | LocalFunction(_), file2, _) if (file2.endsWith(file)):
 							expectedFile = file;

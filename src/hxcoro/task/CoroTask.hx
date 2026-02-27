@@ -90,6 +90,13 @@ class CoroTaskWithLambda<T> extends CoroTask<T> implements IDispatchObject imple
 		Starts executing this task's `lambda`. Has no effect if the task is already active or has completed.
 	**/
 	override public function doStart() {
+		#if debug
+		// Lock the call frame before the lambda starts. The lambda may suspend immediately
+		// (e.g. via delay/yield), allowing another task to call start()/awaitContinuation()
+		// concurrently. The lock must be set before the lambda runs so that any such call
+		// cannot overwrite the startPos that was captured at the lazy() call site.
+		callFrameLocked = true;
+		#end
 		super.doStart();
 		lambda(this, this);
 	}
