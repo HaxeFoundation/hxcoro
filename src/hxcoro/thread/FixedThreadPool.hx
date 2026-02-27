@@ -83,7 +83,7 @@ class FixedThreadPool implements IThreadPool {
 		@see `IThreadPool.run`
 	**/
 	public function run(obj:IDispatchObject):Void {
-		if(isShutDown) {
+		if(shutdownState.load() == ShutDown) {
 			throw new ThreadPoolException('Task is rejected. Thread pool is shut down.');
 		}
 		if(obj == null) {
