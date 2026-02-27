@@ -13,40 +13,17 @@ hxcoro is a coroutine library for Haxe that provides generators, async generator
 
 ### Prerequisites
 
-**ALWAYS** ensure these tools are set up before building or testing:
-1. Haxe compiler (latest version recommended)
-   - Latest version: https://build.haxe.org/builds/haxe/linux64/haxe_latest.tar.gz (includes haxelib binary)
-2. Neko VM
-   - Latest version: https://build.haxe.org/builds/neko/linux64/neko_latest.tar.gz
-3. haxelib package manager (included with Haxe)
+Nightly Haxe, Neko, and haxelib are **pre-installed** in the agent environment via `.github/workflows/copilot-setup-steps.yml`, so you do not need to install them manually. The `utest` library and `hxcoro` dev library are also pre-configured.
 
-For target-specific builds:
-- **HashLink (hl):** Requires HashLink runtime (the CI uses nightly version as specified in the workflow)
-- **C++ (cpp):** Requires hxcpp library and hxcpp_luv_io
-- **JVM (jvm):** Requires hxjava library
+All 8 targets are available to run tests.
 
 ### Environment Setup
 
-**ALWAYS** run these commands in order before running tests:
+The haxelib setup is handled automatically. You can verify with:
 
 ```bash
-haxelib newrepo
-haxelib git utest https://github.com/haxe-utest/utest.git
-haxelib dev hxcoro .
-```
-
-For target-specific dependencies:
-
-**C++ target:**
-```bash
-haxelib git hxcpp https://github.com/HaxeFoundation/hxcpp.git
-haxe --cwd .haxelib/hxcpp/git/tools/hxcpp compile.hxml
-haxelib git hxcpp_luv_io https://github.com/Aidan63/hxcpp_luv_io
-```
-
-**JVM target:**
-```bash
-haxelib install hxjava
+haxe -version
+haxelib list
 ```
 
 ### Running Tests
@@ -186,7 +163,7 @@ The repository uses GitHub Actions for CI (`.github/workflows/main.yml`). The CI
 
 2. **Never skip haxelib setup:** ALWAYS run `haxelib newrepo` and install dependencies before building or testing.
 
-3. **Target-specific considerations:** 
+3. **Target-specific considerations:**
    - C++ builds require additional setup time for hxcpp compilation
    - Some targets may not be available on all platforms (e.g., PHP on macOS)
    - Use conditional compilation for target-specific code

@@ -9,7 +9,7 @@ class TestControlFlow extends utest.Test {
 			return 2;
 		}
 
-		Assert.same(CoroRun.run(@:coroutine function run() {
+		Assert.same(run(@:coroutine function run(_) {
 			return mapCalls([ true, false ], f);
 		}), [ 1, 2 ]);
 	}
@@ -25,7 +25,7 @@ class TestControlFlow extends utest.Test {
 		}
 		@:coroutine function f2(x) { f(x); return v; }
 
-		Assert.same(CoroRun.run(@:coroutine function run() {
+		Assert.same(run(@:coroutine function run(_) {
 			return mapCalls([ true, false ], f2);
 		}), [ 1, 2 ]);
 	}
@@ -35,7 +35,7 @@ class TestControlFlow extends utest.Test {
 			return if (x) 1 else 2;
 		}
 
-		Assert.same(CoroRun.run(@:coroutine function run() {
+		Assert.same(run(@:coroutine function run(_) {
 			return mapCalls([ true, false ], f);
 		}), [ 1, 2 ]);
 	}
@@ -50,7 +50,7 @@ class TestControlFlow extends utest.Test {
 			return "d";
 		}
 
-		Assert.same(CoroRun.run(@:coroutine function run() {
+		Assert.same(run(@:coroutine function run(_) {
 			return mapCalls([ 1, 2, 3, 4 ], f);
 		}), ["a", "b", "c", "d"]);
 	}
@@ -65,7 +65,7 @@ class TestControlFlow extends utest.Test {
 			}
 			return "e";
 		}
-		Assert.same(CoroRun.run(@:coroutine function run() {
+		Assert.same(run(@:coroutine function run(_) {
 			return mapCalls([ 1, 2, 3, 4 ], f);
 		}), ["a", "b", "c", "d"]);
 	}
@@ -86,7 +86,7 @@ class TestControlFlow extends utest.Test {
 			[0,1,2,3,4,5,6,7,8,9],
 			[0,1,2,3,4],
 			[0,1,2,3,4,5,7,8,9]
-		], CoroRun.run(@:coroutine function run() {
+		], run(@:coroutine function run(_) {
 			return mapCalls([ 0, 1, 2 ], f);
 		}));
 	}
@@ -95,13 +95,13 @@ class TestControlFlow extends utest.Test {
 		var maxIters = 3;
 		var counter = 0;
 
-		@:coroutine function foo() {
+		@:coroutine function foo(node) {
 			if (++counter < maxIters) {
-				foo();
+				foo(node);
 			}
 		}
 
-		CoroRun.run(foo);
+		run(foo);
 
 		Assert.equals(counter, maxIters);
 	}
@@ -110,14 +110,14 @@ class TestControlFlow extends utest.Test {
 		var maxIters = 3;
 		var counter = 0;
 
-		@:coroutine function foo() {
+		@:coroutine function foo(node) {
 			if (++counter < maxIters) {
 				yield();
-				foo();
+				foo(node);
 			}
 		}
 
-		CoroRun.run(foo);
+		run(foo);
 
 		Assert.equals(counter, maxIters);
 	}

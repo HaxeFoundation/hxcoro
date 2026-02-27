@@ -13,7 +13,7 @@ class TestBarrier extends utest.Test {
 		}
 		final workerVector = new Vector(numTasks);
 
-		CoroRun.run(node -> {
+		run(node -> {
 			function onCompletion() {
 				static var phase = "... done working";
 				log(phase);
@@ -54,7 +54,7 @@ class TestBarrier extends utest.Test {
 		function log(msg:String) {
 			actual.push(msg);
 		}
-		CoroRun.run(node -> {
+		run(node -> {
 			final syncPoint = new CoroBarrier(numTasks + 1);
 
 			var numTasks = numTasks;

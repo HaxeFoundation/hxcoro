@@ -14,9 +14,7 @@ class TestAsyncGenerator extends utest.Test {
 			ch.write(2);
 			ch.write(3);
 
-			final it = ch.iterator();
-			while (it.hasNext()) {
-				final value = it.next();
+			for (value in ch) {
 				actual.push(value);
 				if (value == 3) {
 					ch.write(4);
@@ -41,9 +39,7 @@ class TestAsyncGenerator extends utest.Test {
 			ch.write(3);
 			ch.close();
 
-			final it = ch.iterator();
-			while (it.hasNext()) {
-				final value = it.next();
+			for (value in ch) {
 				actual.push(value);
 			}
 		});
@@ -63,11 +59,10 @@ class TestAsyncGenerator extends utest.Test {
 					i += 2;
 				}
 			});
-			while (gen.hasNext()) {
-				var value = gen.next();
+			for (value in gen) {
 				actual.push(value);
 				if (value == 8) {
-					gen.resume(null, null);
+					break;
 				}
 			}
 		});
@@ -75,14 +70,14 @@ class TestAsyncGenerator extends utest.Test {
 	}
 
 	@:coroutine static public function iterateGenerator<T>(gen:AsyncGenerator<T>, f:T -> Void) {
-		while (gen.hasNext()) {
-			f(gen.next());
+		for (value in gen) {
+			f(value);
 		}
 	}
 
 	static public function generatorToArray<T>(gen:AsyncGenerator<T>) {
-		return CoroRun.run(node -> {
-			[while (gen.hasNext()) gen.next()];
+		return run(node -> {
+			[for (v in gen) v];
 		});
 	}
 
@@ -98,7 +93,7 @@ class TestAsyncGenerator extends utest.Test {
 
 	function testException() {
 		final result = [];
-		CoroRun.run(node -> {
+		run(node -> {
 			AssertAsync.raises(() -> {
 				final gen = AsyncGenerator.create(yield -> {
 					yield(1);

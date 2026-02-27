@@ -1,12 +1,14 @@
 package hxcoro.schedulers;
 
+import haxe.coro.dispatchers.Dispatcher;
+import haxe.coro.dispatchers.IDispatchObject;
 import haxe.Int64;
 import haxe.Timer;
 import haxe.coro.IContinuation;
 import haxe.coro.schedulers.IScheduler;
 import haxe.coro.schedulers.ISchedulerHandle;
 
-private class TimerEvent implements ISchedulerHandle {
+private class TimerEvent implements ISchedulerHandle implements IDispatchObject{
 	final timer:Timer;
 	final cont:IContinuation<Any>;
 
@@ -18,6 +20,10 @@ private class TimerEvent implements ISchedulerHandle {
 
 	function run() {
 		timer.stop();
+		cont.context.get(Dispatcher).dispatch(this);
+	}
+
+	public function onDispatch() {
 		cont.resume(null, null);
 	}
 

@@ -1,0 +1,26 @@
+package scopetask;
+
+class Test {
+	public static function run() {
+		try {
+			ScopeTask.entry();
+			throw new haxe.Exception("Expected an exception from ScopeTask");
+		} catch (e:haxe.Exception) {
+			checkStack(e);
+		}
+	}
+
+	static function checkStack(e:haxe.Exception) {
+		final stack = e.stack.asArray();
+		final r = new Inspector(stack).inspect([
+			File('scopetask/ScopeTask.hx'),
+			Line(13), // throw inside thrower()
+			Line(19), // _ -> thrower() child-task entry lambda (at node.async() call)
+			Line(19), // coro frame for the node.async() call (same position)
+			Line(18), // coro frame for the scope() call site (callPos added in fd8002c)
+			Line(17), // coro frame for the outer CoroRun.run() entry lambda
+		]);
+		if (r != null)
+			throw r;
+	}
+}

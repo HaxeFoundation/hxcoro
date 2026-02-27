@@ -40,6 +40,7 @@ function assertLastMessage(expected:String, ?p:PosInfos) {
 function assertAwaitLastMessage(expected:String, ?p:PosInfos) {
 	while (true) {
 		if (!mutex.tryAcquire()) {
+			BackOff.backOff();
 			continue;
 		}
 		final message = messages.pop();
@@ -49,6 +50,7 @@ function assertAwaitLastMessage(expected:String, ?p:PosInfos) {
 			return;
 		}
 		mutex.release();
+		BackOff.backOff();
 	}
 }
 

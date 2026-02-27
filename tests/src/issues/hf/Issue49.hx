@@ -9,7 +9,7 @@ private class C {
 class Issue49 extends utest.Test {
 	function test() {
 		var c = new C();
-		CoroRun.run(node -> {
+		run(node -> {
 			c.map(i -> {});
 		});
 		Assert.pass();

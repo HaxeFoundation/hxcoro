@@ -9,7 +9,7 @@ class Issue64 extends utest.Test {
 		final cause = new CancellationException();
 		final cancellations = [];
 		final mutex = new Mutex();
-		CoroRun.run(node -> {
+		run(node -> {
 			for (i in 0...5) {
 				final latch = new CoroLatch(5);
 				for (k in 0...5) {

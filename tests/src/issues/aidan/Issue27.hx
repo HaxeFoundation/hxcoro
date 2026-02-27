@@ -44,7 +44,7 @@ class Issue27 extends utest.Test {
 	}
 
 	function test() {
-		CoroRun.run(scope ->  {
+		run(scope ->  {
 			scope.with(new DebugName("first name")).async(_ -> {
 				Assert.equals("first name", logDebug());
 				modifyDebug("second name");
@@ -58,7 +58,7 @@ class Issue27 extends utest.Test {
 	}
 
 	function testScope() {
-		CoroRun.run(node -> {
+		run(node -> {
 			node.with(newTrampoline(), new DebugName("first name")).async(_ -> {
 				scope(_ -> {
 					Assert.equals("first name", logDebug());

@@ -34,11 +34,9 @@ class CoroTask<T> extends CoroBaseTask<T> implements IContinuation<T> {
 	static public final CoroScopeStrategy = new CoroScopeStrategy();
 	static public final CoroSupervisorStrategy = new CoroSupervisorStrategy();
 
-	public function new(context:Context, nodeStrategy:INodeStrategy, initialState:TaskState = Running) {
-		super(context, nodeStrategy, initialState);
+	public function new(context:Context, nodeStrategy:INodeStrategy, initialState:TaskState = Running#if debug, ?startPos:haxe.PosInfos#end) {
+		super(context, nodeStrategy, initialState#if debug, startPos#end);
 	}
-
-	public function doStart() {}
 
 	/**
 		Resumes the task with the provided `result` and `error`.
@@ -71,16 +69,19 @@ class CoroTaskWithLambda<T> extends CoroTask<T> implements IDispatchObject imple
 	/**
 		Creates a new task using the provided `context` in order to execute `lambda`.
 	**/
-	public function new(context:Context, lambda:NodeLambda<T>, nodeStrategy:INodeStrategy, initialState:TaskState = Running) {
+	public function new(context:Context, lambda:NodeLambda<T>, nodeStrategy:INodeStrategy, initialState:TaskState = Running#if debug, ?startPos:haxe.PosInfos#end) {
 		this.lambda = lambda;
-		super(context, nodeStrategy, Created);
+		super(context, nodeStrategy, Created#if debug,startPos#end);
 		if (initialState == Running) {
-			context.getOrRaise(Dispatcher).dispatch(this);
+			#if debug
+			callFrameLocked = true;
+			#end
+			context.get(Dispatcher).dispatch(this);
 		}
 	}
 
 	public function onDispatch() {
-		start();
+		activate();
 	}
 
 	/**
@@ -88,14 +89,6 @@ class CoroTaskWithLambda<T> extends CoroTask<T> implements IDispatchObject imple
 	**/
 	override public function doStart() {
 		super.doStart();
-		final result = lambda(this, this);
-		@:nullSafety(Off) switch result.state {
-			case Pending:
-				return;
-			case Returned:
-				this.succeedAsync(result.result);
-			case Thrown:
-				this.failAsync(result.error);
-		}
+		lambda(this, this);
 	}
 }

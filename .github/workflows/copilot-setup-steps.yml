@@ -1,0 +1,37 @@
+name: "Copilot Setup Steps"
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - .github/workflows/copilot-setup-steps.yml
+
+jobs:
+  # The job MUST be called `copilot-setup-steps` or it will not be picked up by Copilot.
+  copilot-setup-steps:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Haxe (nightly) and Neko
+        uses: kLabz/setup-haxe@neko-latest
+        with:
+          haxe-version: "latest"
+
+      - name: Setup haxelib
+        run: |
+          haxelib newrepo
+          haxelib git utest https://github.com/haxe-utest/utest.git
+          haxelib install hxjava
+          haxelib git hxcpp https://github.com/HaxeFoundation/hxcpp.git
+          haxe --cwd .haxelib/hxcpp/git/tools/hxcpp compile.hxml
+          haxelib git hxcpp_luv_io https://github.com/Aidan63/hxcpp_luv_io
+          haxelib dev hxcoro .
+
+      - name: Setup hashlink
+        uses: HaxeFoundation/setup-hashlink@v1
+        with:
+          version: nightly

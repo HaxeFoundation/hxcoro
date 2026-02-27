@@ -37,15 +37,7 @@ class CoroChannelTask<T> extends CoroTask<haxe.Unit> implements IReceiver<T> imp
 function produce<T>(context:Context, lambda:Coroutine<ISender<T>->Void>):IReceiver<T> {
 	final channel = Channel.createBounded({ size : 3 });
 	final task = new CoroChannelTask(context, channel);
-	final result = lambda(task, task);
-	switch result.state {
-		case Pending:
-
-		case Returned:
-			task.resume(result.result, null);
-		case Thrown:
-			task.resume(null, result.error);
-	}
+	lambda(task, task);
 	return task;
 }
 
@@ -91,7 +83,7 @@ class NumberProducer {
 
 class Issue124 extends utest.Test {
 	function test() {
-		final result = CoroRun.run(node -> {
+		final result = run(node -> {
 			final numbers = node.produceNumbers();
 			final squares = node.square(numbers);
 			final result = [for (i in 1...10) {
@@ -104,7 +96,7 @@ class Issue124 extends utest.Test {
 	}
 
 	function testPrime() {
-		final result = CoroRun.run(node -> {
+		final result = run(node -> {
 			var cur = node.numbersFrom(2);
 			final result = [
 				for (_ in 0...10) {

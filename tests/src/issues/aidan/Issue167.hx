@@ -12,7 +12,7 @@ private class Foo {
 
 class Issue167 extends utest.Test {
 	function test() {
-		Assert.equals("test", CoroRun.run(() -> {
+		Assert.equals("test", run((_) -> {
 			"test".bar();
 		}));
 	}

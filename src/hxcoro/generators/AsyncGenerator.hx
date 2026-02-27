@@ -51,10 +51,6 @@ class AsyncGenerator<T> extends SuspensionResult<Iterator<T>> implements IContin
 		return context;
 	}
 
-	function start() {
-		f(this, this);
-	}
-
 	function resolve() {
 		if (error != null) {
 			throw error;
@@ -84,7 +80,7 @@ class AsyncGenerator<T> extends SuspensionResult<Iterator<T>> implements IContin
 					suspend(cont -> {
 						context = cont.context;
 						awaitContinuation(cont);
-						start();
+						(() -> f(this, this))();
 					});
 				case Running:
 					if (gState.compareExchange(Running, Modifying) == Running) {

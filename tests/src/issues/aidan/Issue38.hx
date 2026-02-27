@@ -1,6 +1,6 @@
 package issues.aidan;
 
-@:coroutine function foo() : String {
+@:coroutine function foo(_) : String {
 	return suspend(cont -> {
 		cont.resume('Hello, World!', null);
 	});
@@ -8,6 +8,6 @@ package issues.aidan;
 
 class Issue38 extends utest.Test {
 	function test() {
-		Assert.equals("Hello, World!", CoroRun.run(foo));
+		Assert.equals("Hello, World!", run(foo));
 	}
 }
