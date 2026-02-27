@@ -35,13 +35,8 @@ class CoroTask<T> extends CoroBaseTask<T> implements IContinuation<T> {
 	static public final CoroSupervisorStrategy = new CoroSupervisorStrategy();
 
 	public function new(context:Context, nodeStrategy:INodeStrategy, initialState:TaskState = Running#if debug, ?startPos:haxe.PosInfos#end) {
-		super(context, nodeStrategy, initialState);
-		#if debug
-		this.startPos = startPos;
-		#end
+		super(context, nodeStrategy, initialState#if debug, startPos#end);
 	}
-
-	public function doStart() {}
 
 	/**
 		Resumes the task with the provided `result` and `error`.

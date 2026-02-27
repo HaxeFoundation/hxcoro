@@ -22,7 +22,7 @@ class Test {
 			Line(13), // throw inside thrower()
 			#end
 			Line(19), // _ -> thrower() child-task entry lambda (at node.async() call)
-			Line(19), // coro frame for the node.async() call (same position)
+			Line(20), // coro frame for the node.async() call (same position)
 			Line(18), // coro frame for the supervisor() call site (callPos added in fd8002c)
 			Line(17), // coro frame for the outer CoroRun.run() entry lambda
 		]);

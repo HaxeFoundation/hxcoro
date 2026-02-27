@@ -60,8 +60,8 @@ class Coro {
 	@:coroutine static public function scope<T>(lambda:NodeLambda<T>#if debug, ?startPos:haxe.PosInfos#end):T {
 		return suspend(cont -> {
 			final context = cont.context;
-			final scope = new CoroTaskWithLambda(context, lambda, CoroTask.CoroScopeStrategy, Running#if debug,startPos#end);
-			scope.awaitContinuation(cont);
+			final scope = new CoroTaskWithLambda(context, lambda, CoroTask.CoroScopeStrategy, Running#if debug, startPos#end);
+			scope.awaitContinuation(cont#if debug, startPos#end);
 		});
 	}
 
@@ -74,8 +74,8 @@ class Coro {
 	@:coroutine static public function supervisor<T>(lambda:NodeLambda<T>#if debug, ?startPos:haxe.PosInfos#end):T {
 		return suspend(cont -> {
 			final context = cont.context;
-			final scope = new CoroTaskWithLambda(context, lambda, CoroTask.CoroSupervisorStrategy, Running#if debug,startPos#end);
-			scope.awaitContinuation(cont);
+			final scope = new CoroTaskWithLambda(context, lambda, CoroTask.CoroSupervisorStrategy, Running#if debug, startPos#end);
+			scope.awaitContinuation(cont#if debug, startPos#end);
 		});
 	}
 
@@ -98,7 +98,7 @@ class Coro {
 		return suspend(cont -> {
 
 			final context = cont.context;
-			final scope = new CoroTaskWithLambda(context, lambda, CoroTask.CoroScopeStrategy, Running#if debug,startPos#end);
+			final scope = new CoroTaskWithLambda(context, lambda, CoroTask.CoroScopeStrategy, Running#if debug, startPos#end);
 			final handle = context.scheduleFunction(ms, () -> {
 				scope.cancel(new TimeoutException());
 			});
