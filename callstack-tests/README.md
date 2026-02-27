@@ -70,6 +70,13 @@ The eval interpreter produces the most complete and accurate stacks.
 - `scope()` and `supervisor()` now include their **call-site frame** in the
   chain (as of hxcoro commit fd8002c, which passes `callPos` to the scope
   task).  No `Skip` or internal `hxcoro/Coro.hx` frame is needed.
+- `timeout()` produces a `TimeoutException` whose stack contains **only pure
+  `coro` frames** (no throw-line frame, no `LocalFunction` duplicate): the
+  `timeout()` call site, the `node.async()` call site, and the outer entry
+  lambda line.  The exception is synthetic (created internally by the
+  `timeout` implementation, not thrown by user code), so the HL
+  OS-dependent first-frame quirk does not apply — use `Line(N)` directly
+  for all three frames on all targets.
 - When a child task throws and cancels its siblings, each sibling's
   `CancellationException` carries the **original thrower's stack** (as of
   hxcoro 0b56e3a, which propagates the error stack through
@@ -148,6 +155,7 @@ Identical stack shape to eval.
 | `scope()` / `supervisor()` call-site frame present | all targets (since fd8002c; use `Line(N)` directly) |
 | `CancellationException` from `cancel()` has no user-code frames | all targets (coroStack is empty; raw runtime frames only) |
 | Sibling `CancellationException` stack mirrors the original exception | all targets except JS (stack assignment not supported on JS; internal frames only) |
+| `timeout()` produces 3 pure `coro` frames (no throw-line, no `LocalFunction` duplicate) | all targets (synthetic exception; no HL `AnyLine` needed since frames come from `PosInfo`, not `invokeResume`) |
 
 ## Test cases
 
@@ -164,3 +172,4 @@ Identical stack shape to eval.
 | `scopetask`        | Child task throws inside a `scope()` call; scope call-site frame visible |
 | `awaittask`        | Child task throws; parent explicitly awaits it with `task.await()` |
 | `cancellation`       | Child task throws; exception propagates via scope cancellation (no explicit await) |
+| `timeout`          | Loop cancelled by `timeout()`; `TimeoutException` stack shows the `timeout()` call site and outer task chain |

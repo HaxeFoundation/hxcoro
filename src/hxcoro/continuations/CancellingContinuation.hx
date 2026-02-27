@@ -1,18 +1,16 @@
 package hxcoro.continuations;
 
-import haxe.coro.SuspensionResult;
-import haxe.coro.dispatchers.IDispatchObject;
-import hxcoro.concurrent.AtomicInt;
-import hxcoro.concurrent.BackOff;
-import haxe.coro.dispatchers.Dispatcher;
 import haxe.Exception;
-import haxe.exceptions.CancellationException;
 import haxe.coro.IContinuation;
-import haxe.coro.context.Context;
-import haxe.coro.cancellation.ICancellationToken;
-import haxe.coro.cancellation.ICancellationHandle;
 import haxe.coro.cancellation.CancellationToken;
 import haxe.coro.cancellation.ICancellationCallback;
+import haxe.coro.cancellation.ICancellationHandle;
+import haxe.coro.cancellation.ICancellationToken;
+import haxe.coro.dispatchers.Dispatcher;
+import haxe.coro.dispatchers.IDispatchObject;
+import haxe.exceptions.CancellationException;
+import hxcoro.concurrent.AtomicInt;
+import hxcoro.concurrent.BackOff;
 
 private enum abstract State(Int) to Int {
 	final Active;
@@ -21,20 +19,12 @@ private enum abstract State(Int) to Int {
 	final Completed;
 }
 
-class CancellingContinuation<T> extends SuspensionResult<T> implements IContinuation<T> implements ICancellationCallback implements IDispatchObject {
+class CancellingContinuation<T> extends StackFrameContinuation<T> implements ICancellationCallback implements IDispatchObject {
 	final resumeState : AtomicInt;
-
-	final cont : IContinuation<T>;
 
 	final handle : Null<ICancellationHandle>;
 
 	final cancellationToken : ICancellationToken;
-
-	public var context (get, never) : Context;
-
-	function get_context() {
-		return cont.context;
-	}
 
 	public var onCancellationRequested (default, set) : CancellationException->Void;
 
@@ -54,9 +44,8 @@ class CancellingContinuation<T> extends SuspensionResult<T> implements IContinua
 	}
 
 	public function new(cont) {
-		super(Pending);
+		super(cont);
 		this.resumeState  = new AtomicInt(Active);
-		this.cont   = cont;
 		cancellationToken = cont.context.get(CancellationToken);
 		if (cancellationToken != null) {
 			this.handle = cancellationToken.onCancellationRequested(this);

@@ -101,7 +101,7 @@ class Coro {
 			final scope = new CoroTaskWithLambda(context, lambda, CoroTask.CoroScopeStrategy, Running#if debug, startPos#end);
 			final handle = context.scheduleFunction(ms, () -> {
 				#if debug
-				context.setExceptionStack(scope, exception);
+				context.setExceptionStack(cast cont, exception);
 				#end
 				scope.cancel(exception);
 			});
