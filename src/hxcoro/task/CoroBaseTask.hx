@@ -42,9 +42,13 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 	var startPos:Null<haxe.PosInfos>;
 	var callerTask:Null<IStackFrame>;
 
-	function setCallerTask(caller:CoroBaseTask<Any>) {
-		if (caller != parent && caller != this) {
-			callerTask = caller;
+	function maybeSetCallerFrame(caller:ICoroNode, startPos:haxe.PosInfos) {
+		if (this.startPos != null) {
+			return;
+		}
+		this.startPos = startPos;
+		if (caller is IStackFrame) {
+			callerTask = cast caller;
 		}
 	}
 	#end
@@ -156,13 +160,7 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 	**/
 	public function start(?caller:ICoroNode#if debug, ?startPos:haxe.PosInfos #end) {
 		#if debug
-		final isFirstPosition = this.startPos == null;
-		if (isFirstPosition && startPos != null) {
-			this.startPos = startPos;
-		}
-		if (isFirstPosition && caller is CoroBaseTask) {
-			setCallerTask(cast caller);
-		}
+		maybeSetCallerFrame(caller, startPos);
 		#end
 		activate();
 	}
@@ -202,20 +200,10 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 		Suspends this task until it completes.
 	**/
 	@:coroutine public function await(#if debug ?startPos:haxe.PosInfos #end):T {
-		#if debug
-		final isFirstPosition = this.startPos == null;
-		if (isFirstPosition && startPos != null) {
-			this.startPos = startPos;
-		}
-		#end
 		return Coro.suspend(cont -> {
 			#if debug
-			if (isFirstPosition) {
-				final caller = cont.context.get(CoroBaseTask);
-				if (caller != null) {
-					setCallerTask(caller);
-				}
-			}
+			final caller = cont.context.get(CoroBaseTask);
+			maybeSetCallerFrame(caller, startPos);
 			#end
 			awaitContinuation(cont);
 		});
