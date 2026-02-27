@@ -15,8 +15,10 @@ class Test {
 	static function checkStack(e:TimeoutException) {
 		final stack = e.stack.asArray();
 		final r = new Inspector(stack).inspect([
+			File('hxcoro/Coro.hx'),
+			AnyLine,  // timeout() state machine frame (line varies by target/platform)
 			File('timeout/Timeout.hx'),
-			Line(18), // coro frame for the timeout() call site
+			Line(18), // LocalFunction: entry lambda for task1 (the `node -> { timeout(...) }` lambda)
 			Line(17), // coro frame for the node.async() call site
 			Line(16), // coro frame for the outer runTask() entry lambda
 		]);

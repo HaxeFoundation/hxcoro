@@ -2,9 +2,6 @@ package hxcoro.continuations;
 
 import haxe.Exception;
 import haxe.coro.IContinuation;
-import haxe.coro.IStackFrame;
-import haxe.coro.SuspensionResult;
-import haxe.coro.context.Context;
 import haxe.coro.dispatchers.Dispatcher;
 import haxe.coro.dispatchers.IDispatchObject;
 import hxcoro.concurrent.AtomicInt;
@@ -15,24 +12,15 @@ private enum abstract State(Int) to Int {
 	var Resolved;
 }
 
-class RacingContinuation<T> extends SuspensionResult<T> implements IContinuation<T> implements IDispatchObject implements IStackFrame {
-	final inputCont:IContinuation<T>;
-
+class RacingContinuation<T> extends StackFrameContinuation<T> implements IDispatchObject {
 	var resumeState:AtomicInt;
-
-	public var context(get, never):Context;
 
 	final dispatcher:Dispatcher;
 
-	public function new(inputCont:IContinuation<T>) {
-		super(Pending);
-		this.inputCont = inputCont;
+	public function new(cont:IContinuation<T>) {
+		super(cont);
 		resumeState = new AtomicInt(Active);
 		dispatcher = context.get(Dispatcher);
-	}
-
-	inline function get_context() {
-		return inputCont.context;
 	}
 
 	public function resume(result:T, error:Exception):Void {
@@ -44,14 +32,6 @@ class RacingContinuation<T> extends SuspensionResult<T> implements IContinuation
 		}
 	}
 
-	public function callerFrame() {
-		return inputCont.asStackFrame();
-	}
-
-	public function getStackItem() {
-		return null;
-	}
-
 	public function resolve():Void {
 		if (resumeState.compareExchange(Active, Resolved) == Active) {
 			state = Pending;
@@ -61,6 +41,6 @@ class RacingContinuation<T> extends SuspensionResult<T> implements IContinuation
 	}
 
 	public function onDispatch() {
-		inputCont.resume(result, error);
+		cont.resume(result, error);
 	}
 }
