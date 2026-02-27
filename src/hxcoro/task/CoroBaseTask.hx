@@ -147,8 +147,12 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 
 		This function also starts this task if it has not been started yet.
 	**/
-	public function awaitContinuation(cont:IContinuation<T>) {
+	public function awaitContinuation(cont:IContinuation<T>#if debug, ?startPos:haxe.PosInfos #end) {
 		awaitingContinuations.add(cont);
+		#if debug
+		final caller = cont.context.get(CoroBaseTask);
+		maybeSetCallerFrame(caller, startPos);
+		#end
 		activate();
 	}
 
@@ -201,11 +205,7 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 	**/
 	@:coroutine public function await(#if debug ?startPos:haxe.PosInfos #end):T {
 		return Coro.suspend(cont -> {
-			#if debug
-			final caller = cont.context.get(CoroBaseTask);
-			maybeSetCallerFrame(caller, startPos);
-			#end
-			awaitContinuation(cont);
+			awaitContinuation(cont#if debug, startPos#end);
 		});
 	}
 
