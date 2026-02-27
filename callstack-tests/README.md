@@ -57,11 +57,16 @@ The eval interpreter produces the most complete and accurate stacks.
   **started** (`task.start()` or `task.await()` on a `lazy()` task), not from
   where `lazy()` was called.  This is because lazy tasks record their start
   position only when `start()` or `await()` is first called.
-- The above is **transitive**: if lazy `task2` awaits lazy `task1`, calling
-  `task2.start()` will correctly show both the `task1.await()` call site inside
-  `task2` and the `task2.start()` call site in the stack (via `callerTask`,
-  which captures the awaiting task's context when `awaitContinuation` is
-  triggered).
+- The above is **transitive** when using `await()`: if lazy `task2` awaits lazy
+  `task1` (and `task1` has not been started yet), calling `task2.start()` will
+  correctly show both the `task1.await()` call site inside `task2` and the
+  `task2.start()` call site in the stack (via `callerTask`, which captures the
+  awaiting task's context at first positioning in `await()`).
+- Transitivity also works through `start(node)`: since `start()` is not a
+  coroutine, it accepts an optional debug-only `?caller:ICoroNode` parameter.
+  Passing `node` (e.g. `task1.start(node)`) provides the calling task's context
+  so `callerTask` is set correctly.  Without `node`, the chain goes directly
+  from the started task to the parent entry task.
 - `scope()` and `supervisor()` now include their **call-site frame** in the
   chain (as of hxcoro commit fd8002c, which passes `callPos` to the scope
   task).  No `Skip` or internal `hxcoro/Coro.hx` frame is needed.
@@ -139,7 +144,7 @@ Identical stack shape to eval.
 | Sync-bridge frames absent                    | js, python, neko, php (before first suspension point only; eval and cpp always expose them) |
 | Rethrow appends to stack instead of replacing | all targets              |
 | `task.await()` call site absent from stack   | all targets (child async creation-site shown; await-site not captured) |
-| Lazy `task.start()` / `task.await()` call-site frame present | all targets (start position recorded at first explicit start/await, not at `lazy()` call; transitive via `callerTask`) |
+| Lazy `task.start()` / `task.await()` call-site frame present | all targets (start position recorded at first explicit start/await, not at `lazy()` call; transitive via `callerTask` for `await()` chains and `start(node)` calls) |
 | `scope()` / `supervisor()` call-site frame present | all targets (since fd8002c; use `Line(N)` directly) |
 | `CancellationException` from `cancel()` has no user-code frames | all targets (coroStack is empty; raw runtime frames only) |
 | Sibling `CancellationException` stack mirrors the original exception | all targets except JS (stack assignment not supported on JS; internal frames only) |
@@ -154,7 +159,7 @@ Identical stack shape to eval.
 | `catchrethrow`     | Catching an exception in a coroutine and rethrowing it           |
 | `asyncscope`       | Exception thrown from a `scope.async()` child coroutine          |
 | `nestedplainthrow` | Plain (non-`@:coroutine`) function called from deeply-nested `node.async()` lambdas |
-| `lazytask`        | Lazy task with `task.start()`, `task.await()`, and transitive `task2.start()` where `task2` awaits `task1` — start-position frame shows the start/await call site |
+| `lazytask`        | Lazy task with `task.start()`, `task.await()`, transitive await chain, and transitive start chain |
 | `supervisortask`   | Child task throws inside a `supervisor()` scope; parent awaits child |
 | `scopetask`        | Child task throws inside a `scope()` call; scope call-site frame visible |
 | `awaittask`        | Child task throws; parent explicitly awaits it with `task.await()` |

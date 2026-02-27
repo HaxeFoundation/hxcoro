@@ -41,6 +41,12 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 	#if debug
 	var startPos:Null<haxe.PosInfos>;
 	var callerTask:Null<IStackFrame>;
+
+	function setCallerTask(caller:CoroBaseTask<Any>) {
+		if (caller != parent && caller != this && caller is IStackFrame) {
+			callerTask = cast caller;
+		}
+	}
 	#end
 
 	final nodeStrategy:INodeStrategy;
@@ -118,11 +124,18 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 
 	/**
 		Starts executing this task. Has no effect if the task is already active or has completed.
+
+		When called from inside a task lambda, pass `node` as `caller` to include the calling task
+		in exception stack traces (e.g. `task1.start(node)`).
 	**/
-	public function start(#if debug ?startPos:haxe.PosInfos #end) {
+	public function start(#if debug ?caller:ICoroNode, ?startPos:haxe.PosInfos #end) {
 		#if debug
-		if (this.startPos == null && startPos != null) {
+		final isFirstPosition = this.startPos == null;
+		if (isFirstPosition && startPos != null) {
 			this.startPos = startPos;
+		}
+		if (isFirstPosition && caller is CoroBaseTask) {
+			setCallerTask(cast caller);
 		}
 		#end
 		activate();
@@ -173,8 +186,8 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 			#if debug
 			if (isFirstPosition) {
 				final caller = cont.context.get(CoroBaseTask);
-				if (caller != null && caller != parent && caller != this && caller is IStackFrame) {
-					callerTask = cast caller;
+				if (caller != null) {
+					setCallerTask(caller);
 				}
 			}
 			#end

@@ -4,7 +4,8 @@ class Test {
 	public static function run() {
 		testStart();
 		testAwait();
-		testTransitive();
+		testTransitiveAwait();
+		testTransitiveStart();
 	}
 
 	static function testStart() {
@@ -25,12 +26,21 @@ class Test {
 		}
 	}
 
-	static function testTransitive() {
+	static function testTransitiveAwait() {
 		try {
-			LazyTask.entryTransitive();
-			throw new haxe.Exception("Expected an exception from LazyTask.entryTransitive");
+			LazyTask.entryTransitiveAwait();
+			throw new haxe.Exception("Expected an exception from LazyTask.entryTransitiveAwait");
 		} catch (e:haxe.Exception) {
-			checkTransitiveStack(e);
+			checkTransitiveAwaitStack(e);
+		}
+	}
+
+	static function testTransitiveStart() {
+		try {
+			LazyTask.entryTransitiveStart();
+			throw new haxe.Exception("Expected an exception from LazyTask.entryTransitiveStart");
+		} catch (e:haxe.Exception) {
+			checkTransitiveStartStack(e);
 		}
 	}
 
@@ -72,11 +82,12 @@ class Test {
 			throw r;
 	}
 
-	static function checkTransitiveStack(e:haxe.Exception) {
+	static function checkTransitiveAwaitStack(e:haxe.Exception) {
 		final stack = e.stack.asArray();
 		// task1 is a lazy task awaited by task2, which is started with task2.start().
+		// await() sets both startPos and callerTask together on first positioning.
 		// The chain shows: throw → task1.await() call site → task2.start() call site → CoroRun.run()
-		// task2 appears via callerTask (the task in the context when awaitContinuation was triggered).
+		// task2 appears via callerTask (the task from cont.context at first await).
 		final r = new Inspector(stack).inspect([
 			File('lazytask/LazyTask.hx'),
 			#if hl
@@ -88,6 +99,26 @@ class Test {
 			Line(29), // coro frame for task1.await() call site inside task2's lambda (task1.startPos)
 			Line(31), // coro frame for task2.start() call site (task2.startPos, via callerTask chain)
 			Line(26), // coro frame for the outer CoroRun.run() entry lambda
+		]);
+		if (r != null)
+			throw r;
+	}
+
+	static function checkTransitiveStartStack(e:haxe.Exception) {
+		final stack = e.stack.asArray();
+		// task2 calls task1.start(node) where node is task2's ICoroNode, establishing
+		// task2 as the callerTask. The chain shows: throw → task1.start(node) → task2.start() → run
+		final r = new Inspector(stack).inspect([
+			File('lazytask/LazyTask.hx'),
+			#if hl
+			AnyLine,  // thrower() (line varies by HL OS)
+			#else
+			Line(7),  // throw inside thrower()
+			#end
+			Line(38), // _ -> thrower() child-task entry lambda (at task1 node.lazy() call)
+			Line(40), // coro frame for task1.start(node) call site inside task2's lambda (task1.startPos)
+			Line(43), // coro frame for task2.start() call site (task2.startPos, via callerTask chain)
+			Line(37), // coro frame for the outer CoroRun.run() entry lambda
 		]);
 		if (r != null)
 			throw r;

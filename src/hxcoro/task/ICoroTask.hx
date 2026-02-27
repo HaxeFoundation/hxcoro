@@ -16,5 +16,5 @@ interface ICoroTask<T> {
 }
 
 interface IStartableCoroTask<T> extends ICoroTask<T> {
-	function start(#if debug ?startPos:haxe.PosInfos #end):Void;
+	function start(#if debug ?caller:ICoroNode, ?startPos:haxe.PosInfos #end):Void;
 }

@@ -22,10 +22,22 @@ function entryAwait() {
 	});
 }
 
-function entryTransitive() {
+function entryTransitiveAwait() {
 	CoroRun.run(node -> {
 		final task1 = node.lazy(_ -> thrower());
 		final task2 = node.lazy(node -> {
+			task1.await();
+		});
+		task2.start();
+		task2.await();
+	});
+}
+
+function entryTransitiveStart() {
+	CoroRun.run(node -> {
+		final task1 = node.lazy(_ -> thrower());
+		final task2 = node.lazy(node -> {
+			task1.start(node);
 			task1.await();
 		});
 		task2.start();
