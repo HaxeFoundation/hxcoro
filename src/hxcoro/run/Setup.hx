@@ -122,7 +122,7 @@ class Setup {
 		#if interp
 		return createLuv();
 		#elseif (cpp && hxcpp_luv_io)
-		return createLuvThreadPool();
+		return createLuv();
 		#elseif (jvm || cpp || hl)
 		return createThreadPool(10);
 		#else
