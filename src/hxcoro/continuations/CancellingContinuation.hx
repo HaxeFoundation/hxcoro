@@ -26,7 +26,7 @@ class CancellingContinuation<T> extends StackFrameContinuation<T> implements ICa
 
 	final cancellationToken : ICancellationToken;
 
-	public var onCancellationRequested (default, set) : CancellationException->Void;
+	public var onCancellationRequested (default, set) : Null<CancellationException->Void>;
 
 	function set_onCancellationRequested(f : CancellationException->Void) {
 		return switch (cancellationToken?.cancellationException) {
@@ -43,6 +43,7 @@ class CancellingContinuation<T> extends StackFrameContinuation<T> implements ICa
 		}
 	}
 
+	@:nullSafety(Off)
 	public function new(cont) {
 		super(cont);
 		this.resumeState  = new AtomicInt(Active);
@@ -52,7 +53,7 @@ class CancellingContinuation<T> extends StackFrameContinuation<T> implements ICa
 		}
 	}
 
-	function setState(result:T, error:Exception) {
+	function setState(result:Null<T>, error:Null<Exception>) {
 		this.result = result;
 		this.error = error;
 		this.state = error == null ? Returned : Thrown;
@@ -74,7 +75,7 @@ class CancellingContinuation<T> extends StackFrameContinuation<T> implements ICa
 				if (resumeState.compareExchange(Resolved, Completing) == Resolved) {
 					setState(result, error);
 					resumeState.store(Completed);
-					context.get(Dispatcher).dispatch(this);
+					context.getOrRaise(Dispatcher).dispatch(this);
 					true;
 				} else {
 					false;
@@ -112,7 +113,7 @@ class CancellingContinuation<T> extends StackFrameContinuation<T> implements ICa
 			// cont.resume() is always called, regardless of whether the caller was a
 			// BaseContinuation state machine or a plain lambda (where an inline Returned
 			// result would be silently discarded on multi-threaded targets).
-			context.get(Dispatcher).dispatch(this);
+			context.getOrRaise(Dispatcher).dispatch(this);
 		}
 	}
 

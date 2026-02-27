@@ -53,6 +53,7 @@ private class SynchronousRun implements IElement<SynchronousRun> implements ISyn
 	// and extract bridge frames between coro worlds.
 	final capturedStack:Null<Array<StackItem>>;
 
+	@:nullSafety(Off)
 	public function new(context:Context, entryPos:PosInfos) {
 		this.context = context.with(this);
 		this.entryPos = entryPos;
@@ -65,8 +66,8 @@ private class SynchronousRun implements IElement<SynchronousRun> implements ISyn
 
 	public function startException(frame:IStackFrame, exception:Exception) {
 		// Collect coro frames from the continuation chain.
-		var chainFrames = [];
-		var currentFrame = frame;
+		var chainFrames:Array<CoroStackItem> = [];
+		var currentFrame:Null<IStackFrame> = frame;
 		while (currentFrame != null) {
 			final item = currentFrame.getStackItem();
 			if (item != null) {
@@ -90,7 +91,7 @@ private class SynchronousRun implements IElement<SynchronousRun> implements ISyn
 		final coroStack = exception.coroStack;
 		final exceptionStack = exception.exception.stack.asArray();
 
-		function patchFirstCoroStack(file:String, line:Int, column:Int) {
+		function patchFirstCoroStack(file:String, line:Int, column:Null<Int>) {
 			switch (coroStack[0]) {
 				case ClassFunction(cls, func, _, _, _):
 					coroStack[0] = ClassFunction(cls, func, file, line, column);
@@ -218,12 +219,11 @@ class DefaultExceptionHandler extends ExceptionHandler {
 	}
 
 	public function startException(context:Context, frame:IStackFrame, exception:Exception):Exception {
-		return context
-		.get(SynchronousRun)
-		.startException(frame, exception);
+		final run = context.get(SynchronousRun);
+		return run == null ? exception : run.startException(frame, exception);
 	}
 
 	public function buildCallStack(context:Context, frame:IStackFrame):Void {
-		context.get(SynchronousRun).buildCallStack(frame);
+		context.get(SynchronousRun)?.buildCallStack(frame);
 	}
 }

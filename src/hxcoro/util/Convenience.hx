@@ -156,13 +156,15 @@ class ContextConvenience {
 }
 
 class OtherConvenience {
-	static public inline function orCancellationException(exc:Exception):CancellationException {
+	static public function orCancellationException(exc:Null<Exception>):CancellationException {
 		return if (exc is CancellationException) {
 			cast exc;
 		 } else {
 			final cancellationException = new CancellationException();
 			#if !js
-			cancellationException.stack = exc.stack;
+			if (exc != null) {
+				cancellationException.stack = exc.stack;
+			}
 			#end
 			cancellationException;
 		 }

@@ -20,7 +20,7 @@ class RacingContinuation<T> extends StackFrameContinuation<T> implements IDispat
 	public function new(cont:IContinuation<T>) {
 		super(cont);
 		resumeState = new AtomicInt(Active);
-		dispatcher = context.getOrRaise(Dispatcher);
+		dispatcher = cont.context.getOrRaise(Dispatcher);
 	}
 
 	public function resume(result:T, error:Exception):Void {
