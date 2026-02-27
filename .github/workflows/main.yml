@@ -23,6 +23,27 @@ jobs:
         with:
           haxe-version: "latest"
 
+      - name: Use Haxe 6a1af5f
+        shell: bash
+        run: |
+          if [[ "${{ runner.os }}" == "Linux" ]]; then
+            URL="https://build.haxe.org/builds/haxe/linux64/haxe_2026-02-27_development_6a1af5f.tar.gz"
+          elif [[ "${{ runner.os }}" == "macOS" ]]; then
+            URL="https://build.haxe.org/builds/haxe/mac/haxe_2026-02-27_development_6a1af5f.tar.gz"
+          else
+            URL="https://build.haxe.org/builds/haxe/windows64/haxe_2026-02-27_development_6a1af5f.zip"
+          fi
+          mkdir "$HOME/haxe_6a1af5f"
+          if [[ "${{ runner.os }}" == "Windows" ]]; then
+            curl -L "$URL" -o "$HOME/haxe_6a1af5f.zip"
+            unzip -q "$HOME/haxe_6a1af5f.zip" -d "$HOME/haxe_6a1af5f_tmp"
+            mv "$HOME/haxe_6a1af5f_tmp"/haxe_*/* "$HOME/haxe_6a1af5f/"
+          else
+            curl -L "$URL" | tar -xz -C "$HOME/haxe_6a1af5f" --strip-components=1
+          fi
+          echo "$HOME/haxe_6a1af5f" >> "$GITHUB_PATH"
+          echo "HAXE_STD_PATH=$HOME/haxe_6a1af5f/std" >> "$GITHUB_ENV"
+
       - name: Setup hashlink
         if: matrix.target == 'hl'
         uses: HaxeFoundation/setup-hashlink@v1
