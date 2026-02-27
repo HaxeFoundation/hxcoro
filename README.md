@@ -23,7 +23,7 @@ class Main {
 
 ## Capabilities
 
-- **Asynchronous clals** — write asynchronous code in a straightforward sequential style using `@:coroutine` methods.
+- **Asynchronous calls** — write asynchronous code in a straightforward sequential style using `@:coroutine` methods.
 - **Structured concurrency** — manage lightweight groups of child tasks with well-defined lifetimes and cancellation semantics.
 - **Generators** — produce lazy sequences with `HaxeGenerator`, `Es6Generator`, `CsGenerator`, and the async variant `AsyncGenerator`.
 - **Cancellation** — first-class `CancellationException` support throughout, with `suspendCancellable` for registering cleanup callbacks.
