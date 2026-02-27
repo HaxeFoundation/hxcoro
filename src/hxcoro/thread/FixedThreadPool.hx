@@ -11,7 +11,7 @@ import hxcoro.concurrent.BackOff;
 import sys.thread.Condition;
 import sys.thread.Semaphore;
 import sys.thread.Thread;
-import sys.thread.Tls;
+import haxe.coro.Tls;
 
 typedef DispatchQueue = WorkStealingQueue<IDispatchObject>;
 

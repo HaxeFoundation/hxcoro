@@ -40,7 +40,6 @@ final class TrampolineDispatcher extends Dispatcher {
 	public function new(scheduler : IScheduler = null) {
 		s             = scheduler ?? new EventLoopScheduler();
 		trampolineTls = new Tls();
-		trampolineTls.value = null; // TODO: python...
 	}
 
 	public function get_scheduler() {
