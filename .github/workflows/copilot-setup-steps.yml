@@ -21,15 +21,6 @@ jobs:
         with:
           haxe-version: "latest"
 
-      - name: Use Haxe 6a1af5f
-        shell: bash
-        run: |
-          URL="https://build.haxe.org/builds/haxe/linux64/haxe_2026-02-27_development_6a1af5f.tar.gz"
-          mkdir "$HOME/haxe_6a1af5f"
-          curl -L "$URL" | tar -xz -C "$HOME/haxe_6a1af5f" --strip-components=1
-          echo "$HOME/haxe_6a1af5f" >> "$GITHUB_PATH"
-          echo "HAXE_STD_PATH=$HOME/haxe_6a1af5f/std" >> "$GITHUB_ENV"
-
       - name: Setup haxelib
         run: |
           haxelib newrepo
