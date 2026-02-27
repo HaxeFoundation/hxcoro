@@ -91,6 +91,10 @@ jobs:
               run_default
               run_extra trampoline
               ;;
+            python)
+              run_default
+              run_extra threadpool
+              ;;
             *)
               run_default
               ;;
