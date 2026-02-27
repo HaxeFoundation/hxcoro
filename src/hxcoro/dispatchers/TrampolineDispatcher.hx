@@ -22,8 +22,7 @@ private class Trampoline {
 			return value;
 		}
 		#if target.threaded
-		final thread = sys.thread.Thread.current();
-		thread.onExit(function() {
+		sys.thread.Thread.onCurrentExit(() -> {
 			tls.value = null;
 		});
 		#end

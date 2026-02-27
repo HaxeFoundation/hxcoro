@@ -1,5 +1,6 @@
 package hxcoro.schedulers;
 
+import sys.thread.ThreadCallback;
 import haxe.Int64;
 import haxe.Timer;
 import haxe.coro.IContinuation;
@@ -26,9 +27,6 @@ private class CircularQueueData {
 }
 
 private class CircularQueue {
-	public var prev:Null<CircularQueue>;
-	public var next:Null<CircularQueue>;
-
 	var read:Int;
 	var write:Int;
 	var storage:CircularVector<ScheduledEvent>;
@@ -74,18 +72,30 @@ private class CircularQueue {
 
 private typedef TlsQueue = CircularQueue;
 
-private enum TlsQueueEvent {
-	Add(queue:TlsQueue);
-	Remove(queue:TlsQueue);
+private class ThreadQueue {
+	public final queue:TlsQueue;
+
+	public var onExitHandle:Null<IThreadCallbackHandle>;
+	public var prev:Null<ThreadQueue>;
+	public var next:Null<ThreadQueue>;
+
+	public function new(queue:TlsQueue) {
+		this.queue = queue;
+	}
+}
+
+private enum ThreadQueueEvent {
+	Add(queue:ThreadQueue);
+	Remove(queue:ThreadQueue);
 }
 
 class ThreadAwareScheduler implements IScheduler implements ILoop {
 	final heap:MinimumHeap;
 	final queueTls:Tls<TlsQueue>;
-	final queueDeque:Deque<TlsQueueEvent>;
+	final queueDeque:Deque<ThreadQueueEvent>;
 	final rootEvent:ScheduledEvent;
 	final semaphore:Semaphore;
-	var firstQueue:Null<TlsQueue>;
+	var firstQueue:Null<ThreadQueue>;
 
 	public function new() {
 		heap = new MinimumHeap();
@@ -102,13 +112,14 @@ class ThreadAwareScheduler implements IScheduler implements ILoop {
 		}
 
 		final newQueue = new CircularQueue(4);
-		final currentThread = Thread.current();
-		currentThread.onExit(function() {
-			queueDeque.add(Remove(newQueue));
+		final threadQueue = new ThreadQueue(newQueue);
+		final handle = Thread.onCurrentExit(function() {
+			queueDeque.add(Remove(threadQueue));
 			queueTls.value = null;
 		});
+		threadQueue.onExitHandle = handle;
 		queueTls.value = newQueue;
-		queueDeque.add(Add(newQueue));
+		queueDeque.add(Add(threadQueue));
 		return newQueue;
 	}
 
@@ -180,7 +191,8 @@ class ThreadAwareScheduler implements IScheduler implements ILoop {
 			// Copy current slice data to our outQueue and iterate it.
 			var event:Null<ScheduledEvent>;
 			while (true) {
-				event = current.pop();
+				final queue = current.queue;
+				event = queue.pop();
 				if (event == null) {
 					break;
 				}
@@ -239,8 +251,8 @@ class ThreadAwareScheduler implements IScheduler implements ILoop {
 		var current = firstQueue;
 		var totalWrites = 0;
 		@:privateAccess while (current != null) {
-			Sys.println('\tqueue: (r ${current.read}, w ${current.write}, l: ${current.storage.length})');
-			totalWrites += current.write;
+			Sys.println('\tqueue: (r ${current.queue.read}, w ${current.queue.write}, l: ${current.queue.storage.length})');
+			totalWrites += current.queue.write;
 			current = current.next;
 		}
 		Sys.println('\ttotal writes: $totalWrites');
