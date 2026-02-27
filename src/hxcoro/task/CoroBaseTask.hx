@@ -30,7 +30,7 @@ class TaskContinuationManager extends ThreadSafeCallbacks<IContinuation<Any>, IC
 /**
 	CoroTask provides the basic functionality for coroutine tasks.
 **/
-abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode implements ICoroTask<T> implements IElement<CoroBaseTask<Any>> {
+abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode implements ICoroTask<T> implements IElement<CoroBaseTask<Any>> implements IStackFrame {
 	public static final key = new Key<CoroBaseTask<Any>>('Task');
 
 	/**
@@ -43,8 +43,8 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 	var callerTask:Null<IStackFrame>;
 
 	function setCallerTask(caller:CoroBaseTask<Any>) {
-		if (caller != parent && caller != this && caller is IStackFrame) {
-			callerTask = cast caller;
+		if (caller != parent && caller != this) {
+			callerTask = caller;
 		}
 	}
 	#end
@@ -78,6 +78,32 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 
 	public function getKey() {
 		return key;
+	}
+
+
+	/**
+		@see `IStackFrame.callerFrame`
+	**/
+	public function callerFrame():Null<IStackFrame> {
+		#if debug
+		if (callerTask != null) {
+			return callerTask;
+		}
+		return parent is IStackFrame ? cast parent : null;
+		#else
+		return null;
+		#end
+	}
+
+	/**
+		@see `IStackFrame.callerFrame`
+	**/
+	public function getStackItem() {
+		#if debug
+		return startPos == null ? null : haxe.coro.CoroStackItem.PosInfo(startPos);
+		#else
+		return null;
+		#end
 	}
 
 	/**
@@ -128,7 +154,7 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 		When called from inside a task lambda, pass `node` as `caller` to include the calling task
 		in exception stack traces (e.g. `task1.start(node)`).
 	**/
-	public function start(#if debug ?caller:ICoroNode, ?startPos:haxe.PosInfos #end) {
+	public function start(?caller:ICoroNode#if debug, ?startPos:haxe.PosInfos #end) {
 		#if debug
 		final isFirstPosition = this.startPos == null;
 		if (isFirstPosition && startPos != null) {
