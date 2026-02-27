@@ -53,11 +53,10 @@ private class SynchronousRun implements IElement<SynchronousRun> implements ISyn
 	// and extract bridge frames between coro worlds.
 	final capturedStack:Null<Array<StackItem>>;
 
-	@:nullSafety(Off)
 	public function new(context:Context, entryPos:PosInfos) {
-		this.context = context.with(this);
-		this.entryPos = entryPos;
 		capturedStack = CallStack.callStack();
+		this.entryPos = entryPos;
+		this.context = @:nullSafety(Off) context.with(this);
 	}
 
 	function get_context() {

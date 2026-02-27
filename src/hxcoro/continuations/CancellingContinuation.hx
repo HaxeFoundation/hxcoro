@@ -24,7 +24,7 @@ class CancellingContinuation<T> extends StackFrameContinuation<T> implements ICa
 
 	final handle : Null<ICancellationHandle>;
 
-	final cancellationToken : ICancellationToken;
+	final cancellationToken : Null<ICancellationToken>;
 
 	public var onCancellationRequested (default, set) : Null<CancellationException->Void>;
 
@@ -43,7 +43,6 @@ class CancellingContinuation<T> extends StackFrameContinuation<T> implements ICa
 		}
 	}
 
-	@:nullSafety(Off)
 	public function new(cont) {
 		super(cont);
 		this.resumeState  = new AtomicInt(Active);

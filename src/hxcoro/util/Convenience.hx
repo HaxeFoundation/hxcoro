@@ -165,7 +165,7 @@ class ContextConvenience {
 }
 
 class OtherConvenience {
-	static public function orCancellationException(exc:Null<Exception>):CancellationException {
+	static public inline function orCancellationException(exc:Null<Exception>):CancellationException {
 		return if (exc is CancellationException) {
 			cast exc;
 		 } else {
