@@ -1,18 +1,19 @@
 package hxcoro.continuations;
 
-import haxe.coro.SuspensionResult;
-import haxe.coro.dispatchers.IDispatchObject;
-import hxcoro.concurrent.AtomicInt;
-import hxcoro.concurrent.BackOff;
-import haxe.coro.dispatchers.Dispatcher;
 import haxe.Exception;
-import haxe.exceptions.CancellationException;
 import haxe.coro.IContinuation;
-import haxe.coro.context.Context;
-import haxe.coro.cancellation.ICancellationToken;
-import haxe.coro.cancellation.ICancellationHandle;
+import haxe.coro.IStackFrame;
+import haxe.coro.SuspensionResult;
 import haxe.coro.cancellation.CancellationToken;
 import haxe.coro.cancellation.ICancellationCallback;
+import haxe.coro.cancellation.ICancellationHandle;
+import haxe.coro.cancellation.ICancellationToken;
+import haxe.coro.context.Context;
+import haxe.coro.dispatchers.Dispatcher;
+import haxe.coro.dispatchers.IDispatchObject;
+import haxe.exceptions.CancellationException;
+import hxcoro.concurrent.AtomicInt;
+import hxcoro.concurrent.BackOff;
 
 private enum abstract State(Int) to Int {
 	final Active;
@@ -21,7 +22,7 @@ private enum abstract State(Int) to Int {
 	final Completed;
 }
 
-class CancellingContinuation<T> extends SuspensionResult<T> implements IContinuation<T> implements ICancellationCallback implements IDispatchObject {
+class CancellingContinuation<T> extends SuspensionResult<T> implements IContinuation<T> implements ICancellationCallback implements IDispatchObject implements IStackFrame {
 	final resumeState : AtomicInt;
 
 	final cont : IContinuation<T>;
@@ -103,6 +104,14 @@ class CancellingContinuation<T> extends SuspensionResult<T> implements IContinua
 		if (updateState(result, error)) {
 			handle?.close();
 		}
+	}
+
+	public function callerFrame() {
+		return cont.asStackFrame();
+	}
+
+	public function getStackItem() {
+		return null;
 	}
 
 	public function onCancellation(cause:CancellationException) {

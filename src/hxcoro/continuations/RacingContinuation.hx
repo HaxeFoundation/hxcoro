@@ -1,12 +1,13 @@
 package hxcoro.continuations;
 
-import hxcoro.concurrent.AtomicInt;
-import haxe.coro.dispatchers.Dispatcher;
 import haxe.Exception;
 import haxe.coro.IContinuation;
+import haxe.coro.IStackFrame;
 import haxe.coro.SuspensionResult;
 import haxe.coro.context.Context;
+import haxe.coro.dispatchers.Dispatcher;
 import haxe.coro.dispatchers.IDispatchObject;
+import hxcoro.concurrent.AtomicInt;
 
 private enum abstract State(Int) to Int {
 	var Active;
@@ -14,7 +15,7 @@ private enum abstract State(Int) to Int {
 	var Resolved;
 }
 
-class RacingContinuation<T> extends SuspensionResult<T> implements IContinuation<T> implements IDispatchObject {
+class RacingContinuation<T> extends SuspensionResult<T> implements IContinuation<T> implements IDispatchObject implements IStackFrame {
 	final inputCont:IContinuation<T>;
 
 	var resumeState:AtomicInt;
@@ -41,6 +42,14 @@ class RacingContinuation<T> extends SuspensionResult<T> implements IContinuation
 		if (resumeState.compareExchange(Active, Resumed) != Active) {
 			dispatcher.dispatch(this);
 		}
+	}
+
+	public function callerFrame() {
+		return inputCont.asStackFrame();
+	}
+
+	public function getStackItem() {
+		return null;
 	}
 
 	public function resolve():Void {

@@ -64,12 +64,6 @@ private class SynchronousRun implements IElement<SynchronousRun> implements ISyn
 	}
 
 	public function startException(frame:IStackFrame, exception:Exception) {
-		var frameItem = frame.getStackItem();
-		if (frameItem == null) {
-			// If we have no frame item on our continuation, just bail.
-			return exception;
-		}
-
 		// Collect coro frames from the continuation chain.
 		var chainFrames = [];
 		var currentFrame = frame;

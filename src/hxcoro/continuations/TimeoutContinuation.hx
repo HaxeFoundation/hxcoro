@@ -2,10 +2,11 @@ package hxcoro.continuations;
 
 import haxe.Exception;
 import haxe.coro.IContinuation;
+import haxe.coro.IStackFrame;
 import haxe.coro.context.Context;
 import haxe.coro.schedulers.ISchedulerHandle;
 
-class TimeoutContinuation<T> implements IContinuation<T> {
+class TimeoutContinuation<T> implements IContinuation<T> implements IStackFrame {
 	final cont : IContinuation<T>;
 	final handle : ISchedulerHandle;
 
@@ -24,5 +25,13 @@ class TimeoutContinuation<T> implements IContinuation<T> {
 		handle.close();
 
 		cont.resumeAsync(value, error);
+	}
+
+	public function callerFrame() {
+		return cont.asStackFrame();
+	}
+
+	public function getStackItem() {
+		return null;
 	}
 }

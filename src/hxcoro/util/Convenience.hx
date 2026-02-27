@@ -109,6 +109,13 @@ class ContinuationConvenience {
 		cont.context.get(Dispatcher).dispatchContinuation(cont, result, error);
 	}
 
+	static public inline function asStackFrame<T>(cont:IContinuation<T>):Null<IStackFrame> {
+		return if (cont is IStackFrame) {
+			cast cont;
+		} else {
+			null;
+		}
+	}
 }
 
 class DispatcherConvenience {
