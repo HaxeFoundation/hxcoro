@@ -74,8 +74,7 @@ The eval interpreter produces the most complete and accurate stacks.
   `coro` frames** (no throw-line frame, no `LocalFunction` duplicate): the
   `timeout()` call site, the `node.async()` call site, and the outer entry
   lambda line.  The exception is synthetic (created internally by the
-  `timeout` implementation, not thrown by user code), so the HL
-  OS-dependent first-frame quirk does not apply — use `Line(N)` directly
+  `timeout` implementation, not thrown by user code) — use `Line(N)` directly
   for all three frames on all targets.
 - When a child task throws and cancels its siblings, each sibling's
   `CancellationException` carries the **original thrower's stack** (as of
@@ -97,25 +96,15 @@ JS runtime frames.  Tests that assert sibling cancellation stacks should use
 
 ### hl (HashLink)
 
-Generally matches eval, with one documented quirk that affects all test
-cases: the position of the **first (innermost) coroutine frame** is
-OS-dependent.
+Runs on Linux only in CI (excluded from Windows and macOS runners to avoid
+OS-dependent JIT quirks).  On Linux, HL produces the same stack shape as eval:
 
-- **Linux HL**: the exact throw line is reported (matching eval).
-- **Windows and macOS HL**: the coroutine *definition* line is reported
-  instead (probable JIT-related frame-omission).
-
-Because the line can be either the definition or the throw position depending
-on the OS, all tests use `AnyLine` for the innermost HL frame rather than
-asserting a specific line number.
-
-The `toprecursion` test has an additional quirk: the innermost sync-bridge
-frame (`Top.hx:throwing`) may be absent on Windows/macOS HL, so it uses
-`Skip` past that region.
-
-Plain (non-`@:coroutine`) functions called from inside a coroutine lambda use
-`OptionalLine` for their frame, since that frame may also be absent on
-Windows/macOS HL (same JIT root cause as above).
+- The innermost frame reports the **exact throw line** (matching eval).
+- Sync-bridge frames are captured, just as on eval and cpp.
+- The `toprecursion` test uses the same `#if (eval || cpp || jvm || hl)` branch
+  as the other "full-stack" targets.
+- Plain (non-`@:coroutine`) functions called from inside a coroutine lambda
+  have their frame fully present, so no `OptionalLine` is needed.
 
 ### cpp
 
@@ -147,7 +136,7 @@ Identical stack shape to eval.
 
 | Quirk                                        | Targets affected         |
 |----------------------------------------------|--------------------------|
-| First frame = definition line, not throw line | hl (Windows/macOS — use `AnyLine`) |
+| First frame = definition line, not throw line | none (HL runs Linux-only where it matches eval) |
 | Sync-bridge frames absent                    | js, python, neko, php (before first suspension point only; eval and cpp always expose them) |
 | Rethrow appends to stack instead of replacing | all targets              |
 | `task.await()` call site absent from stack   | all targets (child async creation-site shown; await-site not captured) |
@@ -155,7 +144,7 @@ Identical stack shape to eval.
 | `scope()` / `supervisor()` call-site frame present | all targets (since fd8002c; use `Line(N)` directly) |
 | `CancellationException` from `cancel()` has no user-code frames | all targets (coroStack is empty; raw runtime frames only) |
 | Sibling `CancellationException` stack mirrors the original exception | all targets except JS (stack assignment not supported on JS; internal frames only) |
-| `timeout()` produces 3 pure `coro` frames (no throw-line, no `LocalFunction` duplicate) | all targets (synthetic exception; no HL `AnyLine` needed since frames come from `PosInfo`, not `invokeResume`) |
+| `timeout()` produces 3 pure `coro` frames (no throw-line, no `LocalFunction` duplicate) | all targets (synthetic exception; frames come from `PosInfo`, not `invokeResume`) |
 
 ## Test cases
 

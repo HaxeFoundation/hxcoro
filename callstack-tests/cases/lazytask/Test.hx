@@ -48,13 +48,7 @@ class Test {
 		final stack = e.stack.asArray();
 		final r = new Inspector(stack).inspect([
 			File('lazytask/LazyTask.hx'),
-			#if hl
-			// HL first-frame position is OS-dependent: definition line on
-			// Windows/macOS, throw line on Linux (same JIT behaviour as foobarbaz).
-			AnyLine,  // thrower() (line varies by HL OS)
-			#else
 			Line(7),  // throw inside thrower()
-			#end
 			Line(12), // _ -> thrower() child-task entry lambda (at node.lazy() call)
 			Line(13), // coro frame for task.start() call site (startPos set at start, not lazy creation)
 			Line(11), // coro frame for the outer CoroRun.run() entry lambda
@@ -67,13 +61,7 @@ class Test {
 		final stack = e.stack.asArray();
 		final r = new Inspector(stack).inspect([
 			File('lazytask/LazyTask.hx'),
-			#if hl
-			// HL first-frame position is OS-dependent: definition line on
-			// Windows/macOS, throw line on Linux (same JIT behaviour as foobarbaz).
-			AnyLine,  // thrower() (line varies by HL OS)
-			#else
 			Line(7),  // throw inside thrower()
-			#end
 			Line(20), // _ -> thrower() child-task entry lambda (at node.lazy() call)
 			Line(21), // coro frame for task.await() call site (startPos set at await, not lazy creation)
 			Line(19), // coro frame for the outer CoroRun.run() entry lambda
@@ -90,11 +78,7 @@ class Test {
 		// task2 appears via callerTask (the task from cont.context at first await).
 		final r = new Inspector(stack).inspect([
 			File('lazytask/LazyTask.hx'),
-			#if hl
-			AnyLine,  // thrower() (line varies by HL OS)
-			#else
 			Line(7),  // throw inside thrower()
-			#end
 			Line(27), // _ -> thrower() child-task entry lambda (at task1 node.lazy() call)
 			Line(29), // coro frame for task1.await() call site inside task2's lambda (task1.startPos)
 			Line(31), // coro frame for task2.start() call site (task2.startPos, via callerTask chain)
@@ -110,11 +94,7 @@ class Test {
 		// task2 as the callerTask. The chain shows: throw → task1.start(node) → task2.start() → run
 		final r = new Inspector(stack).inspect([
 			File('lazytask/LazyTask.hx'),
-			#if hl
-			AnyLine,  // thrower() (line varies by HL OS)
-			#else
 			Line(7),  // throw inside thrower()
-			#end
 			Line(38), // _ -> thrower() child-task entry lambda (at task1 node.lazy() call)
 			Line(40), // coro frame for task1.start(node) call site inside task2's lambda (task1.startPos)
 			Line(43), // coro frame for task2.start() call site (task2.startPos, via callerTask chain)
