@@ -93,11 +93,16 @@ class Coro {
 			throw new ArgumentException('timeout must be positive');
 		}
 		final exception = new TimeoutException();
+		if (ms == 0) {
+			throw exception;
+		}
 		return suspend(cont -> {
 			final context = cont.context;
 			final scope = new CoroTaskWithLambda(context, lambda, CoroTask.CoroScopeStrategy, Running#if debug, startPos#end);
 			final handle = context.scheduleFunction(ms, () -> {
+				#if debug
 				context.setExceptionStack(scope, exception);
+				#end
 				scope.cancel(exception);
 			});
 

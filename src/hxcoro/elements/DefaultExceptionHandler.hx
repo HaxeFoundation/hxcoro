@@ -224,7 +224,9 @@ class DefaultExceptionHandler extends ExceptionHandler {
 	}
 
 	public function startException(context:Context, frame:IStackFrame, exception:Exception):Exception {
-		return context.get(SynchronousRun).startException(frame, exception);
+		return context
+		.get(SynchronousRun)
+		.startException(frame, exception);
 	}
 
 	public function buildCallStack(context:Context, frame:IStackFrame):Void {
