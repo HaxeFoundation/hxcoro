@@ -16,6 +16,12 @@ jobs:
           # php is not available by default for macos runners, probably not worth bothering
           - os: macos-latest
             target: php
+          # HL has OS-dependent JIT quirks on Windows/macOS (first frame = definition
+          # line rather than throw line).  Run HL only on Linux where it matches eval.
+          - os: macos-latest
+            target: hl
+          - os: windows-latest
+            target: hl
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
