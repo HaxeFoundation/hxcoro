@@ -1,6 +1,6 @@
 # hxcoro
 
-A coroutine library for [Haxe](https://haxe.org/), providing async/await, generators, structured concurrency, and more — across all major Haxe targets.
+A coroutine library for [Haxe](https://haxe.org/), providing asynchronous calls, generators, structured concurrency, and more — across all major Haxe targets.
 
 ## Hello World
 
@@ -23,10 +23,8 @@ class Main {
 
 ## Capabilities
 
-- **Async/await** — write asynchronous code in a straightforward sequential style using `@:coroutine` methods and `CoroRun.run`.
-- **`delay` / `yield`** — suspend a coroutine for a given number of milliseconds or yield execution back to the dispatcher.
-- **Structured concurrency** — `Coro.scope` and `Coro.supervisor` let you manage groups of child tasks with well-defined lifetimes and cancellation semantics.
-- **Timeout** — `Coro.timeout(ms, ...)` cancels a block of work after the specified duration and throws `TimeoutException`.
+- **Asynchronous clals** — write asynchronous code in a straightforward sequential style using `@:coroutine` methods.
+- **Structured concurrency** — manage lightweight groups of child tasks with well-defined lifetimes and cancellation semantics.
 - **Generators** — produce lazy sequences with `HaxeGenerator`, `Es6Generator`, `CsGenerator`, and the async variant `AsyncGenerator`.
 - **Cancellation** — first-class `CancellationException` support throughout, with `suspendCancellable` for registering cleanup callbacks.
 - **Dispatchers & schedulers** — pluggable execution model; ships with `TrampolineDispatcher`, `ThreadPoolDispatcher`, and (on C++) `LuvDispatcher`.
