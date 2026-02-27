@@ -8,7 +8,7 @@ interface ICoroTask<T> {
 	var id(get, never):Int;
 	var context(get, never):Context;
 	function cancel(?cause:CancellationException):Void;
-	@:coroutine function await():T;
+	@:coroutine function await(#if debug ?startPos:haxe.PosInfos #end):T;
 	function get():T;
 	function getError():Exception;
 	function isActive():Bool;
@@ -16,5 +16,5 @@ interface ICoroTask<T> {
 }
 
 interface IStartableCoroTask<T> extends ICoroTask<T> {
-	function start():Void;
+	function start(?caller:ICoroNode#if debug, ?startPos:haxe.PosInfos #end):Void;
 }
