@@ -39,6 +39,7 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 	public var context(get, null):Context;
 
 	#if debug
+	var callFrameLocked:Bool;
 	var startPos:Null<haxe.PosInfos>;
 	var callerTask:Null<IStackFrame>;
 	#end
@@ -57,9 +58,8 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 		this.nodeStrategy = nodeStrategy;
 		awaitingContinuations = new TaskContinuationManager(this);
 		#if debug
-		if (initialState == Running) {
-			this.startPos = startPos;
-		}
+		this.startPos = startPos;
+		callFrameLocked = initialState == Running;
 		#end
 		super(parent, initialState);
 	}
@@ -108,12 +108,18 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 		#end
 	}
 
+	public function doStart() {
+		#if debug
+		callFrameLocked = true;
+		#end
+	}
+
 	/**
 		Creates a lazy child task to execute `lambda`. The child task does not execute until its `start`
 		method is called. This occurrs automatically once this task has finished execution.
 	**/
-	public function lazy<T>(lambda:NodeLambda<T>):IStartableCoroTask<T> {
-		return new CoroTaskWithLambda(context, lambda, CoroTask.CoroChildStrategy, Created#if debug, null#end);
+	public function lazy<T>(lambda:NodeLambda<T>#if debug, ?startPos:haxe.PosInfos#end):IStartableCoroTask<T> {
+		return new CoroTaskWithLambda(context, lambda, CoroTask.CoroChildStrategy, Created#if debug, startPos#end);
 	}
 
 	/**
@@ -147,13 +153,7 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 	**/
 	public function awaitContinuation(cont:IContinuation<T>#if debug, ?startPos:haxe.PosInfos #end) {
 		awaitingContinuations.add(cont);
-		#if debug
-		if (this.startPos == null) {
-			callerTask = cont.context.get(CoroBaseTask);
-			this.startPos = startPos;
-		}
-		#end
-		activate();
+		start(cont.context.get(CoroBaseTask)#if debug, startPos#end);
 	}
 
 	/**
@@ -164,7 +164,8 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 	**/
 	public function start(?caller:ICoroNode#if debug, ?startPos:haxe.PosInfos #end) {
 		#if debug
-		if (this.startPos == null) {
+		if (!callFrameLocked) {
+			callFrameLocked = true;
 			if (caller is IStackFrame) {
 				callerTask = cast caller;
 			}

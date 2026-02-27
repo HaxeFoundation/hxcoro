@@ -38,7 +38,7 @@ class CoroTask<T> extends CoroBaseTask<T> implements IContinuation<T> {
 		super(context, nodeStrategy, initialState#if debug, startPos#end);
 	}
 
-	public function doStart() {}
+	override function doStart() {}
 
 	/**
 		Resumes the task with the provided `result` and `error`.
@@ -76,7 +76,7 @@ class CoroTaskWithLambda<T> extends CoroTask<T> implements IDispatchObject imple
 		super(context, nodeStrategy, Created#if debug,startPos#end);
 		if (initialState == Running) {
 			#if debug
-			this.startPos = startPos;
+			callFrameLocked = true;
 			#end
 			context.get(Dispatcher).dispatch(this);
 		}
