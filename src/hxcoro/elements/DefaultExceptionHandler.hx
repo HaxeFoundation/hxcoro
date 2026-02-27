@@ -3,7 +3,6 @@ package hxcoro.elements;
 import haxe.CallStack;
 import haxe.Exception;
 import haxe.PosInfos;
-import haxe.coro.BaseContinuation;
 import haxe.coro.CoroStackItem;
 import haxe.coro.IStackFrame;
 import haxe.coro.Tls;
@@ -64,8 +63,8 @@ private class SynchronousRun implements IElement<SynchronousRun> implements ISyn
 		return context;
 	}
 
-	public function startException(cont:BaseContinuation<Any>, exception:Exception) {
-		var frameItem = cont.getStackItem();
+	public function startException(frame:IStackFrame, exception:Exception) {
+		var frameItem = frame.getStackItem();
 		if (frameItem == null) {
 			// If we have no frame item on our continuation, just bail.
 			return exception;
@@ -73,7 +72,7 @@ private class SynchronousRun implements IElement<SynchronousRun> implements ISyn
 
 		// Collect coro frames from the continuation chain.
 		var chainFrames = [];
-		var currentFrame:Null<IStackFrame> = cont;
+		var currentFrame = frame;
 		while (currentFrame != null) {
 			final item = currentFrame.getStackItem();
 			if (item != null) {
@@ -86,34 +85,15 @@ private class SynchronousRun implements IElement<SynchronousRun> implements ISyn
 		return exception;
 	}
 
-	public function buildCallStack(cont:BaseContinuation<Any>):Void {
+	public function buildCallStack(frame:IStackFrame):Void {
 		var exception = thrownException.value;
 		if (exception == null) {
-			#if debug
-			// No startException was called — exception arrived via the suspension-error path
-			// (e.g. a TimeoutException propagated through a @:coroutine suspension point).
-			// If the exception's native stack was explicitly cleared, lazily collect the
-			// coroutine call chain from the continuation so the user sees their call site.
-			final err = cont.error;
-			if (err == null || err.stack.asArray().length != 0) return;
-			var chainFrames = [];
-			var currentFrame:Null<IStackFrame> = cont;
-			while (currentFrame != null) {
-				final item = currentFrame.getStackItem();
-				if (item != null) chainFrames.push(item);
-				currentFrame = currentFrame.callerFrame();
-			}
-			if (chainFrames.length == 0) return;
-			exception = new StartedException(err, chainFrames);
-			thrownException.value = exception;
-			#else
-			return;
-			#end
-		}
-		if (exception.coroStack.length == 0) {
 			return;
 		}
 		thrownException.value = null;
+		if (exception.coroStack.length == 0) {
+			return;
+		}
 
 		final newStack = [];
 		final coroStack = exception.coroStack;
@@ -158,14 +138,7 @@ private class SynchronousRun implements IElement<SynchronousRun> implements ISyn
 		// directly into newStack, so the outer run's buildCallStack can process them via
 		// the normal invokeResume mechanism. This avoids any cross-thread data passing.
 		final lastIndex = coroStack.length - 1;
-		// Skip the first frame when it belongs to an internal hxcoro API method
-		// (e.g. hxcoro.Coro.timeout). These frames add no useful context for the user.
-		final startIndex = switch (coroStack[0]) {
-			case ClassFunction(cls, _, _, _, _) if (cls == "hxcoro.Coro"): 1;
-			case _: 0;
-		}
 		for (i => frame in coroStack) {
-			if (i < startIndex) continue;
 			switch (frame) {
 				case ClassFunction(cls, func, file, line, column):
 					newStack.push(StackItem.FilePos(StackItem.Method(cls, func), file, line, column));
@@ -253,11 +226,11 @@ class DefaultExceptionHandler extends ExceptionHandler {
 		return new SynchronousRun(context, p);
 	}
 
-	public function startException(cont:BaseContinuation<Any>, exception:Exception):Exception {
-		return cont.context.get(SynchronousRun).startException(cont, exception);
+	public function startException(context:Context, frame:IStackFrame, exception:Exception):Exception {
+		return context.get(SynchronousRun).startException(frame, exception);
 	}
 
-	public function buildCallStack(cont:BaseContinuation<Any>):Void {
-		cont.context.get(SynchronousRun).buildCallStack(cont);
+	public function buildCallStack(context:Context, frame:IStackFrame):Void {
+		context.get(SynchronousRun).buildCallStack(frame);
 	}
 }
