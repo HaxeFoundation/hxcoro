@@ -44,6 +44,11 @@ jobs:
 
       - name: Setup Lua
         if: matrix.target == 'lua'
+        # Note: -D lua-vanilla cannot be used here because hxcoro unconditionally requires luv:
+        # 1. The generated event loop calls luv.run() at startup to drive async tasks.
+        # 2. Sys.getenv (inside #if sys, which is true for Lua) reads HXCORO_DISPATCHER at
+        #    startup; with -D lua-vanilla, any Sys call throws NotImplementedException.
+        # Therefore the full luarocks dependency set (luv, lrexlib-pcre2, luautf8, bit32) is needed.
         shell: bash
         run: |
           if [[ "$RUNNER_OS" == "Linux" ]]; then
