@@ -65,7 +65,7 @@ class Setup {
 		function finalize() {
 			scheduler.shutDown();
 			shutDownDispatcher(dispatcher);
-			cpp.luv.Luv.shutdownLoop(loop);
+			cpp.luv.Luv.drainLoop(loop);
 			cpp.luv.Luv.freeLoop(loop);
 		}
 		return new LoopSetup(scheduler, dispatcher, finalize);
