@@ -5,7 +5,7 @@ import haxe.coro.cancellation.ICancellationCallback;
 import haxe.coro.cancellation.ICancellationHandle;
 import haxe.coro.cancellation.ICancellationToken;
 import haxe.exceptions.CancellationException;
-import hxcoro.concurrent.AtomicInt;
+import haxe.atomic.AtomicInt;
 import hxcoro.concurrent.AtomicObject;
 import hxcoro.concurrent.AtomicState;
 import hxcoro.concurrent.BackOff;

@@ -4,7 +4,7 @@ import haxe.Exception;
 import haxe.coro.IContinuation;
 import haxe.coro.dispatchers.Dispatcher;
 import haxe.coro.dispatchers.IDispatchObject;
-import hxcoro.concurrent.AtomicInt;
+import haxe.atomic.AtomicInt;
 
 private enum abstract State(Int) to Int {
 	var Active;
