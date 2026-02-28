@@ -2,7 +2,7 @@ package hxcoro.continuations;
 
 import haxe.Exception;
 import haxe.coro.IContinuation;
-import haxe.coro.dispatchers.Dispatcher;
+import haxe.coro.SuspensionResult;
 import haxe.coro.dispatchers.IDispatchObject;
 import hxcoro.concurrent.AtomicInt;
 
@@ -29,11 +29,11 @@ class RacingContinuation<T> extends StackFrameContinuation<T> implements IDispat
 		}
 	}
 
-	public function resolve():Void {
+	public function resolve():SuspensionResult<T> {
 		if (resumeState.compareExchange(Active, Resolved) == Active) {
-			state = Pending;
+			return cast SuspensionResult.suspended;
 		} else {
-			context.dispatchOrCall(this);
+			return this;
 		}
 	}
 
