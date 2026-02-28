@@ -3,7 +3,7 @@ package hxcoro.concurrent;
 #if (hl || jvm || cpp || eval)
 typedef AtomicObject<T:{}> = haxe.atomic.AtomicObject<T>;
 #else
-import haxe.coro.Mutex;
+import sys.thread.Mutex;
 
 typedef AtomicObject<T:{}> = AtomicObjectImpl<T>;
 

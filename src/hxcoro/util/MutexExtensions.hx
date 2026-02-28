@@ -1,6 +1,6 @@
 package hxcoro.util;
 
-import haxe.coro.Mutex;
+import sys.thread.Mutex;
 import haxe.coro.Coroutine;
 
 final class MutexExtensions {

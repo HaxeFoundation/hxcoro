@@ -1,7 +1,7 @@
 package hxcoro.ds.channels;
 
 import haxe.coro.IContinuation;
-import haxe.coro.Mutex;
+import sys.thread.Mutex;
 import haxe.exceptions.ArgumentException;
 import hxcoro.concurrent.AtomicObject;
 import hxcoro.ds.CircularBuffer;

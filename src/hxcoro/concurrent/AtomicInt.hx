@@ -1,6 +1,6 @@
 package hxcoro.concurrent;
 
-import haxe.coro.Mutex;
+import sys.thread.Mutex;
 
 #if (cpp || hl || js || jvm || eval)
 typedef AtomicInt = haxe.atomic.AtomicInt;

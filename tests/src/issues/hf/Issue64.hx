@@ -1,7 +1,7 @@
 package issues.hf;
 
 import hxcoro.concurrent.CoroLatch;
-import haxe.coro.Mutex;
+import sys.thread.Mutex;
 import haxe.exceptions.CancellationException;
 
 class Issue64 extends utest.Test {

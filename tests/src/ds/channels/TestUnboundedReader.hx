@@ -1,7 +1,7 @@
 package ds.channels;
 
 import hxcoro.dispatchers.TrampolineDispatcher;
-import haxe.coro.Mutex;
+import sys.thread.Mutex;
 import haxe.coro.context.Context;
 import haxe.coro.IContinuation;
 import haxe.Exception;
