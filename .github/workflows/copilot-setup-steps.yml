@@ -35,3 +35,7 @@ jobs:
         uses: HaxeFoundation/setup-hashlink@v1
         with:
           version: nightly
+
+      - name: Setup system
+        run: |
+          apt-get install -y gdb
