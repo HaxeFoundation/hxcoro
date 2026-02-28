@@ -3,7 +3,7 @@ package hxcoro.ds.channels;
 import haxe.coro.IContinuation;
 import sys.thread.Mutex;
 import haxe.exceptions.ArgumentException;
-import hxcoro.concurrent.AtomicObject;
+import haxe.atomic.AtomicObject;
 import hxcoro.ds.CircularBuffer;
 import hxcoro.ds.Out;
 import hxcoro.ds.PagedDeque;

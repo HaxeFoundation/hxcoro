@@ -2,7 +2,7 @@ package hxcoro.ds.channels.bounded;
 
 import haxe.Exception;
 import hxcoro.ds.ConcurrentCircularBuffer;
-import hxcoro.concurrent.AtomicObject;
+import haxe.atomic.AtomicObject;
 import haxe.coro.IContinuation;
 import hxcoro.ds.Out;
 import hxcoro.ds.channels.Channel;
