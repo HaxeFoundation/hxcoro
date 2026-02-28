@@ -38,4 +38,4 @@ jobs:
 
       - name: Setup system
         run: |
-          apt-get install -y gdb
+          sudo apt-get install -y gdb
