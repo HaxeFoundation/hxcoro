@@ -1,6 +1,6 @@
 package concurrent;
 
-import haxe.coro.Mutex;
+import sys.thread.Mutex;
 import haxe.exceptions.ArgumentException;
 import haxe.exceptions.CancellationException;
 import hxcoro.ds.channels.Channel;

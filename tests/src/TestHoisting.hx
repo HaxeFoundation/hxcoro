@@ -1,4 +1,4 @@
-import haxe.coro.Mutex;
+import sys.thread.Mutex;
 import hxcoro.Coro.*;
 
 class TestHoisting extends utest.Test {

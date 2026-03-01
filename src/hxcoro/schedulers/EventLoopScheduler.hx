@@ -5,7 +5,7 @@ import hxcoro.schedulers.ILoop;
 import haxe.coro.IContinuation;
 import haxe.Timer;
 import haxe.Int64;
-import haxe.coro.Mutex;
+import sys.thread.Mutex;
 import haxe.exceptions.ArgumentException;
 import haxe.coro.schedulers.IScheduler;
 import haxe.coro.schedulers.ISchedulerHandle;

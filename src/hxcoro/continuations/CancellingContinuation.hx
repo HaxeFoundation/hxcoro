@@ -9,7 +9,7 @@ import haxe.coro.cancellation.ICancellationToken;
 import haxe.coro.dispatchers.Dispatcher;
 import haxe.coro.dispatchers.IDispatchObject;
 import haxe.exceptions.CancellationException;
-import hxcoro.concurrent.AtomicInt;
+import haxe.atomic.AtomicInt;
 import hxcoro.concurrent.BackOff;
 
 private enum abstract State(Int) to Int {

@@ -1,6 +1,6 @@
 package issues.hf;
 
-import haxe.coro.Mutex;
+import sys.thread.Mutex;
 import hxcoro.ds.channels.Channel;
 import hxcoro.ds.Out;
 import hxcoro.CoroRun;
