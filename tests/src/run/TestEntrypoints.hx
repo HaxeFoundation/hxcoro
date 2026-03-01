@@ -159,7 +159,7 @@ class TestEntrypoints extends utest.Test {
 		final setup = Setup.createLuvGen(
 			(uvLoop, loop) -> new ThreadPoolDispatcher(loop, pool),
 			dispatcher -> {
-				pool.shutDown();
+				pool.shutDown(true);
 			}
 		);
 		final context = setup.createContext();

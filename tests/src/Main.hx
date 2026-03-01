@@ -45,6 +45,12 @@ function main() {
 	runner.addCases("schedulers");
 	runner.addCases("structured");
 
-    utest.ui.Report.create(runner, NeverShowSuccessResults, AlwaysShowHeader);
+    final reporter = utest.ui.Report.create(runner, NeverShowSuccessResults, AlwaysShowHeader);
+#if (cpp && hxcpp_luv_io)
+	reporter.setHandler(_ -> {
+		cpp.luv.Luv.shutdown();
+	});
+#end
+
     runner.run();
 }
