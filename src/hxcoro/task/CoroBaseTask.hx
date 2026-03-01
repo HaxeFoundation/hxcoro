@@ -52,15 +52,16 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 	/**
 		Creates a new task using the provided `context`.
 	**/
+	@:nullSafety(Off)
 	public function new(context:Context, nodeStrategy:INodeStrategy, initialState:TaskState#if debug, ?startPos:haxe.PosInfos#end) {
 		final parent = context.get(CoroBaseTask);
-		this.context = context.clone().with(this).set(CancellationToken, this);
 		this.nodeStrategy = nodeStrategy;
 		awaitingContinuations = new TaskContinuationManager(this);
 		#if debug
 		this.startPos = startPos;
 		callFrameLocked = initialState == Running;
 		#end
+		this.context = context.clone().with(this).set(CancellationToken, this);
 		super(parent, initialState);
 	}
 

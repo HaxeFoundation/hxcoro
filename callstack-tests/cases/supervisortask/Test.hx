@@ -14,13 +14,7 @@ class Test {
 		final stack = e.stack.asArray();
 		final r = new Inspector(stack).inspect([
 			File('supervisortask/SupervisorTask.hx'),
-			#if hl
-			// HL first-frame position is OS-dependent: definition line on
-			// Windows/macOS, throw line on Linux (same JIT behaviour as foobarbaz).
-			AnyLine,  // thrower() (line varies by HL OS)
-			#else
 			Line(13), // throw inside thrower()
-			#end
 			Line(19), // _ -> thrower() child-task entry lambda (at node.async() call)
 			Line(19), // coro frame for the node.async() call (same position)
 			Line(18), // coro frame for the supervisor() call site (callPos added in fd8002c)

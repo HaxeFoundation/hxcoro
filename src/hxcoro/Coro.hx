@@ -2,6 +2,7 @@ package hxcoro;
 
 import haxe.coro.IContinuation;
 import haxe.coro.SuspensionResult;
+import haxe.coro.context.ExceptionHandler;
 import haxe.coro.dispatchers.Dispatcher;
 import haxe.exceptions.ArgumentException;
 import haxe.exceptions.CancellationException;
@@ -39,7 +40,7 @@ class Coro {
 	}
 
 	static function delayImpl<T>(ms:Int, cont:IContinuation<T>) {
-		final dispatcher = cont.context.get(Dispatcher);
+		final dispatcher = cont.context.getOrRaise(Dispatcher);
 		final handle = dispatcher.scheduler.schedule(ms, cont);
 
 		return _ -> {
@@ -91,16 +92,18 @@ class Coro {
 		if (ms < 0) {
 			throw new ArgumentException('timeout must be positive');
 		}
+		final exception = new TimeoutException();
 		if (ms == 0) {
-			throw new TimeoutException();
+			throw exception;
 		}
-
 		return suspend(cont -> {
-
 			final context = cont.context;
 			final scope = new CoroTaskWithLambda(context, lambda, CoroTask.CoroScopeStrategy, Running#if debug, startPos#end);
 			final handle = context.scheduleFunction(ms, () -> {
-				scope.cancel(new TimeoutException());
+				#if debug
+				context.setExceptionStack(cast cont, exception);
+				#end
+				scope.cancel(exception);
 			});
 
 			scope.awaitContinuation(new TimeoutContinuation(cont, handle));

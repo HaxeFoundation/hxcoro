@@ -1,7 +1,7 @@
 package hxcoro.concurrent;
 
 #if target.threaded
-typedef Tls<T> = sys.thread.Tls<T>;
+typedef Tls<T> = haxe.coro.Tls<T>;
 #else
 typedef Tls<T> = TlsImpl<T>;
 

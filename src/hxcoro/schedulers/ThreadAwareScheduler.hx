@@ -7,13 +7,12 @@ import haxe.coro.IContinuation;
 import haxe.coro.schedulers.IScheduler;
 import haxe.coro.schedulers.ISchedulerHandle;
 import haxe.exceptions.ArgumentException;
-import hxcoro.concurrent.AtomicInt;
 import hxcoro.ds.CircularVector;
 import hxcoro.schedulers.ILoop;
 import sys.thread.Deque;
 import sys.thread.Semaphore;
 import sys.thread.Thread;
-import sys.thread.Tls;
+import haxe.coro.Tls;
 
 private class CircularQueueData {
 	public var read:Int;
