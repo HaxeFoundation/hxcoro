@@ -1,6 +1,7 @@
 package hxcoro.dispatchers;
 
 import cpp.luv.Luv;
+import cpp.luv.Work;
 import haxe.coro.dispatchers.Dispatcher;
 import haxe.coro.dispatchers.IDispatchObject;
 import haxe.coro.schedulers.IScheduler;
@@ -39,7 +40,7 @@ class LuvDispatcher extends Dispatcher
 
 	function loopWork() {
 		consumeDeque(workQueue, event -> {
-			event();
+			Work.queue(loop, event);
 		});
 	}
 
