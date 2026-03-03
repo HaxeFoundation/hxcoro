@@ -4,6 +4,7 @@ import haxe.coro.IContinuation;
 import haxe.exceptions.ArgumentException;
 import hxcoro.concurrent.exceptions.SemaphoreFullException;
 import hxcoro.ds.PagedDeque;
+import haxe.atomic.AtomicInt;
 
 class CoroSemaphore {
 	@:nullSafety(Off) final maxFree:Int;

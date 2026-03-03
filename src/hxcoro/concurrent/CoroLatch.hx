@@ -5,7 +5,7 @@ import haxe.coro.cancellation.CancellationToken;
 import haxe.exceptions.ArgumentException;
 import haxe.exceptions.CoroutineException;
 import hxcoro.Coro.*;
-import hxcoro.concurrent.AtomicInt;
+import haxe.atomic.AtomicInt;
 import hxcoro.concurrent.BackOff;
 import hxcoro.ds.PagedDeque;
 

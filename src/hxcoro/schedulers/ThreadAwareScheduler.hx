@@ -12,7 +12,7 @@ import hxcoro.schedulers.ILoop;
 import sys.thread.Deque;
 import sys.thread.Semaphore;
 import sys.thread.Thread;
-import haxe.coro.Tls;
+import sys.thread.Tls;
 
 private class CircularQueueData {
 	public var read:Int;

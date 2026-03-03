@@ -4,7 +4,7 @@ import haxe.coro.dispatchers.Dispatcher;
 import haxe.coro.dispatchers.IDispatchObject;
 import haxe.coro.schedulers.IScheduler;
 import haxe.exceptions.ArgumentException;
-import hxcoro.concurrent.Tls;
+import sys.thread.Tls;
 import hxcoro.schedulers.EventLoopScheduler;
 
 private class Trampoline {

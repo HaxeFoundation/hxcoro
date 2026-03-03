@@ -1,5 +1,5 @@
 package hxcoro.thread;
-import hxcoro.concurrent.AtomicInt;
+import haxe.atomic.AtomicInt;
 import hxcoro.ds.CircularVector;
 
 /**

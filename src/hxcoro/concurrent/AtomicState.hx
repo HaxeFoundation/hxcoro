@@ -1,5 +1,7 @@
 package hxcoro.concurrent;
 
+import haxe.atomic.AtomicInt;
+
 /**
 	A convenience type over `AtomicInt` to be used with an enum abstract
 	over `Int`.

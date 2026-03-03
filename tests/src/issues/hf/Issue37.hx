@@ -1,6 +1,6 @@
 package issues.hf;
 
-import hxcoro.concurrent.AtomicInt;
+import haxe.atomic.AtomicInt;
 import hxcoro.ds.channels.Channel;
 import hxcoro.ds.Out;
 import hxcoro.CoroRun;
