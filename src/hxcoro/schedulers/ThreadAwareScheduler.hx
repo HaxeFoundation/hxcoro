@@ -112,10 +112,10 @@ class ThreadAwareScheduler implements IScheduler implements ILoop {
 
 		final newQueue = new CircularQueue(4);
 		final threadQueue = new ThreadQueue(newQueue);
-		final handle = Thread.onCurrentExit(function() {
+		final handle = Thread.addCurrentCallbacks({onExit: function() {
 			queueDeque.add(Remove(threadQueue));
 			queueTls.value = null;
-		});
+		}});
 		threadQueue.onExitHandle = handle;
 		queueTls.value = newQueue;
 		queueDeque.add(Add(threadQueue));

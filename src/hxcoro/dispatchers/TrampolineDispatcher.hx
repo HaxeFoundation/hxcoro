@@ -22,9 +22,9 @@ private class Trampoline {
 			return value;
 		}
 		#if target.threaded
-		sys.thread.Thread.onCurrentExit(() -> {
+		sys.thread.Thread.addCurrentCallbacks({onExit: () -> {
 			tls.value = null;
-		});
+		}});
 		#end
 		final trampoline = new Trampoline();
 		tls.value = trampoline;
