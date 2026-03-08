@@ -65,7 +65,7 @@ class Setup {
 		function finalize() {
 			scheduler.shutDown();
 			shutDownDispatcher(dispatcher);
-			cpp.luv.Luv.stopLoop(loop);
+			cpp.luv.Luv.shutdownLoop(loop);
 			cpp.luv.Luv.freeLoop(loop);
 		}
 		return new LoopSetup(scheduler, dispatcher, finalize);
@@ -122,7 +122,7 @@ class Setup {
 		#if interp
 		return createLuv();
 		#elseif (cpp && hxcpp_luv_io)
-		return createLuvThreadPool();
+		return createLuv();
 		#elseif (jvm || cpp || hl)
 		return createThreadPool(10);
 		#else
