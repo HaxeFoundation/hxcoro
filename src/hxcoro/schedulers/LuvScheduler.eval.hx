@@ -152,7 +152,7 @@ class LuvScheduler implements IScheduler implements ILoop {
 		@:privateAccess eventQueue.async.send();
 	}
 
-	inline function consumeDeque<T>(deque:AsyncDeque<T>, f:T->Void) {
+	static public function consumeDeque<T>(deque:AsyncDeque<T>, f:T->Void) {
 		do {
 			final event = deque.pop(false);
 			if (event == null) {
