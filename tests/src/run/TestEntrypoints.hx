@@ -10,7 +10,7 @@ import hxcoro.schedulers.ThreadAwareScheduler;
 import hxcoro.thread.FixedThreadPool;
 import hxcoro.dispatchers.ThreadPoolDispatcher;
 #end
-import haxe.coro.Mutex;
+import sys.thread.Mutex;
 import hxcoro.schedulers.EventLoopScheduler;
 import haxe.PosInfos;
 import hxcoro.schedulers.ILoop;
@@ -130,7 +130,7 @@ class TestEntrypoints extends utest.Test {
 	}
 
 	// Python hates this for some other reason that needs investigation
-	#if (target.threaded && !python)
+	#if target.threaded
 
 	public function testThreadPool() {
 		final setup = Setup.createThreadPool(10);

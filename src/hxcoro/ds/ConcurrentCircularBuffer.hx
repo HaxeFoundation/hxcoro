@@ -2,11 +2,11 @@ package hxcoro.ds;
 
 import haxe.ds.Vector;
 import haxe.exceptions.ArgumentException;
-import hxcoro.concurrent.AtomicInt;
+import haxe.atomic.AtomicInt;
 
 /**
  * Thread safe FIFO circular buffer.
- * 
+ *
  * This buffer supports at most a single producer and a single consumer at any one time,
  * the behaviour when multiple produces and consumers act on the buffer is undefined.
  */

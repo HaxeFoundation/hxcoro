@@ -6,7 +6,7 @@ import haxe.coro.context.Context;
 import hxcoro.ds.Out;
 import hxcoro.ds.channels.exceptions.ChannelClosedException;
 import hxcoro.ds.ConcurrentCircularBuffer;
-import hxcoro.concurrent.AtomicObject;
+import haxe.atomic.AtomicObject;
 
 using hxcoro.util.Convenience;
 

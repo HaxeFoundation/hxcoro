@@ -1,10 +1,7 @@
 package hxcoro.task;
 
 import haxe.Exception;
-import haxe.PosInfos;
-import haxe.coro.CoroStackItem;
 import haxe.coro.IContinuation;
-import haxe.coro.IStackFrame;
 import haxe.coro.context.Context;
 import haxe.coro.dispatchers.Dispatcher;
 import haxe.coro.dispatchers.IDispatchObject;
@@ -32,23 +29,14 @@ private class ResumeStatusTools {
 	}
 }
 
-class CoroTask<T> extends CoroBaseTask<T> implements IContinuation<T> implements IStackFrame {
+class CoroTask<T> extends CoroBaseTask<T> implements IContinuation<T> {
 	static public final CoroChildStrategy = new CoroChildStrategy();
 	static public final CoroScopeStrategy = new CoroScopeStrategy();
 	static public final CoroSupervisorStrategy = new CoroSupervisorStrategy();
 
-	#if debug
-	final callPos:Null<PosInfos>;
-	#end
-
-	public function new(context:Context, nodeStrategy:INodeStrategy, initialState:TaskState = Running#if debug, ?callPos:PosInfos#end) {
-		super(context, nodeStrategy, initialState);
-		#if debug
-		this.callPos = callPos;
-		#end
+	public function new(context:Context, nodeStrategy:INodeStrategy, initialState:TaskState = Running#if debug, ?startPos:haxe.PosInfos#end) {
+		super(context, nodeStrategy, initialState#if debug, startPos#end);
 	}
-
-	public function doStart() {}
 
 	/**
 		Resumes the task with the provided `result` and `error`.
@@ -61,28 +49,6 @@ class CoroTask<T> extends CoroBaseTask<T> implements IContinuation<T> implements
 			beginCancelling(error);
 			checkCompletion();
 		}
-	}
-
-	/**
-		@see `IStackFrame.callerFrame`
-	**/
-	public function callerFrame():Null<IStackFrame> {
-		#if debug
-		return parent is IStackFrame ? cast parent : null;
-		#else
-		return null;
-		#end
-	}
-
-	/**
-		@see `IStackFrame.callerFrame`
-	**/
-	public function getStackItem() {
-		#if debug
-		return callPos == null ? null : CoroStackItem.PosInfo(callPos);
-		#else
-		return null;
-		#end
 	}
 
 	#if sys
@@ -103,16 +69,19 @@ class CoroTaskWithLambda<T> extends CoroTask<T> implements IDispatchObject imple
 	/**
 		Creates a new task using the provided `context` in order to execute `lambda`.
 	**/
-	public function new(context:Context, lambda:NodeLambda<T>, nodeStrategy:INodeStrategy, initialState:TaskState = Running#if debug, ?callPos:PosInfos#end) {
+	public function new(context:Context, lambda:NodeLambda<T>, nodeStrategy:INodeStrategy, initialState:TaskState = Running#if debug, ?startPos:haxe.PosInfos#end) {
 		this.lambda = lambda;
-		super(context, nodeStrategy, Created#if debug,callPos#end);
+		super(context, nodeStrategy, Created#if debug,startPos#end);
 		if (initialState == Running) {
-			context.get(Dispatcher).dispatch(this);
+			#if debug
+			callFrameLocked = true;
+			#end
+			context.dispatchOrCall(this);
 		}
 	}
 
 	public function onDispatch() {
-		start();
+		activate();
 	}
 
 	/**

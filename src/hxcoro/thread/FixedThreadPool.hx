@@ -7,8 +7,6 @@ package hxcoro.thread;
 import haxe.coro.dispatchers.IDispatchObject;
 import haxe.ds.Vector;
 import hxcoro.concurrent.AtomicState;
-import hxcoro.concurrent.BackOff;
-import sys.thread.Condition;
 import sys.thread.Semaphore;
 import sys.thread.Thread;
 import sys.thread.Tls;
@@ -83,13 +81,13 @@ class FixedThreadPool implements IThreadPool {
 		@see `IThreadPool.run`
 	**/
 	public function run(obj:IDispatchObject):Void {
-		if(isShutDown) {
+		if(shutdownState.load() == ShutDown) {
 			throw new ThreadPoolException('Task is rejected. Thread pool is shut down.');
 		}
 		if(obj == null) {
 			throw new ThreadPoolException('Task to run must not be null.');
 		}
-		queueTls.value.add(obj);
+		@:nullSafety(Off) queueTls.value.add(obj);
 		semaphore.release();
 	}
 
@@ -132,7 +130,7 @@ class FixedThreadPool implements IThreadPool {
 		Sys.println('\ttotal worker loops: $totalLoops');
 		Sys.println('\ttotal worker dispatches: $totalDispatches');
 		Sys.print('\tqueue 0: ');
-		queueTls.value.dump();
+		queueTls.value?.dump();
 		for (worker in pool) {
 			final loopShare = worker.numLooped * 100 / totalLoops;
 			final dispatchShare = worker.numDispatched * 100 / totalDispatches;

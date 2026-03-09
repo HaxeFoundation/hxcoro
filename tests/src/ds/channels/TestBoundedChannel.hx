@@ -1,7 +1,7 @@
 package ds.channels;
 
 import hxcoro.dispatchers.TrampolineDispatcher;
-import haxe.coro.Mutex;
+import sys.thread.Mutex;
 import haxe.ds.Option;
 import hxcoro.schedulers.VirtualTimeScheduler;
 import haxe.exceptions.ArgumentException;

@@ -11,17 +11,20 @@ jobs:
       fail-fast: false
       matrix:
         os: [macos-latest, ubuntu-latest, windows-latest]
-        target: [eval, js, hl, cpp, jvm, php, python, neko]
+        target: [eval, js, hl, cpp, jvm, php, python, neko, lua]
         exclude:
           # php is not available by default for macos runners, probably not worth bothering
           - os: macos-latest
             target: php
+          # Lua is annoying to set up on Windows, so only run it on Linux and macOS
+          - os: windows-latest
+            target: lua
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
       - uses: kLabz/setup-haxe@neko-latest
         with:
-          haxe-version: "2026-02-26_development_8b6abc2"
+          haxe-version: "latest"
 
       - name: Setup hashlink
         if: matrix.target == 'hl'
@@ -32,6 +35,30 @@ jobs:
       - name: Check hashlink
         if: matrix.target == 'hl'
         run: hl --version
+
+      - name: Setup Lua
+        if: matrix.target == 'lua'
+        # Note: -D lua-vanilla cannot be used here because hxcoro unconditionally requires luv:
+        # 1. The generated event loop calls luv.run() at startup to drive async tasks.
+        # 2. Sys.getenv (inside #if sys, which is true for Lua) reads HXCORO_DISPATCHER at
+        #    startup; with -D lua-vanilla, any Sys call throws NotImplementedException.
+        # Therefore the full luarocks dependency set (luv, lrexlib-pcre2, luautf8, bit32) is needed.
+        shell: bash
+        run: |
+          if [[ "$RUNNER_OS" == "Linux" ]]; then
+            sudo apt-get install -y lua5.4 lua5.4-dev luarocks libpcre2-dev
+            sudo update-alternatives --set lua-interpreter /usr/bin/lua5.4
+            sudo luarocks --lua-version 5.4 install luv
+            sudo luarocks --lua-version 5.4 install lrexlib-pcre2
+            sudo luarocks --lua-version 5.4 install luautf8
+            sudo luarocks --lua-version 5.4 install bit32
+          elif [[ "$RUNNER_OS" == "macOS" ]]; then
+            brew install lua luarocks pcre2
+            luarocks install luv
+            luarocks install lrexlib-pcre2
+            luarocks install luautf8
+            luarocks install bit32
+          fi
 
       - name: Setup haxelib
         run: |
@@ -79,10 +106,15 @@ jobs:
             cpp)
               run_release
               run_extra trampoline
+              run_extra threadpool
               ;;
             hl|jvm)
               run_default
               run_extra trampoline
+              ;;
+            python)
+              run_default
+              run_extra threadpool
               ;;
             *)
               run_default

@@ -3,10 +3,9 @@ package hxcoro.elements;
 import haxe.CallStack;
 import haxe.Exception;
 import haxe.PosInfos;
-import haxe.coro.BaseContinuation;
 import haxe.coro.CoroStackItem;
 import haxe.coro.IStackFrame;
-import haxe.coro.Tls;
+import sys.thread.Tls;
 import haxe.coro.context.Context;
 import haxe.coro.context.ExceptionHandler;
 import haxe.coro.context.IElement;
@@ -55,25 +54,19 @@ private class SynchronousRun implements IElement<SynchronousRun> implements ISyn
 	final capturedStack:Null<Array<StackItem>>;
 
 	public function new(context:Context, entryPos:PosInfos) {
-		this.context = context.with(this);
-		this.entryPos = entryPos;
 		capturedStack = CallStack.callStack();
+		this.entryPos = entryPos;
+		this.context = @:nullSafety(Off) context.with(this);
 	}
 
 	function get_context() {
 		return context;
 	}
 
-	public function startException(cont:BaseContinuation<Any>, exception:Exception) {
-		var frameItem = cont.getStackItem();
-		if (frameItem == null) {
-			// If we have no frame item on our continuation, just bail.
-			return exception;
-		}
-
+	public function startException(frame:IStackFrame, exception:Exception) {
 		// Collect coro frames from the continuation chain.
-		var chainFrames = [];
-		var currentFrame:Null<IStackFrame> = cont;
+		var chainFrames:Array<CoroStackItem> = [];
+		var currentFrame:Null<IStackFrame> = frame;
 		while (currentFrame != null) {
 			final item = currentFrame.getStackItem();
 			if (item != null) {
@@ -86,7 +79,7 @@ private class SynchronousRun implements IElement<SynchronousRun> implements ISyn
 		return exception;
 	}
 
-	public function buildCallStack(cont:BaseContinuation<Any>):Void {
+	public function buildCallStack(frame:IStackFrame):Void {
 		final exception = thrownException.value;
 		if (exception == null || exception.coroStack.length == 0) {
 			return;
@@ -97,12 +90,12 @@ private class SynchronousRun implements IElement<SynchronousRun> implements ISyn
 		final coroStack = exception.coroStack;
 		final exceptionStack = exception.exception.stack.asArray();
 
-		function patchFirstCoroStack(file:String, line:Int, column:Int) {
+		function patchFirstCoroStack(file:String, line:Int, column:Null<Int>) {
 			switch (coroStack[0]) {
 				case ClassFunction(cls, func, _, _, _):
-					coroStack[0] = ClassFunction(cls, func, file, line, column);
+					coroStack[0] = ClassFunction(cls, func, file, line, cast column); // TODO: need Haxe update
 				case LocalFunction(id, _, _, _):
-					coroStack[0] = LocalFunction(id, file, line, column);
+					coroStack[0] = LocalFunction(id, file, line, cast column);
 				case PosInfo(_):
 			}
 		}
@@ -224,11 +217,12 @@ class DefaultExceptionHandler extends ExceptionHandler {
 		return new SynchronousRun(context, p);
 	}
 
-	public function startException(cont:BaseContinuation<Any>, exception:Exception):Exception {
-		return cont.context.get(SynchronousRun).startException(cont, exception);
+	public function startException(context:Context, frame:IStackFrame, exception:Exception):Exception {
+		final run = context.get(SynchronousRun);
+		return run == null ? exception : run.startException(frame, exception);
 	}
 
-	public function buildCallStack(cont:BaseContinuation<Any>):Void {
-		cont.context.get(SynchronousRun).buildCallStack(cont);
+	public function buildCallStack(context:Context, frame:IStackFrame):Void {
+		context.get(SynchronousRun)?.buildCallStack(frame);
 	}
 }

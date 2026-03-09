@@ -14,18 +14,11 @@ class Test {
 		final stack = e.stack.asArray();
 		final r = new Inspector(stack).inspect([
 			File('nestedplainthrow/PlainThrow.hx'),
-			#if (eval || cpp || jvm)
-			// On eval, C++ and JVM the runtime captures the full Haxe call stack,
+			#if (eval || cpp || jvm || hl)
+			// On eval, C++, JVM and HL the runtime captures the full Haxe call stack,
 			// including the throw site inside the plain thrower() function and the
 			// call site of thrower() inside the innermost async lambda.
 			Line(7),  // throw inside thrower()
-			Line(17), // thrower() call inside the innermost node.async lambda
-			Line(15), // innermost node.async lambda (coro frame)
-			#elseif hl
-			// On HL the plain thrower() frame is captured on Linux but may be absent
-			// on macOS/Windows (same top-stack-missing JIT quirk as toprecursion).
-			// OptionalLine(7) consumes the frame when present and skips it when not.
-			OptionalLine(7), // throw inside thrower() — present on Linux HL, may be absent elsewhere
 			Line(17), // thrower() call inside the innermost node.async lambda
 			Line(15), // innermost node.async lambda (coro frame)
 			#else

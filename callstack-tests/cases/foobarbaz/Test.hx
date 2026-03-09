@@ -31,17 +31,9 @@ class Test {
 		final stack = e.stack.asArray();
 		final r = new Inspector(stack).inspect([
 			File('foobarbaz/FooBarBaz.hx'),
-			#if hl
-			// HL baz position varies by OS: line 5 (definition) on Windows/macOS,
-			// line 6 (throw) on Linux. Accept either with AnyLine.
-			AnyLine,  // baz (line varies by HL OS/JIT behaviour)
-			Line(11), // baz() call in bar
-			Line(15), // bar() call in foo
-			#else
 			Line(6),  // throw in baz
 			Line(11), // baz() call in bar
 			Line(15), // bar() call in foo
-			#end
 		]);
 		if (r != null)
 			throw r;

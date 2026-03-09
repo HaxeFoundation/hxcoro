@@ -90,12 +90,10 @@ class Setup {
 
 	static public function createLuv() {
 		final loop = eval.luv.Loop.init().resolve();
-		final pool = new hxcoro.thread.FixedThreadPool(1);
 		final scheduler = new hxcoro.schedulers.LuvScheduler(loop);
-		final dispatcher = new hxcoro.dispatchers.ThreadPoolDispatcher(scheduler, pool);
+		final dispatcher = new hxcoro.dispatchers.LuvDispatcher(loop, scheduler);
 		function finalize() {
 			scheduler.shutdown();
-			pool.shutDown();
 			loop.stop();
 			loop.close();
 		}

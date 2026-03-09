@@ -48,14 +48,34 @@ The eval interpreter produces the most complete and accurate stacks.
 - `throw e` (rethrowing a caught exception) **appends** the rethrow location
   and its continuation chain to the existing stack rather than replacing it,
   producing a doubled call path in the stack array.
-- The `task.await()` call site does **not** appear as a stack frame when a
-  child task's exception propagates through it.  The child task's continuation
+- The `task.await()` call site does **not** appear as a stack frame when a child
+  async task's exception propagates through it.  The child async task's continuation
   chain links back to where the child was **created** (`node.async()` call
   site) rather than where the parent is currently *waiting* (`task.await()`
   call site), so the awaiting position is not captured.
+- For **lazy** tasks however, the call-site frame comes from where the task was
+  **started** (`task.start()` or `task.await()` on a `lazy()` task), not from
+  where `lazy()` was called.  This is because lazy tasks record their start
+  position only when `start()` or `await()` is first called.
+- The above is **transitive** when using `await()`: if lazy `task2` awaits lazy
+  `task1` (and `task1` has not been started yet), calling `task2.start()` will
+  correctly show both the `task1.await()` call site inside `task2` and the
+  `task2.start()` call site in the stack (via `callerTask`, which captures the
+  awaiting task's context at first positioning in `await()`).
+- Transitivity also works through `start(node)`: since `start()` is not a
+  coroutine, it accepts an optional debug-only `?caller:ICoroNode` parameter.
+  Passing `node` (e.g. `task1.start(node)`) provides the calling task's context
+  so `callerTask` is set correctly.  Without `node`, the chain goes directly
+  from the started task to the parent entry task.
 - `scope()` and `supervisor()` now include their **call-site frame** in the
   chain (as of hxcoro commit fd8002c, which passes `callPos` to the scope
   task).  No `Skip` or internal `hxcoro/Coro.hx` frame is needed.
+- `timeout()` produces a `TimeoutException` whose stack contains **only pure
+  `coro` frames** (no throw-line frame, no `LocalFunction` duplicate): the
+  `timeout()` call site, the `node.async()` call site, and the outer entry
+  lambda line.  The exception is synthetic (created internally by the
+  `timeout` implementation, not thrown by user code) — use `Line(N)` directly
+  for all three frames on all targets.
 - When a child task throws and cancels its siblings, each sibling's
   `CancellationException` carries the **original thrower's stack** (as of
   hxcoro 0b56e3a, which propagates the error stack through
@@ -76,25 +96,15 @@ JS runtime frames.  Tests that assert sibling cancellation stacks should use
 
 ### hl (HashLink)
 
-Generally matches eval, with one documented quirk that affects all test
-cases: the position of the **first (innermost) coroutine frame** is
-OS-dependent.
+Runs on Linux only in CI (excluded from Windows and macOS runners to avoid
+OS-dependent JIT quirks).  On Linux, HL produces the same stack shape as eval:
 
-- **Linux HL**: the exact throw line is reported (matching eval).
-- **Windows and macOS HL**: the coroutine *definition* line is reported
-  instead (probable JIT-related frame-omission).
-
-Because the line can be either the definition or the throw position depending
-on the OS, all tests use `AnyLine` for the innermost HL frame rather than
-asserting a specific line number.
-
-The `toprecursion` test has an additional quirk: the innermost sync-bridge
-frame (`Top.hx:throwing`) may be absent on Windows/macOS HL, so it uses
-`Skip` past that region.
-
-Plain (non-`@:coroutine`) functions called from inside a coroutine lambda use
-`OptionalLine` for their frame, since that frame may also be absent on
-Windows/macOS HL (same JIT root cause as above).
+- The innermost frame reports the **exact throw line** (matching eval).
+- Sync-bridge frames are captured, just as on eval and cpp.
+- The `toprecursion` test uses the same `#if (eval || cpp || jvm || hl)` branch
+  as the other "full-stack" targets.
+- Plain (non-`@:coroutine`) functions called from inside a coroutine lambda
+  have their frame fully present, so no `OptionalLine` is needed.
 
 ### cpp
 
@@ -126,13 +136,15 @@ Identical stack shape to eval.
 
 | Quirk                                        | Targets affected         |
 |----------------------------------------------|--------------------------|
-| First frame = definition line, not throw line | hl (Windows/macOS — use `AnyLine`) |
+| First frame = definition line, not throw line | none (HL runs Linux-only where it matches eval) |
 | Sync-bridge frames absent                    | js, python, neko, php (before first suspension point only; eval and cpp always expose them) |
 | Rethrow appends to stack instead of replacing | all targets              |
-| `task.await()` call site absent from stack   | all targets (child creation-site shown; await-site not captured) |
+| `task.await()` call site absent from stack   | all targets (child async creation-site shown; await-site not captured) |
+| Lazy `task.start()` / `task.await()` call-site frame present | all targets (start position recorded at first explicit start/await, not at `lazy()` call; transitive via `callerTask` for `await()` chains and `start(node)` calls) |
 | `scope()` / `supervisor()` call-site frame present | all targets (since fd8002c; use `Line(N)` directly) |
 | `CancellationException` from `cancel()` has no user-code frames | all targets (coroStack is empty; raw runtime frames only) |
 | Sibling `CancellationException` stack mirrors the original exception | all targets except JS (stack assignment not supported on JS; internal frames only) |
+| `timeout()` produces 3 pure `coro` frames (no throw-line, no `LocalFunction` duplicate) | all targets (synthetic exception; frames come from `PosInfo`, not `invokeResume`) |
 
 ## Test cases
 
@@ -144,8 +156,9 @@ Identical stack shape to eval.
 | `catchrethrow`     | Catching an exception in a coroutine and rethrowing it           |
 | `asyncscope`       | Exception thrown from a `scope.async()` child coroutine          |
 | `nestedplainthrow` | Plain (non-`@:coroutine`) function called from deeply-nested `node.async()` lambdas |
-| `awaittask`        | Child task throws; parent explicitly awaits it with `task.await()` |
+| `lazytask`        | Lazy task with `task.start()`, `task.await()`, transitive await chain, and transitive start chain |
 | `supervisortask`   | Child task throws inside a `supervisor()` scope; parent awaits child |
 | `scopetask`        | Child task throws inside a `scope()` call; scope call-site frame visible |
+| `awaittask`        | Child task throws; parent explicitly awaits it with `task.await()` |
 | `cancellation`       | Child task throws; exception propagates via scope cancellation (no explicit await) |
-| `siblingcancellation` | Child1 throws; sibling child2 receives `CancellationException` with child1's original stack |
+| `timeout`          | Loop cancelled by `timeout()`; `TimeoutException` stack shows the `timeout()` call site and outer task chain |

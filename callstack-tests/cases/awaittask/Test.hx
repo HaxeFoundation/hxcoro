@@ -14,13 +14,7 @@ class Test {
 		final stack = e.stack.asArray();
 		final r = new Inspector(stack).inspect([
 			File('awaittask/AwaitTask.hx'),
-			#if hl
-			// HL first-frame position is OS-dependent: definition line on
-			// Windows/macOS, throw line on Linux (same JIT behaviour as foobarbaz).
-			AnyLine,  // childThrower() (line varies by HL OS)
-			#else
 			Line(12), // throw inside childThrower()
-			#end
 			Line(17), // _ -> childThrower() child-task entry lambda (at node.async() call)
 			Line(17), // coro frame for the node.async() call (same position)
 			Line(16), // coro frame for the outer CoroRun.run() entry lambda

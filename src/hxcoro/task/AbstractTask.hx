@@ -5,8 +5,8 @@ import haxe.coro.cancellation.ICancellationCallback;
 import haxe.coro.cancellation.ICancellationHandle;
 import haxe.coro.cancellation.ICancellationToken;
 import haxe.exceptions.CancellationException;
-import hxcoro.concurrent.AtomicInt;
-import hxcoro.concurrent.AtomicObject;
+import haxe.atomic.AtomicInt;
+import haxe.atomic.AtomicObject;
 import hxcoro.concurrent.AtomicState;
 import hxcoro.concurrent.BackOff;
 
@@ -80,7 +80,7 @@ abstract class AbstractTask implements ICancellationToken {
 		this.parent = parent;
 		state = new AtomicState(Created);
 		error = new AtomicObject(null);
-		cancellationManager = new TaskCancellationManager(this);
+		cancellationManager = @:nullSafety(Off) new TaskCancellationManager(this);
 		numActiveChildren = new AtomicInt(0);
 		if (parent != null) {
 			parent.addChild(this);
@@ -88,7 +88,7 @@ abstract class AbstractTask implements ICancellationToken {
 		switch (initialState) {
 			case Created:
 			case Running:
-				start();
+				activate();
 			case _:
 				setInternalException('Invalid initial state $initialState');
 		}
@@ -147,14 +147,14 @@ abstract class AbstractTask implements ICancellationToken {
 		return error.load() != null;
 	}
 
-	public function onCancellationRequested(callback:ICancellationCallback):ICancellationHandle {
+	public function onCancellationRequested(callback:ICancellationCallback):Null<ICancellationHandle> {
 		return cancellationManager.add(callback);
 	}
 
 	/**
 		Starts executing this task. Has no effect if the task is already active or has completed.
 	**/
-	public final function start() {
+	function activate() {
 		if (state.compareExchange(Created, Running) == Created) {
 			// Check if parent is cancelling and attempt to cancel this task before starting.
 			// If the task has NonCancellable context, doCancel() will return early and
@@ -218,14 +218,14 @@ abstract class AbstractTask implements ICancellationToken {
 				final children = getCurrentChildren();
 				numActiveChildren.store(activeChildren);
 				for (child in children) {
-					child.start();
+					child.activate();
 				}
 		}
 	}
 
 	function getCurrentChildren() {
 		// Only safe to call if numActiveChildren is locked
-		final children = [];
+		final children:Array<AbstractTask> = [];
 		var child = firstChild;
 		while (child != null) {
 			children.push(child);

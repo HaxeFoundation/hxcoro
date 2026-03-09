@@ -14,13 +14,7 @@ class Test {
 		final stack = e.stack.asArray();
 		final r = new Inspector(stack).inspect([
 			File('catchrethrow/CatchRethrow.hx'),
-			#if hl
-			// HL first-frame position is OS-dependent: definition line on
-			// Windows/macOS, throw line on Linux (same JIT behaviour as foobarbaz).
-			AnyLine,  // thrower() (line varies by HL OS)
-			#else
 			Line(6),  // throw inside thrower()
-			#end
 			Line(12), // thrower() call inside catcher()'s try block
 			Line(19), // entry lambda: _ -> catcher()
 			Line(19), // enclosing coro frame

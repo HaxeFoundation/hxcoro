@@ -14,13 +14,7 @@ class Test {
 		final stack = e.stack.asArray();
 		final r = new Inspector(stack).inspect([
 			File('siblingcancellation/SiblingCancellation.hx'),
-			#if hl
-			// HL first-frame position is OS-dependent: definition line on
-			// Windows/macOS, throw line on Linux (same JIT behaviour as foobarbaz).
-			AnyLine,  // child1() (line varies by HL OS)
-			#else
 			Line(20), // throw inside child1()
-			#end
 			Line(30), // _ -> child1() child-task entry lambda (at node.async() call)
 			Line(30), // coro frame for the node.async() call (same position)
 			Line(29), // coro frame for the outer context.runTask entry lambda
@@ -39,12 +33,7 @@ class Test {
 		final stack = e.stack.asArray();
 		final r = new Inspector(stack).inspect([
 			File('siblingcancellation/SiblingCancellation.hx'),
-			#if hl
-			// Same HL quirk as the main exception above.
-			AnyLine,  // child1() (line varies by HL OS)
-			#else
 			Line(20), // throw inside child1() — not where child2 was cancelled
-			#end
 			Line(30), // _ -> child1() — the original throw origin, not child2's location
 			Line(30), // coro frame for node.async() call (child1's creation site)
 			Line(29), // coro frame for context.runTask entry lambda

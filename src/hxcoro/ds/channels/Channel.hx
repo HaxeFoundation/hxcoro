@@ -1,9 +1,9 @@
 package hxcoro.ds.channels;
 
 import haxe.coro.IContinuation;
-import haxe.coro.Mutex;
+import sys.thread.Mutex;
 import haxe.exceptions.ArgumentException;
-import hxcoro.concurrent.AtomicObject;
+import haxe.atomic.AtomicObject;
 import hxcoro.ds.CircularBuffer;
 import hxcoro.ds.Out;
 import hxcoro.ds.PagedDeque;
@@ -122,16 +122,5 @@ class Channel<T> implements IChannelReader<T> implements IChannelWriter<T> {
 
 	public function close() {
 		writer.close();
-	}
-
-	public function iterator() {
-		return AsyncGenerator.create(yield -> {
-			final out = new Out();
-			while (reader.waitForRead()) {
-				while (reader.tryRead(out)) {
-					yield(out.get());
-				}
-			}
-		});
 	}
 }

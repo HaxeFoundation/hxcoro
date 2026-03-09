@@ -4,7 +4,7 @@ import haxe.coro.dispatchers.Dispatcher;
 import haxe.coro.dispatchers.IDispatchObject;
 import haxe.coro.schedulers.IScheduler;
 import haxe.exceptions.ArgumentException;
-import hxcoro.concurrent.Tls;
+import sys.thread.Tls;
 import hxcoro.schedulers.EventLoopScheduler;
 
 private class Trampoline {
@@ -22,10 +22,9 @@ private class Trampoline {
 			return value;
 		}
 		#if target.threaded
-		final thread = sys.thread.Thread.current();
-		thread.onExit(function() {
+		sys.thread.Thread.addCurrentCallbacks({onExit: () -> {
 			tls.value = null;
-		});
+		}});
 		#end
 		final trampoline = new Trampoline();
 		tls.value = trampoline;
@@ -40,7 +39,6 @@ final class TrampolineDispatcher extends Dispatcher {
 	public function new(scheduler : IScheduler = null) {
 		s             = scheduler ?? new EventLoopScheduler();
 		trampolineTls = new Tls();
-		trampolineTls.value = null; // TODO: python...
 	}
 
 	public function get_scheduler() {

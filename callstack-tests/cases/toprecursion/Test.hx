@@ -8,8 +8,8 @@ class Test {
 		} catch (e:haxe.exceptions.NotImplementedException) {
 			final stack = e.stack.asArray();
 			final r = new Inspector(stack).inspect([
-				#if (eval || cpp || jvm)
-				// On eval, cpp and jvm the native exception stack carries the sync throw
+				#if (eval || cpp || jvm || hl)
+				// On eval, cpp, jvm and hl the native exception stack carries the sync throw
 				// site (Top.hx frames) and the invokeResume mechanism patches the
 				// first coro frame to its actual call position.
 				File('toprecursion/Top.hx'),
@@ -18,26 +18,6 @@ class Test {
 					Line(12), // topCall1 calling topCall2
 				File('toprecursion/CoroUpper.hx'),
 					Line(8),  // recursion base case calling topCall1 (patched by invokeResume)
-					Line(6),  // recursion -> recursion recursive call (x4)
-					Line(6),
-					Line(6),
-					Line(6),
-					Line(15), // bar calling recursion
-				Skip('toprecursion/SyncMiddle.hx'),
-					Line(4),  // lambda in syncFun2 (CoroRun.run call site)
-					Line(8),  // syncFun1 calling syncFun2 (sync bridge frame)
-				File('toprecursion/CoroLower.hx'),
-					Line(6),  // foo calling syncFun1 (patched by outer invokeResume)
-				Skip('toprecursion/Bottom.hx'),
-					Line(4)   // lambda in entry (CoroRun.run call site)
-				#elseif hl
-				// HL also captures sync bridge frames, but the innermost throwing()
-				// frame at line 4 is absent on macOS/Windows HL (probable HL inlining
-				// or frame-omission bug — reported to HL maintainers).
-				// We skip past Top.hx entirely and assert the consistently-present
-				// coro chain starting at CoroUpper.
-				Skip('toprecursion/CoroUpper.hx'),
-					Line(8),  // recursion base case (patched by invokeResume)
 					Line(6),  // recursion -> recursion recursive call (x4)
 					Line(6),
 					Line(6),

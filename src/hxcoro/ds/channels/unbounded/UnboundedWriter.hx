@@ -1,7 +1,7 @@
 package hxcoro.ds.channels.unbounded;
 
 import haxe.coro.CoroIntrinsics;
-import haxe.coro.Mutex;
+import sys.thread.Mutex;
 import haxe.coro.IContinuation;
 import hxcoro.ds.Out;
 import hxcoro.ds.PagedDeque;

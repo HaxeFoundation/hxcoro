@@ -2,7 +2,7 @@ package structured;
 
 import hxcoro.concurrent.CoroBarrier;
 import hxcoro.dispatchers.TrampolineDispatcher;
-import haxe.coro.Mutex;
+import sys.thread.Mutex;
 import haxe.Exception;
 import haxe.exceptions.CancellationException;
 import hxcoro.schedulers.VirtualTimeScheduler;
