@@ -9,7 +9,15 @@ class PipeReader {
 		this.state = state;
 	}
 
-	public function read() {
+	@:coroutine public function read() {
+		//
+	}
+
+	@:coroutine public function readAtLeast(count:Int) {
+		//
+	}
+
+	public function advance(consumed:Int, observed:Int) {
 		//
 	}
 }
