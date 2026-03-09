@@ -8,7 +8,11 @@ import haxe.coro.dispatchers.IDispatchObject;
 import haxe.ds.Vector;
 import hxcoro.concurrent.AtomicState;
 import sys.thread.Semaphore;
+#if eval
+import eval.luv.Thread;
+#else
 import sys.thread.Thread;
+#end
 import sys.thread.Tls;
 
 typedef DispatchQueue = WorkStealingQueue<IDispatchObject>;
