@@ -44,10 +44,9 @@ class BenchPipeline {
 				});
 				// Stage 2 – transform
 				node.async(_ -> {
-					final out = new Out();
-					while (ch1.waitForRead())
-						while (ch1.tryRead(out))
-							ch2.write(out.get() * 2);
+					for (i in ch1) {
+						ch2.write(i * 2);
+					}
 					ch2.close();
 				});
 				// Stage 3 – sink
