@@ -1,8 +1,9 @@
-import cases.BenchBasic;
-import cases.BenchChannel;
-import cases.BenchMutex;
+import cases.BenchWorkerPool;
+import cases.BenchPipeline;
+import cases.BenchContendedMutex;
+import cases.BenchCancellation;
+import cases.BenchFanOut;
 import cases.BenchGenerator;
-import cases.BenchTask;
 
 /**
  * hxcoro benchmark suite entry point.
@@ -35,11 +36,12 @@ function main() {
 
 	// Collect results from every benchmark module.
 	final results:Array<BenchResult> = [];
-	for (r in BenchBasic.run())     results.push(r);
-	for (r in BenchTask.run())      results.push(r);
-	for (r in BenchChannel.run())   results.push(r);
-	for (r in BenchMutex.run())     results.push(r);
-	for (r in BenchGenerator.run()) results.push(r);
+	for (r in BenchWorkerPool.run())      results.push(r);
+	for (r in BenchPipeline.run())        results.push(r);
+	for (r in BenchContendedMutex.run())  results.push(r);
+	for (r in BenchCancellation.run())    results.push(r);
+	for (r in BenchFanOut.run())          results.push(r);
+	for (r in BenchGenerator.run())       results.push(r);
 
 	// Human-readable table.
 	printTable(results);
@@ -98,7 +100,7 @@ function fmtMs(ms:Float):String {
 }
 
 function printTable(results:Array<BenchResult>):Void {
-	final COL1 = 26;
+	final COL1 = 28;
 	final COL2 = 10;
 	final COL3 = 13;
 	final COL4 = 14;
@@ -121,7 +123,7 @@ function printTable(results:Array<BenchResult>):Void {
 final REGRESSION_THRESHOLD = 0.10;
 
 function printComparison(current:Array<BenchResult>, previous:Array<BenchResult>):Void {
-	final COL1 = 26;
+	final COL1 = 28;
 	final COL2 = 14;
 	final COL3 = 14;
 	final COL4 = 10;

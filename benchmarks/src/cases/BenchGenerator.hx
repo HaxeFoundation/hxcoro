@@ -16,7 +16,7 @@ class BenchGenerator {
 	}
 
 	static function benchIterate():BenchResult {
-		final n = BenchConfig.LARGE;
+		final n = BenchConfig.GENERATOR_ITERS;
 		return BenchRunner.measure("generator/iterate", n, () -> {
 			final gen = HaxeGenerator.create(yield -> {
 				for (i in 0...n)
