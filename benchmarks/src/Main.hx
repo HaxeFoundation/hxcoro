@@ -122,6 +122,7 @@ function printTable(results:Array<BenchResult>, previous:Null<Array<BenchResult>
 	say(StringTools.rpad('', '-', COL1 + COL2 + COL3 + (havePrev ? COL4 : 0)));
 
 	var regressions = 0;
+	var totalMs = 0.0;
 	for (r in results) {
 		var changeStr = '';
 		if (havePrev) {
@@ -142,7 +143,11 @@ function printTable(results:Array<BenchResult>, previous:Null<Array<BenchResult>
 			+ lpad(fmtMs(r.elapsedMs), COL2)
 			+ lpad(fmtOps(r.opsPerSec), COL3)
 			+ changeStr);
+		totalMs += r.elapsedMs;
 	}
+
+	say(StringTools.rpad('', '-', COL1 + COL2 + COL3 + (havePrev ? COL4 : 0)));
+	say(rpad('total', COL1) + lpad(fmtMs(totalMs), COL2));
 
 	if (regressions > 0)
 		say('\n⚠  $regressions benchmark(s) regressed by more than ${Std.int(REGRESSION_THRESHOLD * 100)}%.');
@@ -204,6 +209,7 @@ function getTarget():String {
 	#elseif python return "python";
 	#elseif php   return "php";
 	#elseif neko  return "neko";
+	#elseif lua   return "lua";
 	#else         return "unknown";
 	#end
 }
