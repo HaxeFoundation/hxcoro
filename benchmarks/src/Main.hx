@@ -43,16 +43,12 @@ function main() {
 	for (r in BenchFanOut.run())          results.push(r);
 	for (r in BenchGenerator.run())       results.push(r);
 
-	// Human-readable table.
-	printTable(results);
-
+	// Print combined results table (with Change column when a baseline exists).
 	#if sys
-	// Regression comparison and persistence.
-	if (previous != null) {
-		say('\nComparison with previous run (${previous.target}):');
-		printComparison(results, previous.results);
-	}
+	printTable(results, previous?.results);
 	saveResults(target, results);
+	#else
+	printTable(results, null);
 	#end
 }
 
@@ -99,62 +95,53 @@ function fmtMs(ms:Float):String {
 	return Std.string(rounded);
 }
 
-function printTable(results:Array<BenchResult>):Void {
-	final COL1 = 28;
-	final COL2 = 10;
-	final COL3 = 13;
-	final COL4 = 14;
-
-	say(rpad('Benchmark', COL1) + lpad('Iter', COL2) + lpad('Time (ms)', COL3) + lpad('Ops/sec', COL4));
-	say(StringTools.rpad('', '-', COL1 + COL2 + COL3 + COL4));
-	for (r in results) {
-		say(rpad(r.name, COL1)
-			+ lpad(Std.string(r.iterations), COL2)
-			+ lpad(fmtMs(r.elapsedMs), COL3)
-			+ lpad(fmtOps(r.opsPerSec), COL4));
-	}
-}
-
 // ---------------------------------------------------------------------------
-// Regression comparison
+// Output
 // ---------------------------------------------------------------------------
 
 /** Regression threshold: flag if current ops/sec is more than 10 % slower. */
 final REGRESSION_THRESHOLD = 0.10;
 
-function printComparison(current:Array<BenchResult>, previous:Array<BenchResult>):Void {
+/**
+ * Print the benchmark results table.
+ *
+ * When `previous` is non-null a "Change" column is appended to every row
+ * and regression warnings are printed at the end.
+ */
+function printTable(results:Array<BenchResult>, previous:Null<Array<BenchResult>>):Void {
 	final COL1 = 28;
-	final COL2 = 14;
-	final COL3 = 14;
-	final COL4 = 10;
+	final COL2 = 13; // Time (ms)
+	final COL3 = 14; // Ops/sec
+	final COL4 = 10; // Change
 
-	say(rpad('Benchmark', COL1) + lpad('Previous', COL2) + lpad('Current', COL3) + lpad('Change', COL4));
-	say(StringTools.rpad('', '-', COL1 + COL2 + COL3 + COL4));
+	final havePrev = previous != null;
+	say(rpad('Benchmark', COL1)
+		+ lpad('Time (ms)', COL2)
+		+ lpad('Ops/sec', COL3)
+		+ (havePrev ? lpad('Change', COL4) : ''));
+	say(StringTools.rpad('', '-', COL1 + COL2 + COL3 + (havePrev ? COL4 : 0)));
 
 	var regressions = 0;
-	for (cur in current) {
-		// Find the matching previous result by name.
-		var prev:Null<BenchResult> = null;
-		for (p in previous) {
-			if (p.name == cur.name) { prev = p; break; }
+	for (r in results) {
+		var changeStr = '';
+		if (havePrev) {
+			var prev:Null<BenchResult> = null;
+			for (p in previous) if (p.name == r.name) { prev = p; break; }
+			changeStr = if (prev == null) {
+				lpad('new', COL4);
+			} else {
+				final ratio = (prev.opsPerSec > 0) ? r.opsPerSec / prev.opsPerSec : 1.0;
+				final pct   = Math.round((ratio - 1.0) * 1000) / 10;
+				final sign  = pct >= 0 ? '+' : '';
+				final flag  = (ratio < 1.0 - REGRESSION_THRESHOLD) ? ' ⚠' : '';
+				if (flag != '') regressions++;
+				lpad('$sign${pct}%$flag', COL4);
+			};
 		}
-		if (prev == null) {
-			say(rpad(cur.name, COL1) + lpad('N/A', COL2) + lpad(fmtOps(cur.opsPerSec), COL3) + lpad('new', COL4));
-			continue;
-		}
-
-		final ratio   = (prev.opsPerSec > 0) ? cur.opsPerSec / prev.opsPerSec : 1.0;
-		final pct     = Math.round((ratio - 1.0) * 1000) / 10; // one decimal place
-		final sign    = pct >= 0 ? '+' : '';
-		final flag    = (ratio < 1.0 - REGRESSION_THRESHOLD) ? ' ⚠' : '';
-		final change  = '$sign${pct}%$flag';
-
-		if (flag != '') regressions++;
-
-		say(rpad(cur.name, COL1)
-			+ lpad(fmtOps(prev.opsPerSec), COL2)
-			+ lpad(fmtOps(cur.opsPerSec), COL3)
-			+ lpad(change, COL4));
+		say(rpad(r.name, COL1)
+			+ lpad(fmtMs(r.elapsedMs), COL2)
+			+ lpad(fmtOps(r.opsPerSec), COL3)
+			+ changeStr);
 	}
 
 	if (regressions > 0)
