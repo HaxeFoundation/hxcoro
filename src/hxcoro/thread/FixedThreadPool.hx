@@ -1,15 +1,16 @@
 package hxcoro.thread;
 
+import haxe.coro.dispatchers.IDispatchObject;
+import haxe.ds.Vector;
+import hxcoro.concurrent.AtomicState;
+import sys.thread.Mutex;
+import sys.thread.Semaphore;
+import sys.thread.Thread;
+import sys.thread.Tls;
 #if (!target.threaded)
 #error "This class is not available on this target"
 #end
 
-import haxe.coro.dispatchers.IDispatchObject;
-import haxe.ds.Vector;
-import hxcoro.concurrent.AtomicState;
-import sys.thread.Semaphore;
-import sys.thread.Thread;
-import sys.thread.Tls;
 
 typedef DispatchQueue = WorkStealingQueue<IDispatchObject>;
 
@@ -58,6 +59,8 @@ class FixedThreadPool implements IThreadPool {
 	final semaphore:Semaphore;
 	final pool:Array<Worker>;
 	final queueTls:Tls<DispatchQueue>;
+	final mainQueueMutex:Mutex;
+	final mainQueue:DispatchQueue;
 
 	/**
 		Create a new thread pool with `threadsCount` threads.
@@ -70,7 +73,9 @@ class FixedThreadPool implements IThreadPool {
 		semaphore = new Semaphore(0);
 		queueTls = new Tls();
 		final queues = Vector.fromArrayCopy([for (_ in 0...threadsCount + 1) new WorkStealingQueue()]);
-		queueTls.value = queues[0];
+		mainQueueMutex = new Mutex();
+		mainQueue = queues[0];
+		queueTls.value = mainQueue;
 		pool = [for(i in 0...threadsCount) new Worker(semaphore, queueTls, queues, i + 1)];
 		for (worker in pool) {
 			worker.start();
@@ -87,7 +92,14 @@ class FixedThreadPool implements IThreadPool {
 		if(obj == null) {
 			throw new ThreadPoolException('Task to run must not be null.');
 		}
-		@:nullSafety(Off) queueTls.value.add(obj);
+		final queue = queueTls.value;
+		if (queue != null) {
+			queue.add(obj);
+		} else {
+			mainQueueMutex.acquire();
+			mainQueue.add(obj);
+			mainQueueMutex.release();
+		}
 		semaphore.release();
 	}
 
