@@ -43,8 +43,8 @@ class Runner {
 				if (pattern != null && !StringTools.contains(t.name, pattern)) continue;
 
 				totalTests++;
-				c.instance.setup();
 				try {
+					c.instance.setup();
 					t.execute();
 					c.instance.teardown();
 					totalPassed++;

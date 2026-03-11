@@ -47,10 +47,10 @@ class Assert {
 
 	public static function isOfType<T>(value:T, type:Any, ?msg:String, ?pos:PosInfos) {
 		if (!Std.isOfType(value, type)) {
+			final typeName = try Type.getClassName(type) catch (_:Dynamic) Std.string(type);
+			final valueName = try Type.getClassName(Type.getClass(value)) catch (_:Dynamic) Std.string(value);
 			throw new AssertFailure(
-				msg != null
-					? msg
-					: 'Expected type ${Type.getClassName(type)} but was ${Type.getClassName(Type.getClass(value))}',
+				msg != null ? msg : 'Expected type $typeName but was $valueName',
 				pos
 			);
 		}
