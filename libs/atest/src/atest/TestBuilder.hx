@@ -39,27 +39,15 @@ class TestBuilder {
 					if (!isStatic && StringTools.startsWith(field.name, TEST_PREFIX)) {
 						final test = field.name;
 						final timeoutExpr = getTimeoutExpr(cls, field);
-						final isCoroutine = field.meta != null && field.meta.exists(m -> m.name == ":coroutine");
 
-						if (isCoroutine) {
-							initExprs.push(macro tests.push({
-								name: $v{test},
-								timeout: $timeoutExpr,
-								execute: function() {
-									atest.Runner.runCoro(function(_) {
-										this.$test();
-									});
-								}
-							}));
-						} else {
-							initExprs.push(macro tests.push({
-								name: $v{test},
-								timeout: $timeoutExpr,
-								execute: function() {
-									this.$test();
-								}
-							}));
-						}
+						initExprs.push(macro tests.push({
+							name: $v{test},
+							timeout: $timeoutExpr,
+							execute: function(_) {
+								this.$test();
+								return null;
+							}
+						}));
 					}
 				case _:
 			}

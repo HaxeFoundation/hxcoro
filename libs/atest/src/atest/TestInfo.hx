@@ -3,5 +3,5 @@ package atest;
 typedef TestInfo = {
 	name:String,
 	timeout:Int,
-	execute:() -> Void
+	execute:hxcoro.task.NodeLambda<Dynamic>
 }

@@ -1,7 +1,14 @@
 package atest;
 
+import haxe.atomic.AtomicInt;
+
 /**
 	Collects test cases, runs them and prints results.
+
+	Each test method runs inside its own ``Coro.timeout`` scope,
+	giving it a distinct coroutine task and enforcing the ``@:timeout``
+	deadline.  A single event-loop / dispatcher is shared across all
+	tests.
 
 	Usage:
 	```haxe
@@ -27,49 +34,61 @@ class Runner {
 	**/
 	public function run():Bool {
 		final pattern = Macros.getDefine("ATEST-PATTERN");
-
-		var totalTests = 0;
-		var totalPassed = 0;
-		var totalFailed = 0;
-		var totalErrors = 0;
-		var allPassed = true;
+		// Thread-safe counters for future parallel execution.
+		final totalTests = new AtomicInt(0);
+		final totalPassed = new AtomicInt(0);
+		final totalFailed = new AtomicInt(0);
+		final totalErrors = new AtomicInt(0);
+		// Sequential access only (coroutine is single-threaded).
 		final failures:Array<String> = [];
+		final cases = this.cases;
 
-		for (c in cases) {
-			println('${c.name}');
-			final tests:Array<TestInfo> = (cast c.instance : Dynamic).__atestInit__();
+		final setup = hxcoro.run.Setup.createDefault();
+		final context = setup.createContext();
+		hxcoro.run.LoopRun.runTask(setup.loop, context, function(node) {
+			for (c in cases) {
+				println('${c.name}');
+				final tests:Array<TestInfo> = (cast c.instance : Dynamic).__atestInit__();
 
-			for (t in tests) {
-				if (pattern != null && !StringTools.contains(t.name, pattern)) continue;
+				for (t in tests) {
+					if (pattern != null && !StringTools.contains(t.name, pattern)) continue;
 
-				totalTests++;
-				try {
-					c.instance.setup();
-					t.execute();
-					c.instance.teardown();
-					totalPassed++;
-					printResult(t.name, true, null);
-				} catch (e:AssertFailure) {
-					allPassed = false;
-					totalFailed++;
-					final detail = '${e.message} at ${e.posToString()}';
-					printResult(t.name, false, detail);
-					failures.push('  ${c.name}::${t.name} - $detail');
+					totalTests.add(1);
 					try {
-						c.instance.teardown();
-					} catch (_:Dynamic) {}
-				} catch (e:Dynamic) {
-					allPassed = false;
-					totalErrors++;
-					final detail = Std.string(e);
-					printResult(t.name, false, 'ERROR: $detail');
-					failures.push('  ${c.name}::${t.name} - ERROR: $detail');
-					try {
-						c.instance.teardown();
-					} catch (_:Dynamic) {}
+						hxcoro.Coro.timeout(t.timeout, function(scopeNode) {
+							c.instance.setup();
+							t.execute(scopeNode);
+							c.instance.teardown();
+						});
+						totalPassed.add(1);
+						printResult(t.name, true, null);
+					} catch (e:hxcoro.exceptions.TimeoutException) {
+						totalFailed.add(1);
+						final detail = 'timeout after ${t.timeout}ms';
+						printResult(t.name, false, detail);
+						failures.push('  ${c.name}::${t.name} - $detail');
+					} catch (e:AssertFailure) {
+						totalFailed.add(1);
+						final detail = '${e.message} at ${e.posToString()}';
+						printResult(t.name, false, detail);
+						failures.push('  ${c.name}::${t.name} - $detail');
+						try {
+							c.instance.teardown();
+						} catch (_:Dynamic) {}
+					} catch (e:Dynamic) {
+						totalErrors.add(1);
+						final detail = Std.string(e);
+						printResult(t.name, false, 'ERROR: $detail');
+						failures.push('  ${c.name}::${t.name} - ERROR: $detail');
+						try {
+							c.instance.teardown();
+						} catch (_:Dynamic) {}
+					}
 				}
 			}
-		}
+			return null;
+		});
+		setup.close();
 
 		println("");
 		if (failures.length > 0) {
@@ -77,25 +96,12 @@ class Runner {
 			for (f in failures) println(f);
 			println("");
 		}
-		println('$totalTests tests, $totalPassed passed, $totalFailed failed, $totalErrors errors');
-		return allPassed;
-	}
-
-	// ------------------------------------------------------------------
-	// Coroutine execution helper — uses fully qualified types to avoid
-	// macro-time resolution of hxcoro imports.
-	// ------------------------------------------------------------------
-
-	/** Run a coroutine lambda synchronously using ``Setup.createDefault``. **/
-	public static function runCoro<T>(lambda:hxcoro.task.NodeLambda<T>):T {
-		final s = hxcoro.run.Setup.createDefault();
-		final context = s.createContext();
-		final task = hxcoro.run.LoopRun.runTask(s.loop, context, lambda);
-		s.close();
-		return switch (task.getError()) {
-			case null: task.get();
-			case error: throw error;
-		};
+		final passed = totalPassed.load();
+		final failed = totalFailed.load();
+		final errors = totalErrors.load();
+		final total = totalTests.load();
+		println('$total tests, $passed passed, $failed failed, $errors errors');
+		return failed == 0 && errors == 0;
 	}
 
 	// ------------------------------------------------------------------
