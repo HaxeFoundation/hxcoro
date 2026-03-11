@@ -1,5 +1,5 @@
 --class-path src
---library atest
+--class-path ../libs/atest/src
 --library hxcoro
 --main Main
 -D use-vec-deque
