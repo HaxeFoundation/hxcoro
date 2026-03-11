@@ -1,7 +1,7 @@
 import hxcoro.Coro.*;
 import Helper;
 
-class TestTryCatch extends utest.Test {
+class TestTryCatch extends atest.Test {
 	function testTryCatch() {
 		Assert.same(["e1", "e2"], run(@:coroutine function run(_) {
 			return mapCalls([new E1(), new E2()], tryCatch);

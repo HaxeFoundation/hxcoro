@@ -4,7 +4,7 @@ import hxcoro.concurrent.CoroLatch;
 import sys.thread.Mutex;
 import haxe.exceptions.CancellationException;
 
-class Issue64 extends utest.Test {
+class Issue64 extends atest.Test {
 	function test() {
 		final cause = new CancellationException();
 		final cancellations = [];

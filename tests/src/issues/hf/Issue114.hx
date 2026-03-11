@@ -6,7 +6,7 @@ import hxcoro.concurrent.CoroSemaphore;
 
 using hxcoro.run.ContextRun;
 
-class Issue114 extends utest.Test {
+class Issue114 extends atest.Test {
 	function test() {
 		function newRunner() {
 			return Setup.createEventLoopTrampoline().createContext();

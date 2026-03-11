@@ -6,7 +6,7 @@ import hxcoro.CoroRun;
 import hxcoro.Coro.*;
 import hxcoro.task.AbstractTask;
 
-class Issue106 extends utest.Test {
+class Issue106 extends atest.Test {
 	public function test() {
 		final scheduler   = new VirtualTimeScheduler();
 		final dispatcher  = new TrampolineDispatcher(scheduler);

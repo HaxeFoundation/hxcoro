@@ -4,7 +4,7 @@ import hxcoro.dispatchers.TrampolineDispatcher;
 import hxcoro.schedulers.VirtualTimeScheduler;
 import haxe.Exception;
 
-class Issue113 extends utest.Test {
+class Issue113 extends atest.Test {
 	function testAwaitSingleChild() {
 		final scheduler = new VirtualTimeScheduler();
 		final dispatcher = new TrampolineDispatcher(scheduler);

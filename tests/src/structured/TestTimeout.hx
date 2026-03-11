@@ -6,7 +6,7 @@ import haxe.exceptions.ArgumentException;
 import hxcoro.schedulers.VirtualTimeScheduler;
 import hxcoro.exceptions.TimeoutException;
 
-class TestTimeout extends utest.Test {
+class TestTimeout extends atest.Test {
 	function test_timeout() {
 		final scheduler  = new VirtualTimeScheduler();
 		final dispatcher = new TrampolineDispatcher(scheduler);

@@ -4,7 +4,7 @@ import hxcoro.generators.AsyncGenerator;
 import hxcoro.ds.channels.Channel;
 import hxcoro.run.Setup;
 
-class TestAsyncGenerator extends utest.Test {
+class TestAsyncGenerator extends atest.Test {
 	public function testChannelIterator() {
 		final setup = Setup.createVirtualTrampoline();
 		final actual = [];

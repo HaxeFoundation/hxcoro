@@ -4,7 +4,7 @@ import haxe.exceptions.CoroutineException;
 import haxe.ds.Vector;
 import hxcoro.concurrent.CoroBarrier;
 
-class TestBarrier extends utest.Test {
+class TestBarrier extends atest.Test {
 	function testCppSample() {
 		final numTasks = 3;
 		final actual = [];

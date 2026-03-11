@@ -100,7 +100,8 @@ class Runner {
 		final failed = totalFailed.load();
 		final errors = totalErrors.load();
 		final total = totalTests.load();
-		println('$total tests, $passed passed, $failed failed, $errors errors');
+		final assertionCount = Assert.assertions.load();
+		println('$total tests, $passed passed, $failed failed, $errors errors, $assertionCount assertions');
 		return failed == 0 && errors == 0;
 	}
 

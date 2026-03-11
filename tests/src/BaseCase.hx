@@ -1,11 +1,11 @@
 @:keepSub
 @:keep
-class BaseCase implements utest.ITest {
+class BaseCase extends atest.Test {
 	var dummy:String = '';
 
 	public function new() {}
 
-	public function setup() {
+	override public function setup() {
 		dummy = '';
 	}
 

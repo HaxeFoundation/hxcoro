@@ -9,7 +9,7 @@ import hxcoro.ds.Out;
 import hxcoro.ds.channels.Channel;
 import hxcoro.exceptions.TimeoutException;
 
-class TestBoundedChannel extends utest.Test {
+class TestBoundedChannel extends atest.Test {
 	public function test_creating() {
 		Assert.notNull(Channel.createBounded({ size : 3 }));
 	}

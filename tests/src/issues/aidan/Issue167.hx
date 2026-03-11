@@ -10,7 +10,7 @@ private class Foo {
 	}
 }
 
-class Issue167 extends utest.Test {
+class Issue167 extends atest.Test {
 	function test() {
 		Assert.equals("test", run((_) -> {
 			"test".bar();

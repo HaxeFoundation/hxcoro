@@ -2,7 +2,7 @@ import haxe.Exception;
 import hxcoro.schedulers.VirtualTimeScheduler;
 import hxcoro.dispatchers.TrampolineDispatcher;
 
-class TestBasic extends utest.Test {
+class TestBasic extends atest.Test {
 	function testSimple() {
 		Assert.equals(42, run(@:coroutine function run(_) {
 			return simple(42);

@@ -16,6 +16,7 @@ using Lambda;
 class TestBuilder {
 	static inline var TEST_PREFIX = "test";
 	static inline var TIMEOUT_META = ":timeout";
+	static inline var IGNORE_META = ":ignore";
 	static inline var DEFAULT_TIMEOUT = 10000;
 
 	macro static public function build():Array<Field> {
@@ -37,6 +38,8 @@ class TestBuilder {
 				case FFun(fn):
 					final isStatic = field.access != null && field.access.has(AStatic);
 					if (!isStatic && StringTools.startsWith(field.name, TEST_PREFIX)) {
+						if (field.meta != null && field.meta.exists(m -> m.name == IGNORE_META)) continue;
+
 						final test = field.name;
 						final timeoutExpr = getTimeoutExpr(cls, field);
 
