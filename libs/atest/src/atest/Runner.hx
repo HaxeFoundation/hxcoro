@@ -43,7 +43,9 @@ class Runner {
 		final failures:Array<String> = [];
 		final cases = this.cases;
 
-		final setup = hxcoro.run.Setup.createDefault();
+		// Use a single-threaded event loop for the runner itself.
+		// Tests that need a thread pool create their own via run().
+		final setup = hxcoro.run.Setup.createEventLoopTrampoline();
 		final context = setup.createContext();
 		hxcoro.run.LoopRun.runTask(setup.loop, context, function(node) {
 			for (c in cases) {
