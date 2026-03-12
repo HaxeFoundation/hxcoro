@@ -124,43 +124,62 @@ class Assert {
 		return true;
 	}
 
-	static function deepEquals<T>(a:T, b:T):Bool {
+	static function deepEquals(a:Dynamic, b:Dynamic):Bool {
 		if (a == b) return true;
 		if (a == null || b == null) return false;
-		// Arrays
-		if (Std.isOfType(a, Array)) {
-			final arrA:Array<Dynamic> = cast a;
-			final arrB:Array<Dynamic> = cast b;
-			if (arrA.length != arrB.length) return false;
-			for (i in 0...arrA.length) {
-				if (!deepEquals(arrA[i], arrB[i])) return false;
-			}
-			return true;
+
+		return switch (Type.typeof(a)) {
+			case TInt, TFloat:
+				switch (Type.typeof(b)) {
+					case TInt, TFloat: (a : Float) == (b : Float);
+					case _: false;
+				}
+			case TBool: a == b;
+			case TClass(c):
+				if (c == Array) {
+					final arrA:Array<Dynamic> = a;
+					final arrB:Array<Dynamic> = b;
+					if (arrB == null || arrA.length != arrB.length) return false;
+					for (i in 0...arrA.length)
+						if (!deepEquals(arrA[i], arrB[i])) return false;
+					true;
+				} else if (c == String) {
+					(a : String) == (b : String);
+				} else {
+					// Class instances: compare fields
+					final fields = Type.getInstanceFields(c);
+					for (field in fields) {
+						final va = Reflect.getProperty(a, field);
+						if (Reflect.isFunction(va)) continue;
+						final vb = Reflect.getProperty(b, field);
+						if (!deepEquals(va, vb)) return false;
+					}
+					true;
+				}
+			case TEnum(_):
+				switch (Type.typeof(b)) {
+					case TEnum(_):
+						if (Type.enumIndex(a) != Type.enumIndex(b)) return false;
+						final paramsA = Type.enumParameters(a);
+						final paramsB = Type.enumParameters(b);
+						if (paramsA.length != paramsB.length) return false;
+						for (i in 0...paramsA.length)
+							if (!deepEquals(paramsA[i], paramsB[i])) return false;
+						true;
+					case _: false;
+				}
+			case TObject:
+				// Anonymous objects
+				final fieldsA = Reflect.fields(a);
+				final fieldsB = Reflect.fields(b);
+				if (fieldsA.length != fieldsB.length) return false;
+				for (field in fieldsA)
+					if (!deepEquals(Reflect.field(a, field), Reflect.field(b, field))) return false;
+				true;
+			case TFunction:
+				Reflect.compareMethods(a, b);
+			case _:
+				false;
 		}
-		// Enum values – use Reflect.isEnumValue to avoid unsafe casts on C++.
-		if (Reflect.isEnumValue(a)) {
-			if (!Reflect.isEnumValue(b)) return false;
-			final ea:EnumValue = cast a;
-			final eb:EnumValue = cast b;
-			if (Type.enumIndex(ea) != Type.enumIndex(eb)) return false;
-			final paramsA = Type.enumParameters(ea);
-			final paramsB = Type.enumParameters(eb);
-			if (paramsA.length != paramsB.length) return false;
-			for (i in 0...paramsA.length) {
-				if (!deepEquals(paramsA[i], paramsB[i])) return false;
-			}
-			return true;
-		}
-		// Anonymous objects / structs
-		if (Reflect.isObject(a) && Type.getClass(a) == null) {
-			final fieldsA = Reflect.fields(a);
-			final fieldsB = Reflect.fields(b);
-			if (fieldsA.length != fieldsB.length) return false;
-			for (field in fieldsA) {
-				if (!deepEquals(Reflect.field(a, field), Reflect.field(b, field))) return false;
-			}
-			return true;
-		}
-		return false;
 	}
 }
