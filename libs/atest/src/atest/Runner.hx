@@ -61,11 +61,15 @@ class Runner {
 						// emits a plain function call instead of a colon-call
 						// on the anonymous struct (which would shift args).
 						final exec = t.execute;
+						final beforeAssertions = Assert.assertions.load();
 						hxcoro.Coro.timeout(t.timeout, function(scopeNode) {
 							c.instance.setup();
 							exec(scopeNode);
 							c.instance.teardown();
 						});
+						if (Assert.assertions.load() == beforeAssertions) {
+							throw new AssertFailure("No assertions made", null);
+						}
 						totalPassed.add(1);
 						printResult(t.name, true, null);
 					} catch (e:hxcoro.exceptions.TimeoutException) {
@@ -75,7 +79,7 @@ class Runner {
 						failures.push('  ${c.name}::${t.name} - $detail');
 					} catch (e:AssertFailure) {
 						totalFailed.add(1);
-						final detail = '${e.message} at ${e.posToString()}';
+						final detail = e.pos != null ? '${e.message} at ${e.posToString()}' : e.message;
 						printResult(t.name, false, detail);
 						failures.push('  ${c.name}::${t.name} - $detail');
 						try {
