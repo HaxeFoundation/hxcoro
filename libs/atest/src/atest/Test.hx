@@ -10,7 +10,7 @@ package atest;
 @:keepSub
 @:keep
 @:autoBuild(atest.TestBuilder.build())
-class Test {
+abstract class Test {
 	public function new() {}
 
 	public function setup() {}

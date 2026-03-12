@@ -68,6 +68,12 @@ class TestBasic extends atest.Test {
 
 	#end
 
+	function testCoroWithNode(node) {
+		node.async(node -> {
+			Assert.pass();
+		});
+	}
+
 	@:coroutine static function simple(arg:Int):Int {
 		return arg;
 	}

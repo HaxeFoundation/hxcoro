@@ -1,12 +1,10 @@
 package atest;
 
-#if macro
 import haxe.macro.Context;
 import haxe.macro.Expr;
 import haxe.macro.Type.ClassType;
 
 using Lambda;
-#end
 
 /**
 	Build macro invoked by ``@:autoBuild`` on ``atest.Test``.
@@ -17,9 +15,10 @@ class TestBuilder {
 	static inline var TEST_PREFIX = "test";
 	static inline var TIMEOUT_META = ":timeout";
 	static inline var IGNORE_META = ":ignore";
+	static inline var COROUTINE_META = ":coroutine";
 	static inline var DEFAULT_TIMEOUT = 10000;
 
-	macro static public function build():Array<Field> {
+	static public function build():Array<Field> {
 		if (Context.defined("display")) return null;
 
 		final cls = Context.getLocalClass().get();
@@ -40,14 +39,26 @@ class TestBuilder {
 					if (!isStatic && StringTools.startsWith(field.name, TEST_PREFIX)) {
 						if (field.meta != null && field.meta.exists(m -> m.name == IGNORE_META)) continue;
 
+						if (field.meta == null || !field.meta.exists(m -> m.name == COROUTINE_META)) {
+							field.meta = [{name: COROUTINE_META, params: null, pos: field.pos}];
+						}
 						final test = field.name;
 						final timeoutExpr = getTimeoutExpr(cls, field);
+						final args = if (fn.args.length > 0) {
+							final arg = fn.args[0];
+							if (arg.type == null) {
+								arg.type = macro :ICoroNode;
+							}
+							[macro scope];
+						} else {
+							[];
+						}
 
 						initExprs.push(macro tests.push({
 							name: $v{test},
 							timeout: $timeoutExpr,
-							execute: function(_) {
-								this.$test();
+							execute: function(scope) {
+								this.$test($a{args});
 								return null;
 							}
 						}));
@@ -71,7 +82,6 @@ class TestBuilder {
 		return fields;
 	}
 
-#if macro
 	static function ancestorHasAtestInit(cls:ClassType):Bool {
 		if (cls.superClass == null) return false;
 		final superClass = cls.superClass.t.get();
@@ -97,5 +107,4 @@ class TestBuilder {
 		}
 		return macro $v{DEFAULT_TIMEOUT};
 	}
-#end
 }
