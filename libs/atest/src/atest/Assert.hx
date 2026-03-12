@@ -137,22 +137,20 @@ class Assert {
 			}
 			return true;
 		}
-		// Enum values
-		try {
-			if (Type.getEnum(cast a) != null) {
-				if (Type.getEnum(cast b) == null) return false;
-				final ea:EnumValue = cast a;
-				final eb:EnumValue = cast b;
-				if (Type.enumIndex(ea) != Type.enumIndex(eb)) return false;
-				final paramsA = Type.enumParameters(ea);
-				final paramsB = Type.enumParameters(eb);
-				if (paramsA.length != paramsB.length) return false;
-				for (i in 0...paramsA.length) {
-					if (!deepEquals(paramsA[i], paramsB[i])) return false;
-				}
-				return true;
+		// Enum values – use Reflect.isEnumValue to avoid unsafe casts on C++.
+		if (Reflect.isEnumValue(a)) {
+			if (!Reflect.isEnumValue(b)) return false;
+			final ea:EnumValue = cast a;
+			final eb:EnumValue = cast b;
+			if (Type.enumIndex(ea) != Type.enumIndex(eb)) return false;
+			final paramsA = Type.enumParameters(ea);
+			final paramsB = Type.enumParameters(eb);
+			if (paramsA.length != paramsB.length) return false;
+			for (i in 0...paramsA.length) {
+				if (!deepEquals(paramsA[i], paramsB[i])) return false;
 			}
-		} catch (_:Dynamic) {}
+			return true;
+		}
 		// Anonymous objects / structs
 		if (Reflect.isObject(a) && Type.getClass(a) == null) {
 			final fieldsA = Reflect.fields(a);

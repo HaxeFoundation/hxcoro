@@ -57,9 +57,13 @@ class Runner {
 
 					totalTests.add(1);
 					try {
+						// Extract `execute` into a local so the Lua backend
+						// emits a plain function call instead of a colon-call
+						// on the anonymous struct (which would shift args).
+						final exec = t.execute;
 						hxcoro.Coro.timeout(t.timeout, function(scopeNode) {
 							c.instance.setup();
-							t.execute(scopeNode);
+							exec(scopeNode);
 							c.instance.teardown();
 						});
 						totalPassed.add(1);
