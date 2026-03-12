@@ -137,16 +137,19 @@ class Assert {
 			case TBool: a == b;
 			case TClass(c):
 				if (c == Array) {
+					if (!Std.isOfType(b, Array)) return false;
 					final arrA:Array<Dynamic> = a;
 					final arrB:Array<Dynamic> = b;
-					if (arrB == null || arrA.length != arrB.length) return false;
+					if (arrA.length != arrB.length) return false;
 					for (i in 0...arrA.length)
 						if (!deepEquals(arrA[i], arrB[i])) return false;
 					true;
 				} else if (c == String) {
 					(a : String) == (b : String);
 				} else {
-					// Class instances: compare fields
+					// Class instances: verify b is the same class
+					final cb = Type.getClass(b);
+					if (cb != c) return false;
 					final fields = Type.getInstanceFields(c);
 					for (field in fields) {
 						final va = Reflect.getProperty(a, field);
@@ -169,13 +172,16 @@ class Assert {
 					case _: false;
 				}
 			case TObject:
-				// Anonymous objects
-				final fieldsA = Reflect.fields(a);
-				final fieldsB = Reflect.fields(b);
-				if (fieldsA.length != fieldsB.length) return false;
-				for (field in fieldsA)
-					if (!deepEquals(Reflect.field(a, field), Reflect.field(b, field))) return false;
-				true;
+				switch (Type.typeof(b)) {
+					case TObject:
+						final fieldsA = Reflect.fields(a);
+						final fieldsB = Reflect.fields(b);
+						if (fieldsA.length != fieldsB.length) return false;
+						for (field in fieldsA)
+							if (!deepEquals(Reflect.field(a, field), Reflect.field(b, field))) return false;
+						true;
+					case _: false;
+				}
 			case TFunction:
 				Reflect.compareMethods(a, b);
 			case _:
