@@ -47,7 +47,7 @@ class TestBuilder {
 						final args = if (fn.args.length > 0) {
 							final arg = fn.args[0];
 							if (arg.type == null) {
-								arg.type = macro :ICoroNode;
+								arg.type = macro : hxcoro.task.ICoroNode;
 							}
 							[macro scope];
 						} else {
