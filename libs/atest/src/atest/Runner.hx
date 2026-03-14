@@ -115,9 +115,9 @@ class Runner {
 
 		var poll:() -> Void = null;
 		poll = function() {
-			setup.loop.loop(cast (2 : Int)); // RunMode.NoWait
+			setup.loop.loop(hxcoro.schedulers.ILoop.RunMode.NoWait);
 			if (task.isActive()) {
-				js.Syntax.code("setTimeout({0}, 0)", poll);
+				haxe.Timer.delay(poll, 0);
 			} else {
 				setup.close();
 				printSummary(failures, totalTests, totalPassed, totalFailed, totalErrors);
