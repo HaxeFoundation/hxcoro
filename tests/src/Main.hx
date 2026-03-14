@@ -25,8 +25,7 @@ function main() {
 	runner.addCase(new TestHoisting());
 	runner.addCase(new TestTexpr());
 	#if js
-	// TODO: TestJsPromise needs conversion from utest.Async pattern to @:coroutine
-	// runner.addCase(new TestJsPromise());
+	runner.addCase(new TestJsPromise());
 	#end
 
 	atest.Macros.addCases(runner, "issues");

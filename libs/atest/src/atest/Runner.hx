@@ -31,6 +31,11 @@ class Runner {
 	/**
 		Run all registered tests. Returns ``true`` when every test
 		passes, ``false`` otherwise.
+
+		On JS the event loop is driven asynchronously (via ``setTimeout``)
+		so that promise micro-tasks can be processed between coroutine
+		steps.  The method returns ``true`` immediately; the real exit
+		code is set with ``process.exit`` once all tests finish.
 	**/
 	public function run():Bool {
 		final pattern = Macros.getDefine("ATEST-PATTERN");
@@ -47,7 +52,8 @@ class Runner {
 		// Tests that need a thread pool create their own via run().
 		final setup = hxcoro.run.Setup.createEventLoopTrampoline();
 		final context = setup.createContext();
-		hxcoro.run.LoopRun.runTask(setup.loop, context, function(node) {
+
+		final testLambda:hxcoro.task.NodeLambda<Dynamic> = function(node) {
 			for (c in cases) {
 				println('${c.name}');
 				final tests:Array<TestInfo> = (cast c.instance : Dynamic).__atestInit__();
@@ -97,9 +103,45 @@ class Runner {
 				}
 			}
 			return null;
-		});
+		};
+
+		#if js
+		// On JS the EventLoopScheduler busy-waits with a no-op BackOff,
+		// which blocks the single JS thread and prevents promise
+		// micro-tasks (.then callbacks) from ever executing.  Drive the
+		// loop asynchronously via setTimeout so the JS event loop can
+		// process micro-tasks between iterations.
+		final task = hxcoro.run.ContextRun.launchTask(context, testLambda);
+
+		var poll:() -> Void = null;
+		poll = function() {
+			setup.loop.loop(cast (2 : Int)); // RunMode.NoWait
+			if (task.isActive()) {
+				js.Syntax.code("setTimeout({0}, 0)", poll);
+			} else {
+				setup.close();
+				printSummary(failures, totalTests, totalPassed, totalFailed, totalErrors);
+				final exitCode = (totalFailed.load() == 0 && totalErrors.load() == 0) ? 0 : 1;
+				js.Syntax.code("process.exit({0})", exitCode);
+			}
+		};
+		poll();
+		return true; // Unused; real exit code set by process.exit above.
+		#else
+		hxcoro.run.LoopRun.runTask(setup.loop, context, testLambda);
 		setup.close();
 
+		return printSummary(failures, totalTests, totalPassed, totalFailed, totalErrors);
+		#end
+	}
+
+	static function printSummary(
+		failures:Array<String>,
+		totalTests:AtomicInt,
+		totalPassed:AtomicInt,
+		totalFailed:AtomicInt,
+		totalErrors:AtomicInt
+	):Bool {
 		println("");
 		if (failures.length > 0) {
 			println("Failures:");
