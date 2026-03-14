@@ -117,11 +117,9 @@ class Setup {
 	#end
 
 	static public function createDefault() {
-		#if interp
-		return createLuv();
-		#elseif (cpp && hxcpp_luv_io)
+		#if (cpp && hxcpp_luv_io)
 		return createLuvThreadPool();
-		#elseif (jvm || cpp || hl)
+		#elseif (jvm || cpp || interp)
 		return createThreadPool(10);
 		#else
 		return createEventLoopTrampoline();
