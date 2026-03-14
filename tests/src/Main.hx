@@ -16,35 +16,32 @@ function main() {
 	}
 	#end
 
-	var cases = [
-		new TestBasic(),
-		new TestTricky(),
-		new TestControlFlow(),
-		new TestTryCatch(),
-		new TestHoisting(),
-		new TestTexpr(),
-		#if js
-		new TestJsPromise(),
-		#end
-	];
+	final runner = new atest.Runner();
 
-	var runner = new utest.Runner();
-
-	for (eachCase in cases) {
-		runner.addCase(eachCase);
-	}
-	runner.addCases("issues");
-	runner.addCases("concurrent");
-	runner.addCases("ds");
-	runner.addCases("elements");
-	runner.addCases("features");
-	#if !hl // TODO: ping Yuxiao about this
-	runner.addCases("generators");
+	runner.addCase(new TestBasic());
+	runner.addCase(new TestTricky());
+	runner.addCase(new TestControlFlow());
+	runner.addCase(new TestTryCatch());
+	runner.addCase(new TestHoisting());
+	runner.addCase(new TestTexpr());
+	#if js
+	runner.addCase(new TestJsPromise());
 	#end
-	runner.addCases("run");
-	runner.addCases("schedulers");
-	runner.addCases("structured");
 
-    utest.ui.Report.create(runner, NeverShowSuccessResults, AlwaysShowHeader);
-    runner.run();
+	atest.Macros.addCases(runner, "issues");
+	atest.Macros.addCases(runner, "concurrent");
+	atest.Macros.addCases(runner, "ds");
+	atest.Macros.addCases(runner, "elements");
+	atest.Macros.addCases(runner, "features");
+	#if !hl // TODO: ping Yuxiao about this
+	atest.Macros.addCases(runner, "generators");
+	#end
+	atest.Macros.addCases(runner, "run");
+	atest.Macros.addCases(runner, "schedulers");
+	atest.Macros.addCases(runner, "structured");
+
+	final passed = runner.run();
+	#if sys
+	Sys.exit(passed ? 0 : 1);
+	#end
 }

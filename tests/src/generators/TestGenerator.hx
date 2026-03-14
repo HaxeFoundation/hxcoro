@@ -9,7 +9,7 @@ import haxe.Unit;
 
 using Lambda;
 
-class TestGenerator extends utest.Test {
+class TestGenerator extends atest.Test {
 	function testSimple() {
 		var iter = HaxeGenerator.create(yield -> {
 			yield(1);

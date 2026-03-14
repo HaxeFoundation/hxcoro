@@ -2,7 +2,7 @@ package structured;
 
 import structured.TestThrowingScopes.FooException;
 
-class TestLazyScopes extends utest.Test {
+class TestLazyScopes extends atest.Test {
 	function test_create_return() {
 		final result = run(node -> {
 			final child = node.lazy(_ -> return "foo");

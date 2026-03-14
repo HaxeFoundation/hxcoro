@@ -1,0 +1,186 @@
+package atest;
+
+import haxe.atomic.AtomicInt;
+
+/**
+	Collects test cases, runs them and prints results.
+
+	Each test method runs inside its own ``Coro.timeout`` scope,
+	giving it a distinct coroutine task and enforcing the ``@:timeout``
+	deadline.  A single event-loop / dispatcher is shared across all
+	tests.
+
+	Usage:
+	```haxe
+	final runner = new Runner();
+	runner.addCase(new MyTests());
+	Sys.exit(runner.run() ? 0 : 1);
+	```
+**/
+class Runner {
+	var cases:Array<CaseEntry> = [];
+
+	public function new() {}
+
+	/** Register a test case instance. **/
+	public function addCase(tc:Test) {
+		final name = Type.getClassName(Type.getClass(tc));
+		cases.push({name: name, instance: tc});
+	}
+
+	/**
+		Run all registered tests. Returns ``true`` when every test
+		passes, ``false`` otherwise.
+
+		On JS the event loop is driven asynchronously (via ``setTimeout``)
+		so that promise micro-tasks can be processed between coroutine
+		steps.  The method returns ``true`` immediately; the real exit
+		code is set with ``process.exit`` once all tests finish.
+	**/
+	public function run():Bool {
+		final pattern = Macros.getDefine("ATEST-PATTERN");
+		// Thread-safe counters for future parallel execution.
+		final totalTests = new AtomicInt(0);
+		final totalPassed = new AtomicInt(0);
+		final totalFailed = new AtomicInt(0);
+		final totalErrors = new AtomicInt(0);
+		// Sequential access only (coroutine is single-threaded).
+		final failures:Array<String> = [];
+		final cases = this.cases;
+
+		// Use a single-threaded event loop for the runner itself.
+		// Tests that need a thread pool create their own via run().
+		final setup = hxcoro.run.Setup.createEventLoopTrampoline();
+		final context = setup.createContext();
+
+		final testLambda:hxcoro.task.NodeLambda<Dynamic> = function(node) {
+			for (c in cases) {
+				println('${c.name}');
+				final tests:Array<TestInfo> = (cast c.instance : Dynamic).__atestInit__();
+
+				for (t in tests) {
+					if (pattern != null && !StringTools.contains(t.name, pattern)) continue;
+
+					totalTests.add(1);
+					try {
+						// Extract `execute` into a local so the Lua backend
+						// emits a plain function call instead of a colon-call
+						// on the anonymous struct (which would shift args).
+						final exec = t.execute;
+						final beforeAssertions = Assert.assertions.load();
+						hxcoro.Coro.timeout(t.timeout, function(scopeNode) {
+							c.instance.setup();
+							exec(scopeNode);
+							c.instance.teardown();
+						});
+						if (Assert.assertions.load() == beforeAssertions) {
+							throw new AssertFailure("No assertions made", null);
+						}
+						totalPassed.add(1);
+						printResult(t.name, true, null);
+					} catch (e:hxcoro.exceptions.TimeoutException) {
+						totalFailed.add(1);
+						final detail = 'timeout after ${t.timeout}ms';
+						printResult(t.name, false, detail);
+						failures.push('  ${c.name}::${t.name} - $detail');
+					} catch (e:AssertFailure) {
+						totalFailed.add(1);
+						final detail = e.pos != null ? '${e.message} at ${e.posToString()}' : e.message;
+						printResult(t.name, false, detail);
+						failures.push('  ${c.name}::${t.name} - $detail');
+						try {
+							c.instance.teardown();
+						} catch (_:Dynamic) {}
+					} catch (e:Dynamic) {
+						totalErrors.add(1);
+						final detail = Std.string(e);
+						printResult(t.name, false, 'ERROR: $detail');
+						failures.push('  ${c.name}::${t.name} - ERROR: $detail');
+						try {
+							c.instance.teardown();
+						} catch (_:Dynamic) {}
+					}
+				}
+			}
+			return null;
+		};
+
+		#if js
+		// On JS the EventLoopScheduler busy-waits with a no-op BackOff,
+		// which blocks the single JS thread and prevents promise
+		// micro-tasks (.then callbacks) from ever executing.  Drive the
+		// loop asynchronously via setTimeout so the JS event loop can
+		// process micro-tasks between iterations.
+		final task = hxcoro.run.ContextRun.launchTask(context, testLambda);
+
+		var poll:() -> Void = null;
+		poll = function() {
+			setup.loop.loop(hxcoro.schedulers.ILoop.RunMode.NoWait);
+			if (task.isActive()) {
+				haxe.Timer.delay(poll, 0);
+			} else {
+				setup.close();
+				printSummary(failures, totalTests, totalPassed, totalFailed, totalErrors);
+				final exitCode = (totalFailed.load() == 0 && totalErrors.load() == 0) ? 0 : 1;
+				js.Syntax.code("process.exit({0})", exitCode);
+			}
+		};
+		poll();
+		return true; // Unused; real exit code set by process.exit above.
+		#else
+		hxcoro.run.LoopRun.runTask(setup.loop, context, testLambda);
+		setup.close();
+
+		return printSummary(failures, totalTests, totalPassed, totalFailed, totalErrors);
+		#end
+	}
+
+	static function printSummary(
+		failures:Array<String>,
+		totalTests:AtomicInt,
+		totalPassed:AtomicInt,
+		totalFailed:AtomicInt,
+		totalErrors:AtomicInt
+	):Bool {
+		println("");
+		if (failures.length > 0) {
+			println("Failures:");
+			for (f in failures) println(f);
+			println("");
+		}
+		final passed = totalPassed.load();
+		final failed = totalFailed.load();
+		final errors = totalErrors.load();
+		final total = totalTests.load();
+		final assertionCount = Assert.assertions.load();
+		println('$total tests, $passed passed, $failed failed, $errors errors, $assertionCount assertions');
+		return failed == 0 && errors == 0;
+	}
+
+	// ------------------------------------------------------------------
+	// Output helpers
+	// ------------------------------------------------------------------
+
+	static function printResult(name:String, passed:Bool, ?detail:String) {
+		if (passed) {
+			println('  $name ... OK');
+		} else {
+			println('  $name ... FAIL: $detail');
+		}
+	}
+
+	static function println(msg:String) {
+		#if sys
+		Sys.println(msg);
+		#elseif js
+		js.Syntax.code("console.log({0})", msg);
+		#else
+		trace(msg);
+		#end
+	}
+}
+
+private typedef CaseEntry = {
+	name:String,
+	instance:Test
+}

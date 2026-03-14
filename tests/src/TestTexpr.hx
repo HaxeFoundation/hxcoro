@@ -17,7 +17,7 @@ private class C<T> {
 	}
 }
 
-class TestTexpr extends utest.Test {
+class TestTexpr extends atest.Test {
 	function testField() {
 		var c = new C("foo");
 

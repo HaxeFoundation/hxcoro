@@ -14,7 +14,7 @@ class VirtualTimeSchedulerTools {
 	}
 }
 
-class TestVirtualTimeScheduler extends utest.Test {
+class TestVirtualTimeScheduler extends atest.Test {
 	public function test_time_after_advancing_by() {
 		final sut = new VirtualTimeScheduler();
 

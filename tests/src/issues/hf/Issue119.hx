@@ -5,7 +5,7 @@ import hxcoro.Coro.*;
 import hxcoro.CoroRun;
 import hxcoro.concurrent.CoroLatch;
 
-class Issue119 extends utest.Test {
+class Issue119 extends atest.Test {
 	/**
 		Verifies that calling a coroutine with a custom `FunctionContinuation` inside
 		`suspend` works correctly on both single-threaded and multi-threaded targets.
@@ -16,7 +16,7 @@ class Issue119 extends utest.Test {
 		Previously the continuation was silently dropped and the program would hang.
 	**/
 	@:timeout(5000)
-	function test(async:utest.Async) {
+	function test() {
 		run((_) -> {
 			@:coroutine function g() {
 				yield();
@@ -37,7 +37,6 @@ class Issue119 extends utest.Test {
 
 				latch.wait();
 				Assert.same(["called"], log);
-				async.done();
 			}
 
 			f();
@@ -56,7 +55,7 @@ class Issue119 extends utest.Test {
 		`CancellingContinuation` is involved in this test.
 	**/
 	@:timeout(5000)
-	function testRacingContinuation(async:utest.Async) {
+	function testRacingContinuation() {
 		run((_) -> {
 			@:coroutine function f() {
 				final log = [];
@@ -70,7 +69,6 @@ class Issue119 extends utest.Test {
 				});
 
 				Assert.same(["called"], log);
-				async.done();
 			}
 
 			f();

@@ -37,7 +37,7 @@ private class TestContinuation<T> implements IContinuation<Bool> {
 	}
 }
 
-class TestUnboundedWriter extends utest.Test {
+class TestUnboundedWriter extends atest.Test {
 	function test_try_write() {
 		final out    = new Out();
 		final buffer = new PagedDeque();

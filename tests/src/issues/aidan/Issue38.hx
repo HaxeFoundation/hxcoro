@@ -6,7 +6,7 @@ package issues.aidan;
 	});
 }
 
-class Issue38 extends utest.Test {
+class Issue38 extends atest.Test {
 	function test() {
 		Assert.equals("Hello, World!", run(foo));
 	}

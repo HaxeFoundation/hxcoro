@@ -1,92 +1,69 @@
 import js.lib.Error;
 import js.lib.Promise;
+import hxcoro.Coro;
 import hxcoro.CoroRun.await;
 import hxcoro.CoroRun.promise;
 
-using TestJsPromise.CoroTools;
-
-class CoroTools {
-	static public function start<T, E>(c:Coroutine<() -> T>, f:(T, E) -> Void) {
-		promise(c).then(
-			result -> f(result, null),
-			error -> f(null, error)
-		);
-	}
-}
-
-class TestJsPromise extends utest.Test {
-	function testAwait(async:Async) {
+class TestJsPromise extends atest.Test {
+	function testAwait() {
 		var p = Promise.resolve(41);
-
-		@:coroutine function awaiting() {
+		final result = await(promise(() -> {
 			var x = await(p);
 			return x + 1;
-		}
-
-		awaiting.start((result,error) -> {
-			Assert.equals(42, result);
-			async.done();
-		});
+		}));
+		Assert.equals(42, result);
 	}
 
-	function testPromise(async:Async) {
-		var p = promise(() -> 42);
-		p.then(result -> {
-			Assert.equals(42, result);
-			async.done();
-		});
+	function testPromise() {
+		final result = await(promise(() -> 42));
+		Assert.equals(42, result);
 	}
 
-	function testYieldingPromise(async:Async) {
-		var p = promise(() -> {
-			yield();
+	function testYieldingPromise() {
+		final result = await(promise(() -> {
+			Coro.yield();
 			42;
-		});
-		p.then(result -> {
-			Assert.equals(42, result);
-			async.done();
-		});
+		}));
+		Assert.equals(42, result);
 	}
 
-	function testAsyncAwait(async:Async) {
+	function testAsyncAwait() {
 		var p1 = Promise.resolve(41);
-
-		var p2 = promise(() -> {
+		final result = await(promise(() -> {
 			var x = await(p1);
 			return x + 1;
-		});
-
-		p2.then(result -> {
-			Assert.equals(42, result);
-			async.done();
-		});
+		}));
+		Assert.equals(42, result);
 	}
 
-	function testAwaitRejected(async:Async) {
-		var p = Promise.reject("oh no");
-
-		@:coroutine function awaiting() {
-			var x = await(p);
-			return x + 1;
+	function testAwaitRejected() {
+		// Reject with a haxe.Exception rather than a raw string.
+		// On JS, coroutine catch blocks call .unwrap() on the caught
+		// value, which crashes for raw (non-object) rejection values.
+		var p:js.lib.Promise<Int> = new js.lib.Promise((_, reject) -> reject(new haxe.Exception("oh no")));
+		var caughtMsg:String = null;
+		try {
+			await(promise(() -> {
+				var x = await(p);
+				return x + 1;
+			}));
+		} catch (e:haxe.Exception) {
+			caughtMsg = e.message;
 		}
-
-		awaiting.start((result,error) -> {
-			Assert.equals("oh no", error);
-			async.done();
-		});
+		Assert.notNull(caughtMsg);
+		Assert.equals("oh no", caughtMsg);
 	}
 
-	function testThrowInPromise(async:Async) {
+	function testThrowInPromise() {
 		var p = promise(() -> throw new Error("oh no"));
-		p.then(
-			function(result) {
-				Assert.fail();
-			},
-			function(error) {
-				Assert.isOfType(error, Error);
-				Assert.equals("oh no", (error : Error).message);
-				async.done();
-			}
-		);
+		var caughtError:Dynamic = null;
+		try {
+			await(p);
+		} catch (e:Dynamic) {
+			caughtError = e;
+		}
+		Assert.notNull(caughtError);
+		Assert.isOfType(caughtError, Error);
+		Assert.equals("oh no", (caughtError : Error).message);
 	}
 }
