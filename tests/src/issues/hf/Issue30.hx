@@ -18,7 +18,7 @@ class C2 extends C {
 	}
 }
 
-class Issue30 extends utest.Test {
+class Issue30 extends atest.Test {
 	function test() {
 		Assert.equals("ok", run(new C2("ok").f));
 		Assert.equals("ok", run((node) -> {

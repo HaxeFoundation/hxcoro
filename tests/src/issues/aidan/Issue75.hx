@@ -1,6 +1,6 @@
 package issues.aidan;
 
-import utest.Assert;
+import atest.Assert;
 import haxe.Exception;
 
 @:coroutine function foo() {
@@ -9,7 +9,7 @@ import haxe.Exception;
 	});
 }
 
-class Issue75 extends utest.Test {
+class Issue75 extends atest.Test {
     public function test() {
 		var s = "";
 		run((_) -> {

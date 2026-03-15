@@ -1,7 +1,7 @@
 # callstack-tests
 
 Mini-framework for asserting the shape of exception call stacks in hxcoro
-coroutines.  Unlike the main `tests/` suite (which uses `utest`), this
+coroutines.  Unlike the main `tests/` suite (which uses `atest`), this
 directory has a self-contained runner so that individual cases can pin the
 exact stack frames they care about.
 

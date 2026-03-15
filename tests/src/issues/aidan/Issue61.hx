@@ -1,8 +1,8 @@
 package issues.aidan;
 
-import utest.Assert;
+import atest.Assert;
 
-class Issue61 extends utest.Test {
+class Issue61 extends atest.Test {
 	public function test() {
 		run(foo);
 	}

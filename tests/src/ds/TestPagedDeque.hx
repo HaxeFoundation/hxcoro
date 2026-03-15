@@ -3,7 +3,7 @@ package ds;
 import haxe.ds.ArraySort;
 import hxcoro.ds.PagedDeque;
 
-class TestPagedDeque extends utest.Test {
+class TestPagedDeque extends atest.Test {
 	#if !use_vec_deque
 	public function test() {
 		function expect<T>(expected:Array<T>, d:Page<Any>, ?pos:haxe.PosInfos) {

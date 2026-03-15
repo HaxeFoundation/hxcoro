@@ -81,7 +81,7 @@ class NumberProducer {
 	}
 }
 
-class Issue124 extends utest.Test {
+class Issue124 extends atest.Test {
 	function test() {
 		final result = run(node -> {
 			final numbers = node.produceNumbers();

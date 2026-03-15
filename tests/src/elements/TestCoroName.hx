@@ -4,7 +4,7 @@ import hxcoro.dispatchers.TrampolineDispatcher;
 import hxcoro.elements.CoroName;
 import hxcoro.schedulers.EventLoopScheduler;
 
-class TestCoroName extends utest.Test {
+class TestCoroName extends atest.Test {
 	@:coroutine
 	function logDebug() {
 		return suspend(cont -> {

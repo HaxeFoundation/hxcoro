@@ -12,7 +12,7 @@ class C2 {
 	@:coroutine public function await() {}
 }
 
-class Issue91 extends utest.Test {
+class Issue91 extends atest.Test {
 	function test() {
 		final c1 = new C1();
 		final c2 = new C2();

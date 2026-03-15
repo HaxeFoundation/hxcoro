@@ -28,7 +28,7 @@ private class Child extends Parent {
 	}
 }
 
-class Issue95 extends utest.Test {
+class Issue95 extends atest.Test {
 	public function test() {
 		final child = new Child();
 		run((_) -> child.test());

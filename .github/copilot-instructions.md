@@ -13,7 +13,7 @@ hxcoro is a coroutine library for Haxe that provides generators, async generator
 
 ### Prerequisites
 
-Nightly Haxe, Neko, and haxelib are **pre-installed** in the agent environment via `.github/workflows/copilot-setup-steps.yml`, so you do not need to install them manually. The `utest` library and `hxcoro` dev library are also pre-configured.
+Nightly Haxe, Neko, and haxelib are **pre-installed** in the agent environment via `.github/workflows/copilot-setup-steps.yml`, so you do not need to install them manually.
 
 All 8 targets are available to run tests.
 
@@ -137,12 +137,11 @@ The repository uses GitHub Actions for CI (`.github/workflows/main.yml`). The CI
 ### Configuration Files
 
 - **haxelib.json:** Package metadata, sets class path to `src`
-- **build-base.hxml:** Common build settings for all tests (includes utest, main class, etc.)
+- **build-base.hxml:** Common build settings for all tests (includes main class, etc.)
 - **build-<target>.hxml:** Include base config and add target-specific flags
 
 ### Dependencies
 
-- **utest:** Testing framework (from GitHub: `haxe-utest/utest`)
 - **haxe.coro:** Core coroutine support (built into Haxe standard library)
 - **Target-specific:**
   - C++: hxcpp, hxcpp_luv_io
