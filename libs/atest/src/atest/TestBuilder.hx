@@ -16,6 +16,7 @@ class TestBuilder {
 	static inline var TIMEOUT_META = ":timeout";
 	static inline var IGNORE_META = ":ignore";
 	static inline var COROUTINE_META = ":coroutine";
+	static inline var CORO_CONTEXT_META = ":coroContext";
 	static inline var DEFAULT_TIMEOUT = 10000;
 
 	static public function build():Array<Field> {
@@ -31,6 +32,9 @@ class TestBuilder {
 		} else {
 			initExprs.push(macro var tests:Array<atest.TestInfo> = []);
 		}
+
+		// Collect class-level @:coroContext elements.
+		final classContextExprs = getCoroContextExprs(cls);
 
 		for (field in fields) {
 			switch (field.kind) {
@@ -54,13 +58,24 @@ class TestBuilder {
 							[];
 						}
 
+						// Merge class-level and method-level @:coroContext elements.
+						final methodContextExprs = getFieldCoroContextExprs(field);
+						final allContextExprs = classContextExprs.concat(methodContextExprs);
+						final contextExpr = if (allContextExprs.length > 0) {
+							final arr:Expr = {expr: EArrayDecl(allContextExprs), pos: field.pos};
+							macro $arr;
+						} else {
+							macro null;
+						};
+
 						initExprs.push(macro tests.push({
 							name: $v{test},
 							timeout: $timeoutExpr,
 							execute: function(scope) {
 								this.$test($a{args});
 								return null;
-							}
+							},
+							contextElements: $contextExpr
 						}));
 					}
 				case _:
@@ -106,5 +121,31 @@ class TestBuilder {
 			}
 		}
 		return macro $v{DEFAULT_TIMEOUT};
+	}
+
+	/** Extract ``@:coroContext`` parameter expressions from a class. **/
+	static function getCoroContextExprs(cls:ClassType):Array<Expr> {
+		final result:Array<Expr> = [];
+		if (cls.meta.has(CORO_CONTEXT_META)) {
+			for (m in cls.meta.extract(CORO_CONTEXT_META)) {
+				if (m.params != null) {
+					for (p in m.params) result.push(p);
+				}
+			}
+		}
+		return result;
+	}
+
+	/** Extract ``@:coroContext`` parameter expressions from a field. **/
+	static function getFieldCoroContextExprs(field:Field):Array<Expr> {
+		final result:Array<Expr> = [];
+		if (field.meta != null) {
+			for (m in field.meta) {
+				if (m.name == CORO_CONTEXT_META && m.params != null) {
+					for (p in m.params) result.push(p);
+				}
+			}
+		}
+		return result;
 	}
 }

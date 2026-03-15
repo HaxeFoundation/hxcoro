@@ -1,6 +1,7 @@
 package atest;
 
 import haxe.atomic.AtomicInt;
+import haxe.coro.context.IElement;
 
 /**
 	Collects test cases, runs them and prints results.
@@ -9,6 +10,12 @@ import haxe.atomic.AtomicInt;
 	giving it a distinct coroutine task and enforcing the ``@:timeout``
 	deadline.  A single event-loop / dispatcher is shared across all
 	tests.
+
+	Context elements can be supplied at three levels (later levels
+	take priority):
+	  1. **Runner** – passed to the constructor.
+	  2. **Class** – ``@:coroContext(…)`` metadata on the test class.
+	  3. **Method** – ``@:coroContext(…)`` metadata on a ``test*`` method.
 
 	Usage:
 	```haxe
@@ -19,13 +26,29 @@ import haxe.atomic.AtomicInt;
 **/
 class Runner {
 	var cases:Array<CaseEntry> = [];
+	var runnerContextElements:Array<IElement<Any>>;
 
-	public function new() {}
+	/**
+		Create a new runner.
 
-	/** Register a test case instance. **/
-	public function addCase(tc:Test) {
+		@param contextElements  Context elements added to *every* test
+		                        executed by this runner (lowest priority).
+	**/
+	public function new(?contextElements:Array<IElement<Any>>) {
+		this.runnerContextElements = contextElements != null ? contextElements : [];
+	}
+
+	/**
+		Register a test case instance.
+
+		@param tc               The test case.
+		@param contextElements  Extra context elements for every test in
+		                        this case (between runner and class-level
+		                        priority).
+	**/
+	public function addCase(tc:Test, ?contextElements:Array<IElement<Any>>) {
 		final name = Type.getClassName(Type.getClass(tc));
-		cases.push({name: name, instance: tc});
+		cases.push({name: name, instance: tc, contextElements: contextElements != null ? contextElements : []});
 	}
 
 	/**
@@ -47,6 +70,7 @@ class Runner {
 		// Sequential access only (coroutine is single-threaded).
 		final failures:Array<String> = [];
 		final cases = this.cases;
+		final runnerCtx = this.runnerContextElements;
 
 		// Use a single-threaded event loop for the runner itself.
 		// Tests that need a thread pool create their own via run().
@@ -68,11 +92,37 @@ class Runner {
 						// on the anonymous struct (which would shift args).
 						final exec = t.execute;
 						final beforeAssertions = Assert.assertions.load();
-						hxcoro.Coro.timeout(t.timeout, function(scopeNode) {
-							c.instance.setup();
-							exec(scopeNode);
-							c.instance.teardown();
-						});
+
+						// Merge context elements: runner → case → class/method.
+						final testCtx = t.contextElements;
+						final hasCtx = runnerCtx.length > 0 || c.contextElements.length > 0 || (testCtx != null && testCtx.length > 0);
+						if (hasCtx) {
+							// Run the timeout scope inside a scope with
+							// the extra context elements applied.
+							hxcoro.Coro.scope(function(scopeNode) {
+								var ctx = scopeNode.context;
+								for (e in runnerCtx) ctx = ctx.with(e);
+								for (e in c.contextElements) ctx = ctx.with(e);
+								if (testCtx != null) {
+									for (e in testCtx) ctx = ctx.with(e);
+								}
+								hxcoro.util.Convenience.ContextConvenience.async(ctx, function(innerNode) {
+									hxcoro.Coro.timeout(t.timeout, function(timeoutNode) {
+										c.instance.setup();
+										exec(timeoutNode);
+										c.instance.teardown();
+									});
+									return null;
+								}).await();
+								return null;
+							});
+						} else {
+							hxcoro.Coro.timeout(t.timeout, function(scopeNode) {
+								c.instance.setup();
+								exec(scopeNode);
+								c.instance.teardown();
+							});
+						}
 						if (Assert.assertions.load() == beforeAssertions) {
 							throw new AssertFailure("No assertions made", null);
 						}
@@ -182,5 +232,6 @@ class Runner {
 
 private typedef CaseEntry = {
 	name:String,
-	instance:Test
+	instance:Test,
+	contextElements:Array<IElement<Any>>
 }
