@@ -1,5 +1,4 @@
-import utest.Assert;
-import utest.Async;
+import atest.Assert;
 import haxe.coro.Coroutine;
 import hxcoro.Coro.*;
 import hxcoro.CoroRun;

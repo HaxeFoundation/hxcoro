@@ -14,7 +14,7 @@ function throwing() {
 		throwing();
 	}
 }
-class Issue59 extends utest.Test {
+class Issue59 extends atest.Test {
 	public function test() {
 		Assert.raises(() -> run((_) -> recursion(2, 0)), NotImplementedException);
 	}

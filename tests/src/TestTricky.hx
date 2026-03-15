@@ -14,7 +14,7 @@ class CoroFile {
 	}
 }
 
-class TestTricky extends utest.Test {
+class TestTricky extends atest.Test {
 	function testCapturedThis() {
 		final file = new CoroFile("value");
 		Assert.equals("value", cast run(file.write));

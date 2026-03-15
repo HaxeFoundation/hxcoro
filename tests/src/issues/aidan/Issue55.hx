@@ -16,7 +16,7 @@ function throwing(v:Dynamic) {
 	return s;
 }
 
-class Issue55 extends utest.Test {
+class Issue55 extends atest.Test {
 	public function test() {
 		Assert.equals("caught", run((_) -> foo("caught")));
 		Assert.raises(() -> run((_) -> foo(new haxe.exceptions.NotImplementedException())), NotImplementedException);

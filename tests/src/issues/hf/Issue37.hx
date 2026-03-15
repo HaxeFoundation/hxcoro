@@ -6,7 +6,7 @@ import hxcoro.ds.Out;
 import hxcoro.CoroRun;
 import hxcoro.Coro.*;
 
-class Issue37 extends utest.Test {
+class Issue37 extends atest.Test {
 	function testCancelling() {
 		final numIterations = 2;
 		final numTasks = 100;
@@ -47,7 +47,7 @@ class Issue37 extends utest.Test {
 			});
 			actual.push(aggregateValue.load());
 		}
-		utest.Assert.same(expected, actual);
+		atest.Assert.same(expected, actual);
 	}
 
 	function testNotCancelling() {
@@ -85,6 +85,6 @@ class Issue37 extends utest.Test {
 			});
 			actual.push(aggregateValue.load());
 		}
-		utest.Assert.same(expected, actual);
+		atest.Assert.same(expected, actual);
 	}
 }

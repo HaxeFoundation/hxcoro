@@ -2,7 +2,7 @@ import haxe.Exception;
 import hxcoro.schedulers.VirtualTimeScheduler;
 import hxcoro.dispatchers.TrampolineDispatcher;
 
-class TestBasic extends utest.Test {
+class TestBasic extends atest.Test {
 	function testSimple() {
 		Assert.equals(42, run(@:coroutine function run(_) {
 			return simple(42);
@@ -67,6 +67,12 @@ class TestBasic extends utest.Test {
 	}
 
 	#end
+
+	function testCoroWithNode(node) {
+		node.async(node -> {
+			Assert.pass();
+		});
+	}
 
 	@:coroutine static function simple(arg:Int):Int {
 		return arg;

@@ -17,7 +17,7 @@ private function await(_) {
 	};
 }
 
-class Issue24 extends utest.Test {
+class Issue24 extends atest.Test {
 	function test() {
 		Assert.equals("foo", run(await));
 	}

@@ -15,7 +15,7 @@ import hxcoro.schedulers.VirtualTimeScheduler;
 
 using hxcoro.util.Convenience;
 
-class TestUnboundedReader extends utest.Test {
+class TestUnboundedReader extends atest.Test {
 	function test_try_read_has_data() {
 		final out    = new Out();
 		final buffer = new PagedDeque();

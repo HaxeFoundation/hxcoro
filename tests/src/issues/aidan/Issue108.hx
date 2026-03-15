@@ -1,6 +1,6 @@
 package issues.aidan;
 
-class Issue108 extends utest.Test {
+class Issue108 extends atest.Test {
 	public function testCast() {
 		var a = [1];
 		Assert.equals(1, run((_) -> {

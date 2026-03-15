@@ -27,7 +27,7 @@ class DebugName implements IElement<DebugName> {
 	}
 }
 
-class Issue27 extends utest.Test {
+class Issue27 extends atest.Test {
 	@:coroutine
 	function logDebug() {
 		return suspend(cont -> {

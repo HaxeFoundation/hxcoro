@@ -26,7 +26,7 @@ function id(a:Int) {
 	return a;
 }
 
-class Issue93 extends utest.Test {
+class Issue93 extends atest.Test {
 	public function test() {
 		Assert.equals(13, run((_) -> doSomethingUsefulOne()));
 		Assert.equals(13, run((_) -> id(doSomethingUsefulOne())));

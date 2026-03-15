@@ -60,7 +60,7 @@ function assertNoCurrentMessage(?p:PosInfos) {
 	}
 }
 
-class TestEntrypoints extends utest.Test {
+class TestEntrypoints extends atest.Test {
 	function launchTask(context:Context, loop:ILoop) {
 		context.launchTask(node -> {
 			helloAndGoodbyeAfter("Launched Task 1");

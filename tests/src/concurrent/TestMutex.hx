@@ -10,7 +10,7 @@ import hxcoro.concurrent.exceptions.SemaphoreFullException;
 import hxcoro.schedulers.VirtualTimeScheduler;
 import hxcoro.dispatchers.TrampolineDispatcher;
 
-class TestMutex extends utest.Test {
+class TestMutex extends atest.Test {
 	function testSimple() {
 		final m = new Mutex();
         m.acquire();
