@@ -44,7 +44,8 @@ class TestBuilder {
 						if (field.meta != null && field.meta.exists(m -> m.name == IGNORE_META)) continue;
 
 						if (field.meta == null || !field.meta.exists(m -> m.name == COROUTINE_META)) {
-							field.meta = [{name: COROUTINE_META, params: null, pos: field.pos}];
+							field.meta ??= [];
+							field.meta.push({name: COROUTINE_META, params: null, pos: field.pos});
 						}
 						final test = field.name;
 						final timeoutExpr = getTimeoutExpr(cls, field);
