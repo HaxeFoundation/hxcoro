@@ -7,7 +7,7 @@ import hxcoro.ds.Out;
 import haxe.exceptions.ArgumentException;
 import hxcoro.ds.pipelines.Pipe.State;
 import hxcoro.ds.pipelines.PipeWriter;
-import utest.Test;
+import atest.Test;
 
 class TestPipeWriter extends Test {
 	function test_getBuffer() {
@@ -112,7 +112,7 @@ class TestPipeWriter extends Test {
 		final dispatcher = new TrampolineDispatcher(scheduler);
 		final task       = CoroRun.with(dispatcher).createTask(_ -> {
 			final size = 16;
-			
+
 			final view = writer.getBuffer(size);
 			final data = Bytes.ofString("Hello");
 			view.buffer.blit(view.byteOffset, data, 0, data.length);
@@ -166,7 +166,7 @@ class TestPipeWriter extends Test {
 		scheduler.advanceBy(1);
 
 		Assert.isTrue(task.isActive());
-		
+
 		final out = new Out();
 		if (Assert.isTrue(state.channel.reader.tryRead(out))) {
 			final read = out.get();

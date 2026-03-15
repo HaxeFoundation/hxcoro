@@ -8,7 +8,7 @@ import hxcoro.ds.Out;
 import haxe.exceptions.ArgumentException;
 import hxcoro.ds.pipelines.Pipe.State;
 import hxcoro.ds.pipelines.PipeReader;
-import utest.Test;
+import atest.Test;
 
 class TestPipeReader extends Test {
 	public function test_read() {
