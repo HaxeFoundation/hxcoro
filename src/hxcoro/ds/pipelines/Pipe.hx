@@ -1,23 +1,24 @@
 package hxcoro.ds.pipelines;
 
+import haxe.atomic.AtomicInt;
+import haxe.io.ArrayBufferView;
 import haxe.Unit;
-import haxe.io.Bytes;
-import haxe.coro.Mutex;
 import haxe.coro.IContinuation;
+import hxcoro.ds.channels.Channel;
 
 class State {
 	public var suspendedWriter : Null<IContinuation<Unit>>;
 	public var suspendedReader : Null<IContinuation<Unit>>;
-	public var buffer : Null<Bytes>;
-	public final lock : Mutex;
+	public final channel : Channel<ArrayBufferView>;
+	public final count : AtomicInt;
 	public final writerPauseThreshold : Int;
 	public final writerResumeThreshold : Int;
 
 	public function new() {
 		suspendedWriter = null;
 		suspendedReader = null;
-		lock            = new Mutex();
-		buffer          = null;
+		channel         = Channel.createUnbounded({});
+		count           = new AtomicInt(0);
 		writerPauseThreshold  = 1024;
 		writerResumeThreshold = 512;
 	}
@@ -28,7 +29,8 @@ class Pipe {
 	public final reader : PipeReader;
 
 	public function new() {
-		writer = new PipeWriter(null);
-		reader = new PipeReader(null);
+		final state = new State();
+		writer = new PipeWriter(state);
+		reader = new PipeReader(state);
 	}
 }

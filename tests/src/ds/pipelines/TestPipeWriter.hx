@@ -3,6 +3,7 @@ package ds.pipelines;
 import hxcoro.dispatchers.TrampolineDispatcher;
 import hxcoro.schedulers.VirtualTimeScheduler;
 import haxe.io.Bytes;
+import hxcoro.ds.Out;
 import haxe.exceptions.ArgumentException;
 import hxcoro.ds.pipelines.Pipe.State;
 import hxcoro.ds.pipelines.PipeWriter;
@@ -91,7 +92,16 @@ class TestPipeWriter extends Test {
 		scheduler.advanceBy(1);
 
 		Assert.isFalse(task.isActive());
-		Assert.equals(0, state.buffer.compare(data));
+
+		final out = new Out();
+		if (Assert.isTrue(state.channel.reader.tryRead(out))) {
+			final read = out.get();
+
+			Assert.equals(data.length, out.get().byteLength);
+			Assert.equals(0, read.buffer.sub(read.byteOffset, read.byteLength).compare(data));
+
+			Assert.isFalse(state.channel.reader.tryRead(out));
+		}
 	}
 
 	function test_flush_multi_write() {
@@ -120,7 +130,21 @@ class TestPipeWriter extends Test {
 		scheduler.advanceBy(1);
 
 		Assert.isFalse(task.isActive());
-		Assert.equals("HelloWorld", state.buffer.toString());
+
+		final out = new Out();
+		if (Assert.isTrue(state.channel.reader.tryRead(out))) {
+			final read = out.get();
+
+			Assert.equals(0, read.buffer.sub(read.byteOffset, read.byteLength).compare(Bytes.ofString("Hello")));
+
+			if (Assert.isTrue(state.channel.reader.tryRead(out))) {
+				final read = out.get();
+
+				Assert.equals(0, read.buffer.sub(read.byteOffset, read.byteLength).compare(Bytes.ofString("World")));
+
+				Assert.isFalse(state.channel.reader.tryRead(out));
+			}
+		}
 	}
 
 	function test_suspending_flush() {
@@ -142,7 +166,16 @@ class TestPipeWriter extends Test {
 		scheduler.advanceBy(1);
 
 		Assert.isTrue(task.isActive());
-		Assert.equals(0, state.buffer.compare(data));
+		
+		final out = new Out();
+		if (Assert.isTrue(state.channel.reader.tryRead(out))) {
+			final read = out.get();
+
+			Assert.equals(0, read.buffer.sub(read.byteOffset, read.byteLength).compare(data));
+
+			Assert.isFalse(state.channel.reader.tryRead(out));
+		}
+
 		Assert.notNull(state.suspendedWriter);
 	}
 }

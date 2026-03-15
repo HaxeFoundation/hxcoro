@@ -7,58 +7,16 @@ import haxe.exceptions.ArgumentException;
 import haxe.io.Bytes;
 import haxe.io.ArrayBufferView;
 
-private class PendingData {
-	var backing : Bytes;
-	var cursor : Int;
-
-	public function new(size:Int) {
-		backing = Bytes.alloc(size);
-		cursor  = 0;
-	}
-
-	public function get(size:Int) {
-		if (backing.length - cursor < size) {
-			final increased = Bytes.alloc(backing.length + size);
-
-			increased.blit(0, backing, 0, backing.length);
-
-			backing = increased;
-		}
-
-		return ArrayBufferView.fromBytes(backing, cursor, size);
-	}
-
-	public function advance(size:Int) {
-		cursor += size;
-	}
-
-	public function commit(state:State) {
-		if (state.buffer == null) {
-			state.buffer = backing.sub(0, cursor);
-
-		} else {
-			final increased = Bytes.alloc(state.buffer.length + cursor);
-
-			increased.blit(0, state.buffer, 0, state.buffer.length);
-			increased.blit(cursor, backing, 0, cursor);
-
-			state.buffer = increased;
-		}
-
-		cursor = 0;
-	}
-}
-
 class PipeWriter {
 	final state : State;
 
-	var pending : Null<PendingData>;
 	var current : Null<ArrayBufferView>;
+	var pending : Array<ArrayBufferView>;
 
 	public function new(state:State) {
 		this.state   = state;
-		this.pending = null;
 		this.current = null;
+		this.pending = [];
 	}
 
 	public function getBuffer(minimumSize:Int = 0):ArrayBufferView {
@@ -72,11 +30,7 @@ class PipeWriter {
 
 		final actualSize = if (minimumSize == 0) 1024 else minimumSize;
 
-		if (pending == null) {
-			pending = new PendingData(actualSize);
-		}
-
-		return current = pending.get(actualSize);
+		return current = new ArrayBufferView(actualSize);
 	}
 
 	public function advance(count:Int) {
@@ -88,33 +42,36 @@ class PipeWriter {
 			case null:
 				throw new Exception("");
 			case _:
-				current = null;
+				if (count == 0) {
+					return;
+				}
 
-				pending.advance(count);
+				@:nullSafety(Off) pending.push(current.sub(0, count));
+
+				current = null;
 		}
 	}
 
 	@:coroutine public function flush():Void {
-		state.lock.acquire();
+		for (chunk in pending) {
+			state.count.add(chunk.byteLength);
+			state.channel.writer.write(chunk);
+		}
 
-		pending.commit(state);
+		pending.resize(0);
 
-		if (state.writerPauseThreshold != 0 && state.buffer.length >= state.writerPauseThreshold) {
+		if (state.writerPauseThreshold > 0 && state.count.load() >= state.writerPauseThreshold) {
 			suspendCancellable(cont -> {
 				state.suspendedWriter = cont;
-
-				state.lock.release();
 
 				_ -> {
 					state.suspendedWriter = null;
 				}
 			});
-		} else {
-			state.lock.release();
 		}
 	}
 
 	public function close() {
-		//
+		state.channel.writer.close();
 	}
 }
