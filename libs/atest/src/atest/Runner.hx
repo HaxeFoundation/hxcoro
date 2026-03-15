@@ -34,7 +34,7 @@ class Runner {
 		@param contextElements  Context elements added to *every* test
 		                        executed by this runner (lowest priority).
 	**/
-	public function new(?contextElements:Array<IElement<Any>>) {
+	public function new(...contextElements:IElement<Any>) {
 		this.runnerContextElements = contextElements != null ? contextElements : [];
 	}
 
@@ -46,7 +46,7 @@ class Runner {
 		                        this case (between runner and class-level
 		                        priority).
 	**/
-	public function addCase(tc:Test, ?contextElements:Array<IElement<Any>>) {
+	public function addCase(tc:Test, ...contextElements:IElement<Any>) {
 		final name = Type.getClassName(Type.getClass(tc));
 		cases.push({name: name, instance: tc, contextElements: contextElements != null ? contextElements : []});
 	}
