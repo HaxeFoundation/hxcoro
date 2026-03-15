@@ -11,7 +11,7 @@ import hxcoro.ds.pipelines.PipeReader;
 import atest.Test;
 
 class TestPipeReader extends Test {
-	public function test_read() {
+	public function test_tryRead() {
 		final state  = new State();
 		final reader = new PipeReader(state);
 		final data   = new ArrayBufferView(16);
@@ -21,9 +21,10 @@ class TestPipeReader extends Test {
 		final task       = CoroRun.with(dispatcher).createTask(_ -> {
 			state.channel.writer.write(data);
 
-			final read = reader.read();
-
-			Assert.equals(data.byteLength, read.byteLength);
+			final out = new Out();
+			if (Assert.isTrue(reader.tryRead(out))) {
+				Assert.equals(out.get().byteLength, out.get().byteLength);
+			}
 		});
 
 		task.start();
@@ -50,10 +51,10 @@ class TestPipeReader extends Test {
 		final task       = CoroRun.with(dispatcher).createTask(_ -> {
 			state.channel.writer.write(data);
 
-			final _ = reader.read();
-
-			Assert.raises(() -> reader.advance(-1, 0), ArgumentException);
-			Assert.raises(() -> reader.advance(32, 0), ArgumentException);
+			if (Assert.isTrue(reader.tryRead(new Out()))) {
+				Assert.raises(() -> reader.advance(-1, 0), ArgumentException);
+				Assert.raises(() -> reader.advance(32, 0), ArgumentException);
+			}
 		});
 
 		task.start();
@@ -74,10 +75,10 @@ class TestPipeReader extends Test {
 		final task       = CoroRun.with(dispatcher).createTask(_ -> {
 			state.channel.writer.write(data);
 
-			final _ = reader.read();
-
-			Assert.raises(() -> reader.advance(0, -1), ArgumentException);
-			Assert.raises(() -> reader.advance(0, 32), ArgumentException);
+			if (Assert.isTrue(reader.tryRead(new Out()))) {
+				Assert.raises(() -> reader.advance(0, -1), ArgumentException);
+				Assert.raises(() -> reader.advance(0, 32), ArgumentException);
+			}
 		});
 
 		task.start();
@@ -98,18 +99,29 @@ class TestPipeReader extends Test {
 		final task       = CoroRun.with(dispatcher).createTask(_ -> {
 			state.channel.writer.write(ArrayBufferView.fromBytes(src));
 
-			final data = reader.read();
-			Assert.equals(0, data.buffer.sub(data.byteOffset, data.byteLength).compare(src));
+			final out = new Out();
 
-			reader.advance(2, 0);
+			if (Assert.isTrue(reader.tryRead(out))) {
+				final data = out.get();
 
-			final data = reader.read();
-			Assert.equals(0, data.buffer.sub(data.byteOffset, data.byteLength).compare(Bytes.ofString("llo")));
+				Assert.equals(0, data.buffer.sub(data.byteOffset, data.byteLength).compare(src));
+	
+				reader.advance(2, 0);
+			}
 
-			reader.advance(2, 0);
+			if (Assert.isTrue(reader.tryRead(out))) {
+				final data = out.get();
 
-			final data = reader.read();
-			Assert.equals(0, data.buffer.sub(data.byteOffset, data.byteLength).compare(Bytes.ofString("o")));
+				Assert.equals(0, data.buffer.sub(data.byteOffset, data.byteLength).compare(Bytes.ofString("llo")));
+	
+				reader.advance(2, 0);
+			}
+
+			if (Assert.isTrue(reader.tryRead(out))) {
+				final data = out.get();
+
+				Assert.equals(0, data.buffer.sub(data.byteOffset, data.byteLength).compare(Bytes.ofString("o")));
+			}
 		});
 
 		task.start();
@@ -128,13 +140,21 @@ class TestPipeReader extends Test {
 		final task       = CoroRun.with(dispatcher).createTask(_ -> {
 			state.channel.writer.write(ArrayBufferView.fromBytes(src));
 
-			final data = reader.read();
-			Assert.equals(0, data.buffer.sub(data.byteOffset, data.byteLength).compare(src));
+			final out = new Out();
 
-			reader.advance(0, 3);
+			if (Assert.isTrue(reader.tryRead(out))) {
+				final data = out.get();
 
-			final data = reader.read();
-			Assert.equals(0, data.buffer.sub(data.byteOffset, data.byteLength).compare(src));
+				Assert.equals(0, data.buffer.sub(data.byteOffset, data.byteLength).compare(src));
+	
+				reader.advance(0, 3);
+			}
+
+			if (Assert.isTrue(reader.tryRead(out))) {
+				final data = out.get();
+
+				Assert.equals(0, data.buffer.sub(data.byteOffset, data.byteLength).compare(src));
+			}
 		});
 
 		task.start();
@@ -153,19 +173,23 @@ class TestPipeReader extends Test {
 		final task       = CoroRun.with(dispatcher).createTask(_ -> {
 			state.channel.writer.write(ArrayBufferView.fromBytes(src));
 
-			final data = reader.read();
-			Assert.equals(0, data.buffer.sub(data.byteOffset, data.byteLength).compare(src));
+			final out = new Out();
 
-			reader.advance(0, src.length);
+			if (Assert.isTrue(reader.tryRead(out))) {
+				final data = out.get();
 
-			final data = reader.read();
-			Assert.equals(0, data.buffer.sub(data.byteOffset, data.byteLength).compare(src));
+				Assert.equals(0, data.buffer.sub(data.byteOffset, data.byteLength).compare(src));
+	
+				reader.advance(0, src.length);
+			}
+
+			Assert.isFalse(reader.tryRead(out));
 		});
 
 		task.start();
 		scheduler.advanceBy(1);
 
-		Assert.isTrue(task.isActive());
+		Assert.isFalse(task.isActive());
 	}
 
 	public function test_partial_consume_and_partial_observe() {
@@ -178,13 +202,21 @@ class TestPipeReader extends Test {
 		final task       = CoroRun.with(dispatcher).createTask(_ -> {
 			state.channel.writer.write(ArrayBufferView.fromBytes(src));
 
-			final data = reader.read();
-			Assert.equals(0, data.buffer.sub(data.byteOffset, data.byteLength).compare(src));
+			final out = new Out();
 
-			reader.advance(2, 2);
+			if (Assert.isTrue(reader.tryRead(out))) {
+				final data = out.get();
 
-			final data = reader.read();
-			Assert.equals(0, data.buffer.sub(data.byteOffset, data.byteLength).compare(Bytes.ofString("llo")));
+				Assert.equals(0, data.buffer.sub(data.byteOffset, data.byteLength).compare(src));
+	
+				reader.advance(2, 2);
+			}
+
+			if (Assert.isTrue(reader.tryRead(out))) {
+				final data = out.get();
+
+				Assert.equals(0, data.buffer.sub(data.byteOffset, data.byteLength).compare(Bytes.ofString("llo")));
+			}
 		});
 
 		task.start();
@@ -203,18 +235,22 @@ class TestPipeReader extends Test {
 		final task       = CoroRun.with(dispatcher).createTask(_ -> {
 			state.channel.writer.write(ArrayBufferView.fromBytes(src));
 
-			final data = reader.read();
-			Assert.equals(0, data.buffer.sub(data.byteOffset, data.byteLength).compare(src));
+			final out = new Out();
 
-			reader.advance(2, 3);
+			if (Assert.isTrue(reader.tryRead(out))) {
+				final data = out.get();
 
-			final data = reader.read();
-			Assert.equals(0, data.buffer.sub(data.byteOffset, data.byteLength).compare(Bytes.ofString("llo")));
+				Assert.equals(0, data.buffer.sub(data.byteOffset, data.byteLength).compare(src));
+	
+				reader.advance(2, 3);
+			}
+
+			Assert.isFalse(reader.tryRead(out));
 		});
 
 		task.start();
 		scheduler.advanceBy(1);
 
-		Assert.isTrue(task.isActive());
+		Assert.isFalse(task.isActive());
 	}
 }
