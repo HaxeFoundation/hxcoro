@@ -1,0 +1,3 @@
+build-base.hxml
+--js bin/coro.js
+--cmd node bin/coro.js
