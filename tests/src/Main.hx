@@ -1,7 +1,7 @@
 import hxcoro.run.Setup;
 
 function main() {
-	#if sys
+	#if (sys && !lua_vanilla)
 	switch (Sys.getEnv("HXCORO_DISPATCHER")) {
 		case "trampoline":
 			Sys.println("Using trampoline dispatcher");
@@ -14,7 +14,7 @@ function main() {
 		case _:
 			Sys.println("Using default dispatcher");
 	}
-	#end
+	#end // (sys && !lua_vanilla)
 
 	final runner = new atest.Runner();
 

@@ -35,8 +35,14 @@ class HeapScheduler implements IScheduler {
 		return event;
     }
 
-	public function now() {
+	public function now():Int64 {
+		#if lua_vanilla
+		// Timer.stamp() calls Sys.time() which is not available in -D lua-vanilla.
+		// Use lua.Os.clock() (CPU time, seconds) as a substitute.
+		return haxe.Int64.ofInt(Std.int(lua.Os.clock() * 1000));
+		#else
 		return Timer.milliseconds();
+		#end
 	}
 
 }

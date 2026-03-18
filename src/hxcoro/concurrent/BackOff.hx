@@ -10,6 +10,8 @@ class BackOff {
 		eval.vm.NativeThread.yield();
 		#elseif jvm
 		// jvm seems to do best without anything here
+		#elseif lua_vanilla
+		// Sys.sleep is not available in -D lua-vanilla; busy-wait without yielding
 		#elseif sys
 		Sys.sleep(1 / 0xFFFFFFFFu32);
 		#else
