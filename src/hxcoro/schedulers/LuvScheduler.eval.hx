@@ -141,7 +141,7 @@ class LuvScheduler implements IScheduler implements ILoop {
 
 	@:inheritDoc
 	public function now() {
-		return uvLoop.now().toInt64();
+		return cast uvLoop.now().toInt64();
 	}
 
 	public function loop(runMode:ILoop.RunMode) {
