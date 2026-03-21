@@ -10,8 +10,8 @@ typedef PipeOptions = {
 }
 
 class Pipe {
-	public final reader : PipeReader;
-	public final writer : PipeWriter;
+	public final reader : IPipeReader;
+	public final writer : IPipeWriter;
 
 	function new(reader, writer) {
 		this.reader = reader;
