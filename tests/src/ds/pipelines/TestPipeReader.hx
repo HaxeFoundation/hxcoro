@@ -1,14 +1,36 @@
 package ds.pipelines;
 
-import haxe.io.ArrayBufferView;
-import hxcoro.dispatchers.TrampolineDispatcher;
-import hxcoro.schedulers.VirtualTimeScheduler;
+import haxe.Unit;
+import haxe.Exception;
 import haxe.io.Bytes;
-import hxcoro.ds.Out;
+import haxe.io.ArrayBufferView;
+import haxe.coro.IContinuation;
+import haxe.coro.context.Context;
 import haxe.exceptions.ArgumentException;
+import hxcoro.ds.Out;
 import hxcoro.ds.pipelines.Pipe.State;
 import hxcoro.ds.pipelines.PipeReader;
+import hxcoro.schedulers.VirtualTimeScheduler;
+import hxcoro.dispatchers.TrampolineDispatcher;
 import atest.Test;
+
+private class TestContinuation implements IContinuation<Unit> {
+	public var resumed : Bool;
+
+	public var context (get, never) : Context;
+
+	function get_context():Context {
+		return Context.create(new TrampolineDispatcher());
+	}
+
+	public function new() {
+		resumed = false;
+	}
+
+	public function resume(_:Null<Unit>, _:Null<Exception>) {
+		resumed = true;
+	}
+}
 
 class TestPipeReader extends Test {
 	public function test_tryRead() {
@@ -23,7 +45,7 @@ class TestPipeReader extends Test {
 
 			final out = new Out();
 			if (Assert.isTrue(reader.tryRead(out))) {
-				Assert.equals(out.get().byteLength, out.get().byteLength);
+				Assert.equals(data.byteLength, out.get().byteLength);
 			}
 		});
 
@@ -34,6 +56,30 @@ class TestPipeReader extends Test {
 		final out = new Out();
 		Assert.isFalse(state.channel.reader.tryRead(out));
 	}
+
+	// public function test_tryReadAtLeast() {
+	// 	final state  = new State();
+	// 	final reader = new PipeReader(state);
+	// 	final data   = new ArrayBufferView(16);
+
+	// 	final scheduler  = new VirtualTimeScheduler();
+	// 	final dispatcher = new TrampolineDispatcher(scheduler);
+	// 	final task       = CoroRun.with(dispatcher).createTask(_ -> {
+	// 		state.channel.writer.write(data);
+
+	// 		final out = new Out();
+	// 		if (Assert.isTrue(reader.tryReadAtLeast(8, out))) {
+	// 			Assert.equals(data.byteLength, out.get().byteLength);
+	// 		}
+	// 	});
+
+	// 	task.start();
+	// 	scheduler.advanceBy(1);
+
+	// 	Assert.isFalse(task.isActive());
+	// 	final out = new Out();
+	// 	Assert.isFalse(state.channel.reader.tryRead(out));
+	// }
 
 	public function test_advance_before_read() {
 		final reader = new PipeReader(new State());
@@ -252,5 +298,41 @@ class TestPipeReader extends Test {
 		scheduler.advanceBy(1);
 
 		Assert.isFalse(task.isActive());
+	}
+
+	public function test_wakeup_suspended_writer() {
+		final state  = new State();
+		final reader = new PipeReader(state);
+		final cont   = new TestContinuation();
+
+		Assert.isTrue(state.channel.writer.tryWrite(new ArrayBufferView(1024)));
+		state.count.add(1024);
+		state.suspendedWriter = cont;
+
+		final out = new Out();
+		if (Assert.isTrue(reader.tryRead(out))) {
+			reader.advance(1024, 0);
+		}
+
+		Assert.isTrue(cont.resumed);
+		Assert.isNull(state.suspendedWriter);
+	}
+
+	public function test_dont_wakeup_suspended_writer() {
+		final state  = new State();
+		final reader = new PipeReader(state);
+		final cont   = new TestContinuation();
+
+		Assert.isTrue(state.channel.writer.tryWrite(new ArrayBufferView(1024)));
+		state.count.add(1024);
+		state.suspendedWriter = cont;
+
+		final out = new Out();
+		if (Assert.isTrue(reader.tryRead(out))) {
+			reader.advance(100, 0);
+		}
+
+		Assert.isFalse(cont.resumed);
+		Assert.equals(cont, state.suspendedWriter);
 	}
 }

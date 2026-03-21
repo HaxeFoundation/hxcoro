@@ -5,22 +5,23 @@ import haxe.io.ArrayBufferView;
 import haxe.Unit;
 import haxe.coro.IContinuation;
 import hxcoro.ds.channels.Channel;
+import sys.thread.Mutex;
 
 class State {
 	public var suspendedWriter : Null<IContinuation<Unit>>;
-	public var suspendedReader : Null<IContinuation<Unit>>;
 	public final channel : Channel<ArrayBufferView>;
 	public final count : AtomicInt;
 	public final writerPauseThreshold : Int;
 	public final writerResumeThreshold : Int;
+	public final lock : Mutex;
 
 	public function new() {
-		suspendedWriter = null;
-		suspendedReader = null;
-		channel         = Channel.createUnbounded({});
-		count           = new AtomicInt(0);
+		suspendedWriter       = null;
+		channel               = Channel.createUnbounded({});
+		count                 = new AtomicInt(0);
 		writerPauseThreshold  = 1024;
 		writerResumeThreshold = 512;
+		lock                  = new Mutex();
 	}
 }
 

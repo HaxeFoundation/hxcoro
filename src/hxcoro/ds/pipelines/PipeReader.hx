@@ -1,10 +1,13 @@
 package hxcoro.ds.pipelines;
 
+import haxe.Unit;
 import haxe.Exception;
 import haxe.exceptions.ArgumentException;
 import haxe.io.ArrayBufferView;
 import hxcoro.ds.Out;
 import hxcoro.ds.pipelines.Pipe.State;
+
+using hxcoro.util.Convenience;
 
 class PipeReader {
 	final state : State;
@@ -116,5 +119,12 @@ class PipeReader {
 		}
 
 		state.count.add(-consumed);
+
+		state.lock.acquire();
+		if (state.count.load() <= state.writerResumeThreshold) {
+			state.suspendedWriter?.succeedAsync(Unit);
+			state.suspendedWriter = null;
+		}
+		state.lock.release();
 	}
 }

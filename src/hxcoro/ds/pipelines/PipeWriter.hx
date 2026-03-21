@@ -60,14 +60,22 @@ class PipeWriter {
 
 		pending.resize(0);
 
+		state.lock.acquire();
+
 		if (state.writerPauseThreshold > 0 && state.count.load() >= state.writerPauseThreshold) {
 			suspendCancellable(cont -> {
 				state.suspendedWriter = cont;
 
+				state.lock.release();
+
 				_ -> {
+					state.lock.acquire();
 					state.suspendedWriter = null;
+					state.lock.release();
 				}
 			});
+		} else {
+			state.lock.release();
 		}
 	}
 
