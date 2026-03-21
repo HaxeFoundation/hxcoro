@@ -1,11 +1,11 @@
 package hxcoro.ds.pipelines.pipe;
 
-import haxe.atomic.AtomicInt;
-import haxe.io.ArrayBufferView;
-import haxe.Unit;
-import haxe.coro.IContinuation;
-import hxcoro.ds.channels.Channel;
 import sys.thread.Mutex;
+import haxe.Unit;
+import haxe.io.ArrayBufferView;
+import haxe.coro.IContinuation;
+import haxe.atomic.AtomicInt;
+import hxcoro.ds.channels.Channel;
 
 class State {
 	public var suspendedWriter : Null<IContinuation<Unit>>;
@@ -15,7 +15,7 @@ class State {
 	public final writerResumeThreshold : Int;
 	public final lock : Mutex;
 
-	public function new(writerPauseThreshold, writerResumeThreshold) {
+	public function new(writerPauseThreshold : Int, writerResumeThreshold : Int) {
 		this.writerPauseThreshold  = writerPauseThreshold;
 		this.writerResumeThreshold = writerResumeThreshold;
 		this.suspendedWriter       = null;
