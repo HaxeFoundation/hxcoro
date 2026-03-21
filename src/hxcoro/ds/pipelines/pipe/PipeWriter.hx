@@ -1,8 +1,6 @@
 package hxcoro.ds.pipelines.pipe;
 
 import haxe.Exception;
-import haxe.io.Bytes;
-import haxe.io.BytesBuffer;
 import haxe.io.ArrayBufferView;
 import haxe.exceptions.ArgumentException;
 
