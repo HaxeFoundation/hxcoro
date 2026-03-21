@@ -3,6 +3,7 @@ package ds.pipelines;
 import haxe.Unit;
 import haxe.Exception;
 import haxe.io.Bytes;
+import haxe.io.UInt8Array;
 import haxe.io.ArrayBufferView;
 import haxe.coro.IContinuation;
 import haxe.coro.context.Context;
@@ -33,6 +34,14 @@ private class TestContinuation implements IContinuation<Unit> {
 }
 
 class TestPipeReader extends Test {
+	private static function arrayBufferViewFromBytes(bytes:Bytes):ArrayBufferView {
+#if js
+		return cast UInt8Array.fromBytes(bytes);
+#else
+		return ArrayBufferView.fromBytes(bytes);
+#end
+	}
+
 	public function test_tryRead() {
 		final state  = new State();
 		final reader = new PipeReader(state);
@@ -84,12 +93,12 @@ class TestPipeReader extends Test {
 		final state  = new State();
 		final reader = new PipeReader(state);
 
-		Assert.isTrue(state.channel.writer.tryWrite(ArrayBufferView.fromBytes(Bytes.ofString("Hello"))));
+		Assert.isTrue(state.channel.writer.tryWrite(arrayBufferViewFromBytes(Bytes.ofString("Hello"))));
 
 		final out = new Out();
 		Assert.isFalse(reader.tryReadAtLeast(10, out));
 
-		Assert.isTrue(state.channel.writer.tryWrite(ArrayBufferView.fromBytes(Bytes.ofString("World"))));
+		Assert.isTrue(state.channel.writer.tryWrite(arrayBufferViewFromBytes(Bytes.ofString("World"))));
 
 		final out = new Out();
 		Assert.isTrue(reader.tryReadAtLeast(10, out));
@@ -173,7 +182,7 @@ class TestPipeReader extends Test {
 		final scheduler  = new VirtualTimeScheduler();
 		final dispatcher = new TrampolineDispatcher(scheduler);
 		final task       = CoroRun.with(dispatcher).createTask(_ -> {
-			state.channel.writer.write(ArrayBufferView.fromBytes(src));
+			state.channel.writer.write(arrayBufferViewFromBytes(src));
 
 			final out = new Out();
 
@@ -214,7 +223,7 @@ class TestPipeReader extends Test {
 		final scheduler  = new VirtualTimeScheduler();
 		final dispatcher = new TrampolineDispatcher(scheduler);
 		final task       = CoroRun.with(dispatcher).createTask(_ -> {
-			state.channel.writer.write(ArrayBufferView.fromBytes(src));
+			state.channel.writer.write(arrayBufferViewFromBytes(src));
 
 			final out = new Out();
 
@@ -247,7 +256,7 @@ class TestPipeReader extends Test {
 		final scheduler  = new VirtualTimeScheduler();
 		final dispatcher = new TrampolineDispatcher(scheduler);
 		final task       = CoroRun.with(dispatcher).createTask(_ -> {
-			state.channel.writer.write(ArrayBufferView.fromBytes(src));
+			state.channel.writer.write(arrayBufferViewFromBytes(src));
 
 			final out = new Out();
 
@@ -276,7 +285,7 @@ class TestPipeReader extends Test {
 		final scheduler  = new VirtualTimeScheduler();
 		final dispatcher = new TrampolineDispatcher(scheduler);
 		final task       = CoroRun.with(dispatcher).createTask(_ -> {
-			state.channel.writer.write(ArrayBufferView.fromBytes(src));
+			state.channel.writer.write(arrayBufferViewFromBytes(src));
 
 			final out = new Out();
 
@@ -309,7 +318,7 @@ class TestPipeReader extends Test {
 		final scheduler  = new VirtualTimeScheduler();
 		final dispatcher = new TrampolineDispatcher(scheduler);
 		final task       = CoroRun.with(dispatcher).createTask(_ -> {
-			state.channel.writer.write(ArrayBufferView.fromBytes(src));
+			state.channel.writer.write(arrayBufferViewFromBytes(src));
 
 			final out = new Out();
 
