@@ -38,6 +38,8 @@ class PipeWriter implements IPipeWriter {
 			throw new ArgumentException("count", "Count must be non negative");
 		}
 		if (count == 0) {
+			current = null;
+
 			return;
 		}
 
