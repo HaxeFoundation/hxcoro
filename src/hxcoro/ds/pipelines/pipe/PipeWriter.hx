@@ -24,7 +24,7 @@ class PipeWriter implements IPipeWriter {
 		}
 
 		if (current != null) {
-			throw new Exception("");
+			throw new Exception("Attempting to call getBuffer before calling advancing an existing buffer");
 		}
 
 		final actualSize = if (minimumSize == 0) 1024 else minimumSize;
