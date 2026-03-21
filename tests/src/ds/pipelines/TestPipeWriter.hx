@@ -54,6 +54,7 @@ class TestPipeWriter extends Test {
 		final _      = writer.getBuffer(size);
 
 		Assert.raises(() -> writer.advance(-1), ArgumentException);
+		Assert.raises(() -> writer.advance(size * 2), ArgumentException);
 	}
 
 	function test_advancing_buffer_twice() {

@@ -31,21 +31,24 @@ class PipeWriter implements IPipeWriter {
 	}
 
 	public function advance(count:Int) {
+		if (current == null) {
+			throw new Exception("Attempting to advance before getBuffer has been called");
+		}
 		if (count < 0) {
 			throw new ArgumentException("count", "Count must be non negative");
 		}
+		if (count == 0) {
+			return;
+		}
 
-		switch current {
-			case null:
-				throw new Exception("Attempting to advance before getBuffer has been called");
-			case _:
-				if (count == 0) {
-					return;
-				}
+		@:nullSafety(Off) {
+			if (count > current.byteLength) {
+				throw new ArgumentException("count", "Count greater than the buffer size");
+			}
 
-				@:nullSafety(Off) pending.push(current.sub(0, count));
+			pending.push(current.sub(0, count));
 
-				current = null;
+			current = null;
 		}
 	}
 
