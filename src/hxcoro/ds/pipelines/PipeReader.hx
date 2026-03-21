@@ -35,6 +35,10 @@ class PipeReader {
 	}
 
 	public function tryRead(out:Out<ArrayBufferView>):Bool {
+		if (out == null) {
+			throw new ArgumentException("out", "Out parameter must not be null");
+		}
+
 		if (state.channel.reader.tryRead(readOut)) {
 			final chunk = readOut.get();
 
@@ -68,6 +72,13 @@ class PipeReader {
 	}
 
 	public function tryReadAtLeast(bytes:Int, out:Out<ArrayBufferView>):Bool {
+		if (out == null) {
+			throw new ArgumentException("out", "Out parameter must not be null");
+		}
+		if (bytes <= 0) {
+			throw new ArgumentException("bytes", "Bytes must be greater than zero");
+		}
+
 		if (state.channel.reader.tryRead(readOut)) {
 			final chunk = readOut.get();
 
@@ -102,13 +113,19 @@ class PipeReader {
 
 	public function advance(consumed:Int, observed:Int) {
 		if (outstanding == null) {
-			throw new Exception("");
+			throw new Exception("No data has been read");
 		}
-		if (consumed < 0 || consumed > outstanding.byteLength) {
-			throw new ArgumentException("consumed");
+		if (consumed < 0) {
+			throw new ArgumentException("consumed", "Consumed must not be negative");
 		}
-		if (observed < 0 || consumed + observed > outstanding.byteLength) {
-			throw new ArgumentException("observed");
+		if (consumed > outstanding.byteLength) {
+			throw new ArgumentException("consumed", "Consumed must not be greater than the read data");
+		}
+		if (observed < 0) {
+			throw new ArgumentException("observed", "Observed must not be negative");
+		}
+		if (consumed + observed > outstanding.byteLength) {
+			throw new ArgumentException("observed", "Observed must not be greater than the read data");
 		}
 
 		if (consumed == outstanding.byteLength) {

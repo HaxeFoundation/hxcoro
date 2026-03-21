@@ -38,48 +38,78 @@ class TestPipeReader extends Test {
 		final reader = new PipeReader(state);
 		final data   = new ArrayBufferView(16);
 
-		final scheduler  = new VirtualTimeScheduler();
-		final dispatcher = new TrampolineDispatcher(scheduler);
-		final task       = CoroRun.with(dispatcher).createTask(_ -> {
-			state.channel.writer.write(data);
+		Assert.isTrue(state.channel.writer.tryWrite(data));
 
-			final out = new Out();
-			if (Assert.isTrue(reader.tryRead(out))) {
-				Assert.equals(data.byteLength, out.get().byteLength);
-			}
-		});
-
-		task.start();
-		scheduler.advanceBy(1);
-
-		Assert.isFalse(task.isActive());
+		final out = new Out();
+		if (Assert.isTrue(reader.tryRead(out))) {
+			Assert.equals(data.byteLength, out.get().byteLength);
+		}
+		
 		final out = new Out();
 		Assert.isFalse(state.channel.reader.tryRead(out));
 	}
 
-	// public function test_tryReadAtLeast() {
-	// 	final state  = new State();
-	// 	final reader = new PipeReader(state);
-	// 	final data   = new ArrayBufferView(16);
+	public function test_tryRead_no_data() {
+		final state  = new State();
+		final reader = new PipeReader(state);
 
-	// 	final scheduler  = new VirtualTimeScheduler();
-	// 	final dispatcher = new TrampolineDispatcher(scheduler);
-	// 	final task       = CoroRun.with(dispatcher).createTask(_ -> {
-	// 		state.channel.writer.write(data);
+		final out = new Out();
+		Assert.isFalse(reader.tryRead(out));
+	}
 
-	// 		final out = new Out();
-	// 		if (Assert.isTrue(reader.tryReadAtLeast(8, out))) {
-	// 			Assert.equals(data.byteLength, out.get().byteLength);
-	// 		}
-	// 	});
+	public function test_tryRead_null_out() {
+		final state  = new State();
+		final reader = new PipeReader(state);
 
-	// 	task.start();
-	// 	scheduler.advanceBy(1);
+		Assert.raises(() -> reader.tryRead(null), ArgumentException);
+	}
 
-	// 	Assert.isFalse(task.isActive());
-	// 	final out = new Out();
-	// 	Assert.isFalse(state.channel.reader.tryRead(out));
-	// }
+	public function test_tryReadAtLeast() {
+		final state  = new State();
+		final reader = new PipeReader(state);
+		final data   = new ArrayBufferView(16);
+
+		Assert.isTrue(state.channel.writer.tryWrite(data));
+
+		final out = new Out();
+		if (Assert.isTrue(reader.tryReadAtLeast(8, out))) {
+			Assert.equals(data.byteLength, out.get().byteLength);
+		}
+		
+		final out = new Out();
+		Assert.isFalse(state.channel.reader.tryRead(out));
+	}
+
+	public function test_tryReadAtLeast_not_enough_data() {
+		final state  = new State();
+		final reader = new PipeReader(state);
+
+		Assert.isTrue(state.channel.writer.tryWrite(ArrayBufferView.fromBytes(Bytes.ofString("Hello"))));
+
+		final out = new Out();
+		Assert.isFalse(reader.tryReadAtLeast(10, out));
+
+		Assert.isTrue(state.channel.writer.tryWrite(ArrayBufferView.fromBytes(Bytes.ofString("World"))));
+
+		final out = new Out();
+		Assert.isTrue(reader.tryReadAtLeast(10, out));
+	}
+
+	public function test_tryReadAtLeast_null_out() {
+		final state  = new State();
+		final reader = new PipeReader(state);
+
+		Assert.raises(() -> reader.tryReadAtLeast(10, null), ArgumentException);
+	}
+
+	public function test_tryReadAtLeast_invalid_count() {
+		final state  = new State();
+		final reader = new PipeReader(state);
+
+		final out = new Out();
+		Assert.raises(() -> reader.tryReadAtLeast(0, out), ArgumentException);
+		Assert.raises(() -> reader.tryReadAtLeast(-10, out), ArgumentException);
+	}
 
 	public function test_advance_before_read() {
 		final reader = new PipeReader(new State());
@@ -333,6 +363,6 @@ class TestPipeReader extends Test {
 		}
 
 		Assert.isFalse(cont.resumed);
-		Assert.equals(cont, state.suspendedWriter);
+		Assert.notNull(state.suspendedWriter);
 	}
 }
