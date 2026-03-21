@@ -1,13 +1,12 @@
-package hxcoro.ds.pipelines;
+package hxcoro.ds.pipelines.pipe;
 
-import haxe.io.BytesBuffer;
-import hxcoro.ds.pipelines.Pipe.State;
 import haxe.Exception;
-import haxe.exceptions.ArgumentException;
 import haxe.io.Bytes;
+import haxe.io.BytesBuffer;
 import haxe.io.ArrayBufferView;
+import haxe.exceptions.ArgumentException;
 
-class PipeWriter {
+class PipeWriter implements IPipeWriter {
 	final state : State;
 
 	var current : Null<ArrayBufferView>;

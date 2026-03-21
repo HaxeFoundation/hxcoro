@@ -1,37 +1,28 @@
 package hxcoro.ds.pipelines;
 
-import haxe.atomic.AtomicInt;
-import haxe.io.ArrayBufferView;
-import haxe.Unit;
-import haxe.coro.IContinuation;
-import hxcoro.ds.channels.Channel;
-import sys.thread.Mutex;
+import hxcoro.ds.pipelines.pipe.State;
+import hxcoro.ds.pipelines.pipe.PipeReader;
+import hxcoro.ds.pipelines.pipe.PipeWriter;
 
-class State {
-	public var suspendedWriter : Null<IContinuation<Unit>>;
-	public final channel : Channel<ArrayBufferView>;
-	public final count : AtomicInt;
-	public final writerPauseThreshold : Int;
-	public final writerResumeThreshold : Int;
-	public final lock : Mutex;
-
-	public function new() {
-		suspendedWriter       = null;
-		channel               = Channel.createUnbounded({});
-		count                 = new AtomicInt(0);
-		writerPauseThreshold  = 1024;
-		writerResumeThreshold = 512;
-		lock                  = new Mutex();
-	}
+typedef PipeOptions = {
+	var ?writerPauseThreshold:Int;
+	var ?writerResumeThreshold:Int;
 }
 
 class Pipe {
-	public final writer : PipeWriter;
 	public final reader : PipeReader;
+	public final writer : PipeWriter;
 
-	public function new() {
-		final state = new State();
-		writer = new PipeWriter(state);
-		reader = new PipeReader(state);
+	function new(reader, writer) {
+		this.reader = reader;
+		this.writer = writer;
+	}
+
+	public static function create(options:Null<PipeOptions> = null) {
+		final state  = new State(options?.writerPauseThreshold ?? 1024, options?.writerResumeThreshold ?? 512);
+		final reader = new PipeReader(state);
+		final writer = new PipeWriter(state);
+
+		return new Pipe(reader, writer);
 	}
 }

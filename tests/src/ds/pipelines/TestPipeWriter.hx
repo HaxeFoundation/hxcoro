@@ -5,20 +5,20 @@ import hxcoro.schedulers.VirtualTimeScheduler;
 import haxe.io.Bytes;
 import hxcoro.ds.Out;
 import haxe.exceptions.ArgumentException;
-import hxcoro.ds.pipelines.Pipe.State;
-import hxcoro.ds.pipelines.PipeWriter;
+import hxcoro.ds.pipelines.pipe.State;
+import hxcoro.ds.pipelines.pipe.PipeWriter;
 import atest.Test;
 
 class TestPipeWriter extends Test {
 	function test_getBuffer() {
-		final writer = new PipeWriter(new State());
+		final writer = new PipeWriter(new State(1024, 512));
 		final buffer = writer.getBuffer();
 
 		Assert.isTrue(buffer.byteLength > 0);
 	}
 
 	function test_getBuffer_minimumSize() {
-		final writer = new PipeWriter(new State());
+		final writer = new PipeWriter(new State(1024, 512));
 		final size   = 64_000;
 		final buffer = writer.getBuffer(size);
 
@@ -26,20 +26,20 @@ class TestPipeWriter extends Test {
 	}
 
 	function test_getBuffer_invalid_minimumSize() {
-		final writer = new PipeWriter(new State());
+		final writer = new PipeWriter(new State(1024, 512));
 
 		Assert.raises(() -> writer.getBuffer(-1), ArgumentException);
 	}
 
 	function test_getBuffer_again_before_returning() {
-		final writer = new PipeWriter(new State());
+		final writer = new PipeWriter(new State(1024, 512));
 		final _      = writer.getBuffer();
 
 		Assert.raises(() -> writer.getBuffer());
 	}
 
 	function test_advancing_buffer() {
-		final writer = new PipeWriter(new State());
+		final writer = new PipeWriter(new State(1024, 512));
 		final size   = 16;
 		final _      = writer.getBuffer(size);
 
@@ -49,7 +49,7 @@ class TestPipeWriter extends Test {
 	}
 
 	function test_advancing_buffer_invalid_size() {
-		final writer = new PipeWriter(new State());
+		final writer = new PipeWriter(new State(1024, 512));
 		final size   = 16;
 		final _      = writer.getBuffer(size);
 
@@ -57,7 +57,7 @@ class TestPipeWriter extends Test {
 	}
 
 	function test_advancing_buffer_twice() {
-		final writer = new PipeWriter(new State());
+		final writer = new PipeWriter(new State(1024, 512));
 		final size   = 16;
 		final _      = writer.getBuffer(size);
 
@@ -67,13 +67,13 @@ class TestPipeWriter extends Test {
 	}
 
 	function test_advance_with_no_buffer() {
-		final writer = new PipeWriter(new State());
+		final writer = new PipeWriter(new State(1024, 512));
 
 		Assert.raises(() -> writer.advance(8));
 	}
 
 	function test_flush_single_write() {
-		final state  = new State();
+		final state  = new State(1024, 512);
 		final writer = new PipeWriter(state);
 		final data   = Bytes.ofString("Hello");
 
@@ -105,7 +105,7 @@ class TestPipeWriter extends Test {
 	}
 
 	function test_flush_multi_write() {
-		final state  = new State();
+		final state  = new State(1024, 512);
 		final writer = new PipeWriter(state);
 
 		final scheduler  = new VirtualTimeScheduler();
@@ -148,7 +148,7 @@ class TestPipeWriter extends Test {
 	}
 
 	function test_suspending_flush() {
-		final state  = new State();
+		final state  = new State(1024, 512);
 		final writer = new PipeWriter(state);
 		final data   = Bytes.alloc(16_000);
 

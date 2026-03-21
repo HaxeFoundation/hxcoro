@@ -1,15 +1,14 @@
-package hxcoro.ds.pipelines;
+package hxcoro.ds.pipelines.pipe;
 
 import haxe.Unit;
 import haxe.Exception;
-import haxe.exceptions.ArgumentException;
 import haxe.io.ArrayBufferView;
+import haxe.exceptions.ArgumentException;
 import hxcoro.ds.Out;
-import hxcoro.ds.pipelines.Pipe.State;
 
 using hxcoro.util.Convenience;
 
-class PipeReader {
+class PipeReader implements IPipeReader {
 	final state : State;
 	final readOut : Out<ArrayBufferView>;
 	var outstanding : Null<ArrayBufferView>;

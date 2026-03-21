@@ -9,8 +9,8 @@ import haxe.coro.IContinuation;
 import haxe.coro.context.Context;
 import haxe.exceptions.ArgumentException;
 import hxcoro.ds.Out;
-import hxcoro.ds.pipelines.Pipe.State;
-import hxcoro.ds.pipelines.PipeReader;
+import hxcoro.ds.pipelines.pipe.State;
+import hxcoro.ds.pipelines.pipe.PipeReader;
 import hxcoro.schedulers.VirtualTimeScheduler;
 import hxcoro.dispatchers.TrampolineDispatcher;
 import atest.Test;
@@ -43,7 +43,7 @@ class TestPipeReader extends Test {
 	}
 
 	public function test_tryRead() {
-		final state  = new State();
+		final state  = new State(1024, 512);
 		final reader = new PipeReader(state);
 		final data   = new ArrayBufferView(16);
 
@@ -59,7 +59,7 @@ class TestPipeReader extends Test {
 	}
 
 	public function test_tryRead_no_data() {
-		final state  = new State();
+		final state  = new State(1024, 512);
 		final reader = new PipeReader(state);
 
 		final out = new Out();
@@ -67,14 +67,14 @@ class TestPipeReader extends Test {
 	}
 
 	public function test_tryRead_null_out() {
-		final state  = new State();
+		final state  = new State(1024, 512);
 		final reader = new PipeReader(state);
 
 		Assert.raises(() -> reader.tryRead(null), ArgumentException);
 	}
 
 	public function test_tryReadAtLeast() {
-		final state  = new State();
+		final state  = new State(1024, 512);
 		final reader = new PipeReader(state);
 		final data   = new ArrayBufferView(16);
 
@@ -90,7 +90,7 @@ class TestPipeReader extends Test {
 	}
 
 	public function test_tryReadAtLeast_not_enough_data() {
-		final state  = new State();
+		final state  = new State(1024, 512);
 		final reader = new PipeReader(state);
 
 		Assert.isTrue(state.channel.writer.tryWrite(arrayBufferViewFromBytes(Bytes.ofString("Hello"))));
@@ -105,14 +105,14 @@ class TestPipeReader extends Test {
 	}
 
 	public function test_tryReadAtLeast_null_out() {
-		final state  = new State();
+		final state  = new State(1024, 512);
 		final reader = new PipeReader(state);
 
 		Assert.raises(() -> reader.tryReadAtLeast(10, null), ArgumentException);
 	}
 
 	public function test_tryReadAtLeast_invalid_count() {
-		final state  = new State();
+		final state  = new State(1024, 512);
 		final reader = new PipeReader(state);
 
 		final out = new Out();
@@ -121,13 +121,13 @@ class TestPipeReader extends Test {
 	}
 
 	public function test_advance_before_read() {
-		final reader = new PipeReader(new State());
+		final reader = new PipeReader(new State(1024, 512));
 
 		Assert.raises(() -> reader.advance(10, 10));
 	}
 
 	public function test_advance_invalid_consumed() {
-		final state  = new State();
+		final state  = new State(1024, 512);
 		final reader = new PipeReader(state);
 		final data   = new ArrayBufferView(16);
 
@@ -151,7 +151,7 @@ class TestPipeReader extends Test {
 	}
 
 	public function test_advance_invalid_observed() {
-		final state  = new State();
+		final state  = new State(1024, 512);
 		final reader = new PipeReader(state);
 		final data   = new ArrayBufferView(16);
 
@@ -175,7 +175,7 @@ class TestPipeReader extends Test {
 	}
 
 	public function test_partial_consumes() {
-		final state  = new State();
+		final state  = new State(1024, 512);
 		final reader = new PipeReader(state);
 		final src    = Bytes.ofString("Hello");
 
@@ -216,7 +216,7 @@ class TestPipeReader extends Test {
 	}
 
 	public function test_partial_observe_immediately_returns() {
-		final state  = new State();
+		final state  = new State(1024, 512);
 		final reader = new PipeReader(state);
 		final src    = Bytes.ofString("Hello");
 
@@ -249,7 +249,7 @@ class TestPipeReader extends Test {
 	}
 
 	public function test_full_observe_suspends() {
-		final state  = new State();
+		final state  = new State(1024, 512);
 		final reader = new PipeReader(state);
 		final src    = Bytes.ofString("Hello");
 
@@ -278,7 +278,7 @@ class TestPipeReader extends Test {
 	}
 
 	public function test_partial_consume_and_partial_observe() {
-		final state  = new State();
+		final state  = new State(1024, 512);
 		final reader = new PipeReader(state);
 		final src    = Bytes.ofString("Hello");
 
@@ -311,7 +311,7 @@ class TestPipeReader extends Test {
 	}
 
 	public function test_partial_consume_and_full_observe() {
-		final state  = new State();
+		final state  = new State(1024, 512);
 		final reader = new PipeReader(state);
 		final src    = Bytes.ofString("Hello");
 
@@ -340,7 +340,7 @@ class TestPipeReader extends Test {
 	}
 
 	public function test_wakeup_suspended_writer() {
-		final state  = new State();
+		final state  = new State(1024, 512);
 		final reader = new PipeReader(state);
 		final cont   = new TestContinuation();
 
@@ -358,7 +358,7 @@ class TestPipeReader extends Test {
 	}
 
 	public function test_dont_wakeup_suspended_writer() {
-		final state  = new State();
+		final state  = new State(1024, 512);
 		final reader = new PipeReader(state);
 		final cont   = new TestContinuation();
 

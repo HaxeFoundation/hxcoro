@@ -77,7 +77,7 @@ class TestPipe extends Test {
 		final scheduler  = new VirtualTimeScheduler();
 		final dispatcher = new TrampolineDispatcher(scheduler);
 		final task       = CoroRun.with(dispatcher).createTask(scope -> {
-			final pipe = new Pipe();
+			final pipe = Pipe.create();
 
 			scope.async(_ -> {
 				for (packet in input) {
