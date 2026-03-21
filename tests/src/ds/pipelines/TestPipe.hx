@@ -28,7 +28,7 @@ private class Packet {
 	}
 
 	public function encode(view:ArrayBufferView) {
-		final writer = UInt8Array.fromData(view.getData());
+		final writer = UInt8Array.fromData(#if js cast #end view.getData());
 
 		writer[0] = 0xFF;
 		writer[1] = src;
@@ -47,7 +47,7 @@ private class Packet {
 	}
 
 	public static function decode(view:ArrayBufferView, packet:Out<Packet>, count:Out<Int>) {
-		final reader = UInt8Array.fromData(view.getData());
+		final reader = UInt8Array.fromData(#if js cast #end view.getData());
 		final magic  = reader[0];
 		final src    = reader[1];
 		final dst    = reader[2];
