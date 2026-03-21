@@ -374,4 +374,22 @@ class TestPipeReader extends Test {
 		Assert.isFalse(cont.resumed);
 		Assert.notNull(state.suspendedWriter);
 	}
+
+	public function test_waitForRead_closed_writer() {
+		final state      = new State(1024, 512);
+		final reader     = new PipeReader(state);
+		final scheduler  = new VirtualTimeScheduler();
+		final dispatcher = new TrampolineDispatcher(scheduler);
+		final task       = CoroRun.with(dispatcher).createTask(_ -> {
+			return reader.waitForRead();
+		});
+
+		state.channel.writer.close();
+
+		task.start();
+		scheduler.advanceBy(1);
+
+		Assert.isFalse(task.isActive());
+		Assert.isFalse(task.get());
+	}
 }

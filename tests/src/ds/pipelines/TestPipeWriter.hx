@@ -2,8 +2,9 @@ package ds.pipelines;
 
 import hxcoro.dispatchers.TrampolineDispatcher;
 import hxcoro.schedulers.VirtualTimeScheduler;
-import haxe.io.Bytes;
 import hxcoro.ds.Out;
+import haxe.Exception;
+import haxe.io.Bytes;
 import haxe.exceptions.ArgumentException;
 import hxcoro.ds.pipelines.pipe.State;
 import hxcoro.ds.pipelines.pipe.PipeWriter;
@@ -178,5 +179,25 @@ class TestPipeWriter extends Test {
 		}
 
 		Assert.notNull(state.suspendedWriter);
+	}
+
+	function test_flushing_after_closing() {
+		final writer = new PipeWriter(new State(1024, 512));
+		final buffer = writer.getBuffer();
+
+		writer.advance(buffer.byteLength);
+		writer.close();
+
+		final scheduler  = new VirtualTimeScheduler();
+		final dispatcher = new TrampolineDispatcher(scheduler);
+		final task       = CoroRun.with(dispatcher).createTask(_ -> {
+			writer.flush();
+		});
+
+		task.start();
+		scheduler.advanceBy(1);
+
+		Assert.isFalse(task.isActive());
+		Assert.isOfType(task.getError(), Exception);
 	}
 }
