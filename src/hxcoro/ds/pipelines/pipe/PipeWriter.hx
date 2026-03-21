@@ -39,7 +39,7 @@ class PipeWriter implements IPipeWriter {
 
 		switch current {
 			case null:
-				throw new Exception("");
+				throw new Exception("Attempting to advance before getBuffer has been called");
 			case _:
 				if (count == 0) {
 					return;
