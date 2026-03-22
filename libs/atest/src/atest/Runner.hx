@@ -80,6 +80,7 @@ class Runner {
 					if (pattern != null && !StringTools.contains(t.name, pattern)) continue;
 
 					totalTests.add(1);
+					printTestStart(t.name);
 					try {
 						// Extract `execute` into a local so the Lua backend
 						// emits a plain function call instead of a colon-call
@@ -121,16 +122,16 @@ class Runner {
 							throw new AssertFailure("No assertions made", null);
 						}
 						totalPassed.add(1);
-						printResult(t.name, true, null);
+						printTestEnd(true, null);
 					} catch (e:hxcoro.exceptions.TimeoutException) {
 						totalFailed.add(1);
 						final detail = 'timeout after ${t.timeout}ms';
-						printResult(t.name, false, detail);
+						printTestEnd(false, detail);
 						failures.push('  ${c.name}::${t.name} - $detail');
 					} catch (e:AssertFailure) {
 						totalFailed.add(1);
 						final detail = e.pos != null ? '${e.message} at ${e.posToString()}' : e.message;
-						printResult(t.name, false, detail);
+						printTestEnd(false, detail);
 						failures.push('  ${c.name}::${t.name} - $detail');
 						try {
 							c.instance.teardown();
@@ -138,7 +139,7 @@ class Runner {
 					} catch (e:Dynamic) {
 						totalErrors.add(1);
 						final detail = Std.string(e);
-						printResult(t.name, false, 'ERROR: $detail');
+						printTestEnd(false, 'ERROR: $detail');
 						failures.push('  ${c.name}::${t.name} - ERROR: $detail');
 						try {
 							c.instance.teardown();
@@ -169,12 +170,25 @@ class Runner {
 	// Output helpers
 	// ------------------------------------------------------------------
 
-	static function printResult(name:String, passed:Bool, ?detail:String) {
-		if (passed) {
-			println('  $name ... OK');
-		} else {
-			println('  $name ... FAIL: $detail');
-		}
+	static function printTestStart(name:String) {
+		#if sys
+		Sys.print('  $name ... ');
+		Sys.stdout().flush();
+		#elseif js
+		js.Syntax.code("process.stdout.write('  ' + {0} + ' ... ')", name);
+		#else
+		trace('  $name ...');
+		#end
+	}
+
+	static function printTestEnd(passed:Bool, ?detail:String) {
+		#if sys
+		Sys.println(passed ? 'OK' : 'FAIL: $detail');
+		#elseif js
+		js.Syntax.code("console.log({0})", passed ? 'OK' : 'FAIL: ' + detail);
+		#else
+		trace(passed ? 'OK' : 'FAIL: $detail');
+		#end
 	}
 
 	static function println(msg:String) {
