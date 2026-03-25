@@ -16,15 +16,15 @@ class MinimumHeap {
 	}
 
 	public inline function left(i:Int) {
-		return i * 2 + 1;
+		return (i << 1) + 1;
 	}
 
 	public inline function right(i:Int) {
-		return i * 2 + 2;
+		return (i << 1) + 2;
 	}
 
 	public inline function parent(i:Int) {
-		return Std.int((i - 1) / 2);
+		return (i - 1) >> 1;
 	}
 
 	public inline function minimum() {
@@ -33,7 +33,7 @@ class MinimumHeap {
 
 	function ensureCapacity() {
 		if (length == storage.length) {
-			final newStorage = new Vector(storage.length * 2);
+			final newStorage = new Vector(storage.length << 1);
 			Vector.blit(storage, 0, newStorage, 0, storage.length);
 			storage = newStorage;
 		}

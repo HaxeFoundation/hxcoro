@@ -1,5 +1,4 @@
 build-base.hxml
 -D lua-vanilla
---macro include("hxcoro.lua")
 --lua bin/coro.lua
 --cmd lua bin/coro.lua
