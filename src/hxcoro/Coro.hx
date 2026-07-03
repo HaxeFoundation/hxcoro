@@ -2,7 +2,6 @@ package hxcoro;
 
 import haxe.coro.IContinuation;
 import haxe.coro.SuspensionResult;
-import haxe.coro.context.ExceptionHandler;
 import haxe.coro.dispatchers.Dispatcher;
 import haxe.exceptions.ArgumentException;
 import haxe.exceptions.CancellationException;
@@ -16,27 +15,25 @@ import hxcoro.task.NodeLambda;
 private typedef SuspendCancellableFunc<T> = IContinuation<T> -> Null<(CancellationException -> Void)>;
 
 class Coro {
-	@:coroutine(transformed, outcome = { noThrow: true, noReturn: true })
+	@:coroutine(transformed)
 	public static function suspend<T>(completion:IContinuation<T>, func:IContinuation<T>->Void):SuspensionResult<T> {
 		var safe = new RacingContinuation(completion);
 		func(safe);
-		safe.resolve();
-		return cast SuspensionResult.suspended;
+		return safe.resolve();
 	}
 
 	/**
 	 * Suspends a coroutine which will be automatically resumed with a `haxe.exceptions.CancellationException` when cancelled.
 	 * If `func` returns a callback, it is registered to be invoked on cancellation allowing the easy cleanup of resources.
 	 */
-	@:coroutine(transformed, outcome = { noThrow: true, noReturn: true })
+	@:coroutine(transformed)
 	public static function suspendCancellable<T>(completion:IContinuation<T>, func:SuspendCancellableFunc<T>):SuspensionResult<T> {
 		var safe = new CancellingContinuation(completion);
 		final onCancellationRequested = func(safe);
 		if (onCancellationRequested != null) {
 			safe.onCancellationRequested = onCancellationRequested;
 		}
-		safe.resolve();
-		return cast SuspensionResult.suspended;
+		return safe.resolve();
 	}
 
 	static function delayImpl<T>(ms:Int, cont:IContinuation<T>) {
@@ -48,12 +45,12 @@ class Coro {
 		}
 	}
 
-	@:coroutine(outcome = { noThrow: true, noReturn: true }, assert = { numStates: 1})
+	@:coroutine(assert = { numStates: 1})
 	public static function delay(ms:Int):Void {
 		suspendCancellable(cont -> delayImpl(ms, cont));
 	}
 
-	@:coroutine(outcome = { noThrow: true, noReturn: true }, assert = { numStates: 1})
+	@:coroutine(assert = { numStates: 1})
 	public static function yield():Void {
 		suspendCancellable(cont -> delayImpl(0, cont));
 	}
