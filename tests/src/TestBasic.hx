@@ -4,7 +4,7 @@ import hxcoro.dispatchers.TrampolineDispatcher;
 
 class TestBasic extends atest.Test {
 	function testSimple() {
-		Assert.equals(42, run(@:coroutine function run(_) {
+		Assert.equals(42, run(@:coroutine function run(_:hxcoro.task.ICoroNode) {
 			return simple(42);
 		}));
 	}
@@ -22,7 +22,7 @@ class TestBasic extends atest.Test {
 	}
 
 	function testResumeWithError() {
-		@:coroutine function foo(_) {
+		@:coroutine function foo(_:hxcoro.task.ICoroNode) {
 			suspend(cont -> {
 				cont.resume(null, new Exception(""));
 			});
@@ -78,7 +78,7 @@ class TestBasic extends atest.Test {
 		return arg;
 	}
 
-	@:coroutine static function error(_) {
+	@:coroutine static function error(_:hxcoro.task.ICoroNode) {
 		throw "nope";
 	}
 }
