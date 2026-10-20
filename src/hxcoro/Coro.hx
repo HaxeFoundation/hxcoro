@@ -39,7 +39,7 @@ class Coro {
 		return cast SuspensionResult.suspended;
 	}
 
-	static function delayImpl<T>(ms:Int, cont:IContinuation<T>) {
+	static function delayImpl<T>(ms:Int, cont:IContinuation<T>):Null<CancellationException -> Void> {
 		final dispatcher = cont.context.getOrRaise(Dispatcher);
 		final handle = dispatcher.scheduler.schedule(ms, cont);
 

@@ -101,7 +101,7 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 	/**
 		@see `IStackFrame.callerFrame`
 	**/
-	public function getStackItem() {
+	public function getStackItem():Null<haxe.coro.CoroStackItem> {
 		#if debug
 		return startPos == null ? null : haxe.coro.CoroStackItem.PosInfo(startPos);
 		#else
