@@ -10,7 +10,7 @@ abstract CsYield<T, R>(Generator<T, R>) to Generator<T, R> from Generator<T, R> 
 		return this.yield(value);
 	}
 
-	@:coroutine public function yieldBreak() {
+	@:coroutine public function yieldBreak():Void {
 		this.resume(null, null);
 		return suspend(_ -> {});
 	}

@@ -1,6 +1,6 @@
 package issues.aidan;
 
-@:coroutine function foo(_) : String {
+@:coroutine function foo(_:hxcoro.task.ICoroNode) : String {
 	return suspend(cont -> {
 		cont.resume('Hello, World!', null);
 	});

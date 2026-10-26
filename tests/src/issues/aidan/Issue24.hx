@@ -9,7 +9,7 @@ class MyCont {
 }
 
 @:coroutine
-private function await(_) {
+private function await(_:hxcoro.task.ICoroNode) {
 	var safe = new MyCont();
 	return {
 		var this1 = safe.getOrThrow();

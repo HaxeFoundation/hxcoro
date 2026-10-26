@@ -19,7 +19,7 @@ import hxcoro.dispatchers.TrampolineDispatcher;
 
 // This is silly, should just have a thread-safe stack.
 final mutex = new Mutex();
-final messages = [];
+final messages:Array<String> = [];
 
 function push(message:String) {
 	mutex.acquire();

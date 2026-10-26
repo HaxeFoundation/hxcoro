@@ -7,7 +7,7 @@ class Issue61 extends atest.Test {
 		run(foo);
 	}
 
-    @:coroutine function foo(_) {
+    @:coroutine function foo(_:hxcoro.task.ICoroNode) {
         var a = 2;
         yield();
         Assert.equals(2, a);

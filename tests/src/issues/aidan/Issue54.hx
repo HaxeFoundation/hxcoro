@@ -5,7 +5,7 @@ package issues.aidan;
 	throw "fail";
 }
 
-@:coroutine function f(_) {
+@:coroutine function f(_:hxcoro.task.ICoroNode) {
 	try {
 		suspendThenThrow();
 		return "wrong";

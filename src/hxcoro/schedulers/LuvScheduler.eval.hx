@@ -140,7 +140,7 @@ class LuvScheduler implements IScheduler implements ILoop {
 	}
 
 	@:inheritDoc
-	public function now() {
+	public function now():haxe.Int64 {
 		return cast uvLoop.now().toInt64();
 	}
 
