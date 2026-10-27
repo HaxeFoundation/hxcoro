@@ -16,7 +16,7 @@ import hxcoro.task.node.CoroScopeStrategy;
 	The intended usage is to add `using hxcoro.run.ContextRun`.
 **/
 class ContextRun {
-	#if debug
+	#if coro.stack_traces
 
 	static function createEntryTask<T>(context:Context, lambda:NodeLambda<T>, strategy:CoroScopeStrategy, initialState:TaskState, ?callPos:haxe.PosInfos) {
 		final exceptionHandler = context.get(ExceptionHandler);
@@ -59,7 +59,7 @@ class ContextRun {
 		This function checks for the presence of a `Dispatcher` element in
 		the context and fails if there is none.
 	**/
-	static public function createTask<T>(context:Context, lambda:NodeLambda<T>#if debug, ?callPos:haxe.PosInfos#end):IStartableCoroTask<T> {
+	static public function createTask<T>(context:Context, lambda:NodeLambda<T>#if coro.stack_traces, ?callPos:haxe.PosInfos#end):IStartableCoroTask<T> {
 		final dispatcher = context.get(Dispatcher);
 		if (dispatcher == null) {
 			throw 'Cannot create a task without a Dispatcher element';
@@ -74,12 +74,12 @@ class ContextRun {
 		This function checks for the presence of a `Dispatcher` element in
 		the context and fails if there is none.
 	**/
-	static public function launchTask<T>(context:Context, lambda:NodeLambda<T>#if debug, ?callPos:haxe.PosInfos#end):ICoroTask<T> {
+	static public function launchTask<T>(context:Context, lambda:NodeLambda<T>#if coro.stack_traces, ?callPos:haxe.PosInfos#end):ICoroTask<T> {
 		final dispatcher = context.get(Dispatcher);
 		if (dispatcher == null) {
 			throw 'Cannot launch a task without a Dispatcher element';
 		}
-		return createEntryTask(context, lambda, CoroTask.CoroScopeStrategy, Running#if debug, callPos #end);
+		return createEntryTask(context, lambda, CoroTask.CoroScopeStrategy, Running#if coro.stack_traces, callPos #end);
 	}
 
 	/**
@@ -91,7 +91,7 @@ class ContextRun {
 		the context and fails if there is none. It also checks if the dispatcher's
 		scheduler is an instance of `ILoop` and fails if it's not.
 	**/
-	static public function runTask<T>(context:Context, lambda:NodeLambda<T>#if debug, ?callPos:haxe.PosInfos#end):T {
+	static public function runTask<T>(context:Context, lambda:NodeLambda<T>#if coro.stack_traces, ?callPos:haxe.PosInfos#end):T {
 		final dispatcher = context.get(Dispatcher);
 		if (dispatcher == null) {
 			throw 'Cannot run a task without a Dispatcher element';
@@ -99,7 +99,7 @@ class ContextRun {
 		if (!(dispatcher.scheduler is ILoop)) {
 			throw 'Cannot run because ${dispatcher.scheduler} is not an instance of ILoop';
 		}
-		final task = LoopRun.runTask(cast dispatcher.scheduler, context, lambda#if debug, callPos #end);
+		final task = LoopRun.runTask(cast dispatcher.scheduler, context, lambda#if coro.stack_traces, callPos #end);
 		return resolveTask(task);
 	}
 }

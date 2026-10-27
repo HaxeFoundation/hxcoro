@@ -3,3 +3,4 @@
 --library hxcoro
 --main Main
 -debug
+-D coro.stack-traces

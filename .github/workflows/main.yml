@@ -70,7 +70,7 @@ jobs:
 
           # Run with the default dispatcher for this target
           run_default() {
-            haxe --cwd tests -debug build-$TARGET.hxml
+            haxe --cwd tests -debug -D coro.stack-traces build-$TARGET.hxml
             run_release
             haxe --cwd tests build-$TARGET.hxml --hxb-lib bin/test.hxb
           }
