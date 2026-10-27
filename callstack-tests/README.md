@@ -63,7 +63,7 @@ The eval interpreter produces the most complete and accurate stacks.
   `task2.start()` call site in the stack (via `callerTask`, which captures the
   awaiting task's context at first positioning in `await()`).
 - Transitivity also works through `start(node)`: since `start()` is not a
-  coroutine, it accepts an optional debug-only `?caller:ICoroNode` parameter.
+  coroutine, it accepts an optional `?caller:ICoroNode` parameter (only used with `-D coro.stack-traces`).
   Passing `node` (e.g. `task1.start(node)`) provides the calling task's context
   so `callerTask` is set correctly.  Without `node`, the chain goes directly
   from the started task to the parent entry task.

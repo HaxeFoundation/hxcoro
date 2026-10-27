@@ -58,11 +58,11 @@ class Coro {
 		suspendCancellable(cont -> delayImpl(0, cont));
 	}
 
-	@:coroutine static public function scope<T>(lambda:NodeLambda<T>#if debug, ?startPos:haxe.PosInfos#end):T {
+	@:coroutine static public function scope<T>(lambda:NodeLambda<T>#if coro.stack_traces, ?startPos:haxe.PosInfos#end):T {
 		return suspend(cont -> {
 			final context = cont.context;
-			final scope = new CoroTaskWithLambda(context, lambda, CoroTask.CoroScopeStrategy, Running#if debug, startPos#end);
-			scope.awaitContinuation(cont#if debug, startPos#end);
+			final scope = new CoroTaskWithLambda(context, lambda, CoroTask.CoroScopeStrategy, Running#if coro.stack_traces, startPos#end);
+			scope.awaitContinuation(cont#if coro.stack_traces, startPos#end);
 		});
 	}
 
@@ -72,11 +72,11 @@ class Coro {
 		The task itself can still raise an exception. This is also true when calling
 		`child.await()` on a child that raises an exception.
 	**/
-	@:coroutine static public function supervisor<T>(lambda:NodeLambda<T>#if debug, ?startPos:haxe.PosInfos#end):T {
+	@:coroutine static public function supervisor<T>(lambda:NodeLambda<T>#if coro.stack_traces, ?startPos:haxe.PosInfos#end):T {
 		return suspend(cont -> {
 			final context = cont.context;
-			final scope = new CoroTaskWithLambda(context, lambda, CoroTask.CoroSupervisorStrategy, Running#if debug, startPos#end);
-			scope.awaitContinuation(cont#if debug, startPos#end);
+			final scope = new CoroTaskWithLambda(context, lambda, CoroTask.CoroSupervisorStrategy, Running#if coro.stack_traces, startPos#end);
+			scope.awaitContinuation(cont#if coro.stack_traces, startPos#end);
 		});
 	}
 
@@ -88,7 +88,7 @@ class Coro {
 	 * @throws `hxcoro.exceptions.TimeoutException` If the timeout is exceeded.
 	 * @throws `haxe.ArgumentException` If the `ms` parameter is less than zero.
 	 */
-	@:coroutine public static function timeout<T>(ms:Int, lambda:NodeLambda<T>#if debug, ?startPos:haxe.PosInfos#end):T {
+	@:coroutine public static function timeout<T>(ms:Int, lambda:NodeLambda<T>#if coro.stack_traces, ?startPos:haxe.PosInfos#end):T {
 		if (ms < 0) {
 			throw new ArgumentException('timeout must be positive');
 		}
@@ -98,9 +98,9 @@ class Coro {
 		}
 		return suspend(cont -> {
 			final context = cont.context;
-			final scope = new CoroTaskWithLambda(context, lambda, CoroTask.CoroScopeStrategy, Running#if debug, startPos#end);
+			final scope = new CoroTaskWithLambda(context, lambda, CoroTask.CoroScopeStrategy, Running#if coro.stack_traces, startPos#end);
 			final handle = context.scheduleFunction(ms, () -> {
-				#if debug
+				#if coro.stack_traces
 				context.setExceptionStack(cast cont, exception);
 				#end
 				scope.cancel(exception);

@@ -34,8 +34,8 @@ class CoroTask<T> extends CoroBaseTask<T> implements IContinuation<T> {
 	static public final CoroScopeStrategy = new CoroScopeStrategy();
 	static public final CoroSupervisorStrategy = new CoroSupervisorStrategy();
 
-	public function new(context:Context, nodeStrategy:INodeStrategy, initialState:TaskState = Running#if debug, ?startPos:haxe.PosInfos#end) {
-		super(context, nodeStrategy, initialState#if debug, startPos#end);
+	public function new(context:Context, nodeStrategy:INodeStrategy, initialState:TaskState = Running#if coro.stack_traces, ?startPos:haxe.PosInfos#end) {
+		super(context, nodeStrategy, initialState#if coro.stack_traces, startPos#end);
 	}
 
 	/**
@@ -69,11 +69,11 @@ class CoroTaskWithLambda<T> extends CoroTask<T> implements IDispatchObject imple
 	/**
 		Creates a new task using the provided `context` in order to execute `lambda`.
 	**/
-	public function new(context:Context, lambda:NodeLambda<T>, nodeStrategy:INodeStrategy, initialState:TaskState = Running#if debug, ?startPos:haxe.PosInfos#end) {
+	public function new(context:Context, lambda:NodeLambda<T>, nodeStrategy:INodeStrategy, initialState:TaskState = Running#if coro.stack_traces, ?startPos:haxe.PosInfos#end) {
 		this.lambda = lambda;
-		super(context, nodeStrategy, Created#if debug,startPos#end);
+		super(context, nodeStrategy, Created#if coro.stack_traces,startPos#end);
 		if (initialState == Running) {
-			#if debug
+			#if coro.stack_traces
 			callFrameLocked = true;
 			#end
 			context.dispatchOrCall(this);

@@ -44,9 +44,9 @@ haxe --cwd tests build-eval.hxml  # For eval target
 haxe --cwd tests build-js.hxml    # For JavaScript target
 ```
 
-For debugging mode, add `-debug` flag:
+For debugging mode with coroutine stack traces, add `-debug -D coro.stack-traces`:
 ```bash
-haxe --cwd tests -debug build-eval.hxml
+haxe --cwd tests -debug -D coro.stack-traces build-eval.hxml
 ```
 
 For HXB (Haxe Binary) compilation testing:

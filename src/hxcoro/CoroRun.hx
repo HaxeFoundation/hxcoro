@@ -14,8 +14,8 @@ class CoroRun {
 		return Setup.defaultContext.with(...elements);
 	}
 
-	static public inline function run<T>(lambda:NodeLambda<T>#if debug, ?callPos:haxe.PosInfos#end):T {
-		return runWith(Setup.defaultContext, lambda#if debug, callPos#end);
+	static public inline function run<T>(lambda:NodeLambda<T>#if coro.stack_traces, ?callPos:haxe.PosInfos#end):T {
+		return runWith(Setup.defaultContext, lambda#if coro.stack_traces, callPos#end);
 	}
 
 	#if js
@@ -68,10 +68,10 @@ class CoroRun {
 		Each invocation creates its own independent `Setup` (scheduler + dispatcher),
 		so separate calls from different threads do not interfere with each other.
 	**/
-	static public function runWith<T>(context:Context, lambda:NodeLambda<T>#if debug, ?callPos:haxe.PosInfos#end):T {
+	static public function runWith<T>(context:Context, lambda:NodeLambda<T>#if coro.stack_traces, ?callPos:haxe.PosInfos#end):T {
 		final setup = Setup.createDefault();
 		final context = setup.adaptContext(context);
-		final task = setup.loop.runTask(context, lambda#if debug, callPos#end);
+		final task = setup.loop.runTask(context, lambda#if coro.stack_traces, callPos#end);
 		setup.close();
 		return @:privateAccess ContextRun.resolveTask(task);
 	}
