@@ -63,21 +63,6 @@ class ScheduledEvent implements ISchedulerHandle implements IDispatchObject {
 	}
 
 	/**
-		Calls `f` on this event and then on each of its child events. The child events are
-		removed from this event, so later calls don't visit them again.
-	**/
-	public function iterateEvents(f:IDispatchObject->Void) {
-		final childEvents = childEvents;
-		this.childEvents = null;
-		f(this);
-		if (childEvents != null) {
-			for (childEvent in childEvents) {
-				f(childEvent);
-			}
-		}
-	}
-
-	/**
 		Cancels this event so that its continuation is not resumed. Child events are not affected.
 	**/
 	public function close() {
