@@ -1,12 +1,11 @@
 package hxcoro.continuations;
 
 import haxe.Exception;
-import haxe.coro.IContinuation;
+import haxe.coro.SuspensionResult;
 import haxe.coro.cancellation.CancellationToken;
 import haxe.coro.cancellation.ICancellationCallback;
 import haxe.coro.cancellation.ICancellationHandle;
 import haxe.coro.cancellation.ICancellationToken;
-import haxe.coro.dispatchers.Dispatcher;
 import haxe.coro.dispatchers.IDispatchObject;
 import haxe.exceptions.CancellationException;
 import haxe.atomic.AtomicInt;
@@ -117,19 +116,18 @@ class CancellingContinuation<T> extends StackFrameContinuation<T> implements ICa
 	}
 
 	/**
-		Must be called after the suspending function has run. If this continuation was
-		already resumed or cancelled, the wrapped continuation is dispatched.
+		Must be called after the suspending function has run. Returns `SuspensionResult.suspended`
+		if this continuation was not resumed or cancelled yet, otherwise returns itself in
+		`Returned` or `Thrown` state.
 	**/
-	public function resolve():Void {
-		if (resumeState.compareExchange(Active, Resolved) != Active) {
+	public function resolve():SuspensionResult<T> {
+		if (resumeState.compareExchange(Active, Resolved) == Active) {
+			return cast SuspensionResult.suspended;
+		} else {
 			while (resumeState.load() == Completing) {
 				BackOff.backOff();
 			}
-			// Resume (or cancellation) beat resolve(). Dispatch so that onDispatch() →
-			// cont.resume() is always called, regardless of whether the caller was a
-			// BaseContinuation state machine or a plain lambda (where an inline Returned
-			// result would be silently discarded on multi-threaded targets).
-			context.dispatchOrCall(this);
+			return this;
 		}
 	}
 

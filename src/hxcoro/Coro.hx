@@ -2,7 +2,6 @@ package hxcoro;
 
 import haxe.coro.IContinuation;
 import haxe.coro.SuspensionResult;
-import haxe.coro.context.ExceptionHandler;
 import haxe.coro.dispatchers.Dispatcher;
 import haxe.exceptions.ArgumentException;
 import haxe.exceptions.CancellationException;
@@ -23,15 +22,15 @@ class Coro {
 		Suspends the current coroutine and calls `func` with a continuation that resumes it.
 
 		The continuation may be resumed while `func` is still running or at any later point,
-		including from another thread. Cancellation does not resume the coroutine, see
-		`suspendCancellable` for that.
+		including from another thread. If it is resumed before `func` returns, the coroutine
+		continues synchronously without actually suspending. Cancellation does not resume the
+		coroutine, see `suspendCancellable` for that.
 	**/
-	@:coroutine(transformed, outcome = { noThrow: true, noReturn: true })
+	@:coroutine(transformed)
 	public static function suspend<T>(completion:IContinuation<T>, func:IContinuation<T>->Void):SuspensionResult<T> {
 		var safe = new RacingContinuation(completion);
 		func(safe);
-		safe.resolve();
-		return cast SuspensionResult.suspended;
+		return safe.resolve();
 	}
 
 	/**
@@ -41,15 +40,14 @@ class Coro {
 		If `func` returns a callback, it is invoked if the coroutine is cancelled while
 		suspended, which allows cleaning up resources.
 	**/
-	@:coroutine(transformed, outcome = { noThrow: true, noReturn: true })
+	@:coroutine(transformed)
 	public static function suspendCancellable<T>(completion:IContinuation<T>, func:SuspendCancellableFunc<T>):SuspensionResult<T> {
 		var safe = new CancellingContinuation(completion);
 		final onCancellationRequested = func(safe);
 		if (onCancellationRequested != null) {
 			safe.onCancellationRequested = onCancellationRequested;
 		}
-		safe.resolve();
-		return cast SuspensionResult.suspended;
+		return safe.resolve();
 	}
 
 	static function delayImpl<T>(ms:Int, cont:IContinuation<T>) {
@@ -65,7 +63,7 @@ class Coro {
 		Suspends the current coroutine for `ms` milliseconds, as measured by the scheduler of
 		the context's `Dispatcher`.
 	**/
-	@:coroutine(outcome = { noThrow: true, noReturn: true }, assert = { numStates: 1})
+	@:coroutine(assert = { numStates: 1})
 	public static function delay(ms:Int):Void {
 		suspendCancellable(cont -> delayImpl(ms, cont));
 	}
@@ -74,7 +72,7 @@ class Coro {
 		Suspends the current coroutine and schedules it to be resumed without delay, giving
 		other pending work a chance to run. Equivalent to `delay(0)`.
 	**/
-	@:coroutine(outcome = { noThrow: true, noReturn: true }, assert = { numStates: 1})
+	@:coroutine(assert = { numStates: 1})
 	public static function yield():Void {
 		suspendCancellable(cont -> delayImpl(0, cont));
 	}

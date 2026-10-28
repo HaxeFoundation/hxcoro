@@ -2,7 +2,7 @@ package hxcoro.continuations;
 
 import haxe.Exception;
 import haxe.coro.IContinuation;
-import haxe.coro.dispatchers.Dispatcher;
+import haxe.coro.SuspensionResult;
 import haxe.coro.dispatchers.IDispatchObject;
 import haxe.atomic.AtomicInt;
 
@@ -34,14 +34,15 @@ class RacingContinuation<T> extends StackFrameContinuation<T> implements IDispat
 	}
 
 	/**
-		Must be called after the suspending function has run. If this continuation was
-		already resumed, the wrapped continuation is dispatched.
+		Must be called after the suspending function has run. Returns `SuspensionResult.suspended`
+		if this continuation was not resumed yet, otherwise returns itself in `Returned` or
+		`Thrown` state.
 	**/
-	public function resolve():Void {
+	public function resolve():SuspensionResult<T> {
 		if (resumeState.compareExchange(Active, Resolved) == Active) {
-			state = Pending;
+			return cast SuspensionResult.suspended;
 		} else {
-			context.dispatchOrCall(this);
+			return this;
 		}
 	}
 
