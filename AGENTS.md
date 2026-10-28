@@ -46,6 +46,13 @@ haxe --cwd benchmarks build-<target>.hxml        # benchmarks (not run in CI)
 
 `eval` is the easiest target to test and needs no external tools, so start there. C++ builds are slow, especially the first one.
 
+The code examples of the [wiki](https://github.com/HaxeFoundation/hxcoro/wiki) are tested on eval with a checkout of the wiki repository. When changing public API, run this and update the wiki if examples break:
+
+```bash
+git clone https://github.com/HaxeFoundation/hxcoro.wiki.git ../hxcoro.wiki
+haxe --cwd wiki-tests --run WikiTests ../../hxcoro.wiki
+```
+
 ### Variations used by CI
 
 ```bash
@@ -62,7 +69,7 @@ HXCORO_DISPATCHER=threadpool haxe --cwd tests build-eval.hxml
 
 ### CI Pipeline
 
-`.github/workflows/main.yml` runs on push and pull request, on Ubuntu, macOS and Windows, for every target listed above. It excludes PHP on macOS and Lua on Windows. For each target it runs the main tests (debug, release+HXB and HXB-lib builds, plus extra dispatcher runs on eval, cpp, hl, jvm and python) and then the callstack tests.
+`.github/workflows/main.yml` runs on push and pull request, on Ubuntu, macOS and Windows, for every target listed above. It excludes PHP on macOS and Lua on Windows. For each target it runs the main tests (debug, release+HXB and HXB-lib builds, plus extra dispatcher runs on eval, cpp, hl, jvm and python) and then the callstack tests. `.github/workflows/wiki.yml` runs the wiki examples on push, pull request and wiki edits.
 
 ## Project Layout
 
@@ -88,6 +95,7 @@ tests/                     # Main test suite (atest)
 ├── build-base.hxml        # Shared config; every build-<target>.hxml includes it
 └── src/                   # Main.hx registers cases; one subdirectory per area
 callstack-tests/           # Asserts exception stack shapes; see callstack-tests/README.md
+wiki-tests/                # Compiles and runs the wiki's code examples; see wiki-tests/README.md
 benchmarks/                # Benchmark suite; results go to benchmarks/results/ (git-ignored)
 libs/atest/                # In-repo test framework used by tests/
 ```
