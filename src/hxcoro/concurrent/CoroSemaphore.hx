@@ -79,8 +79,8 @@ class CoroSemaphore {
 	}
 
 	/**
-		Acquires a permit if one is available without suspending. Returns `true` if a
-		permit was acquired, `false` otherwise.
+		If a permit is available, acquires it and returns `true`. Otherwise, returns `false`
+		without suspending.
 	**/
 	public function tryAcquire() {
 		while (true) {

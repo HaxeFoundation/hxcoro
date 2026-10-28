@@ -54,7 +54,7 @@ class CoroLatchImpl {
 	}
 
 	/**
-		Returns true if the internal counter is 0.
+		Returns `true` if the counter has reached 0, without suspending.
 	**/
 	public function tryWait() {
 		return counter.load() == 0;

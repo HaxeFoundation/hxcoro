@@ -31,7 +31,8 @@ abstract PagedDeque<T>(VecDeque<T>) {
 	}
 
 	/**
-		Stores the most recently pushed item in `out` without removing it. Returns `false` if the queue is empty.
+		If the queue is not empty, stores the most recently pushed item in `out` without
+		removing it and returns `true`. Otherwise, returns `false`.
 	**/
 	public function tryPeek(out:Out<T>) {
 		final value = this.peekBack();
@@ -43,7 +44,8 @@ abstract PagedDeque<T>(VecDeque<T>) {
 	}
 
 	/**
-		Removes the item at the front of the queue and stores it in `out`. Returns `false` if the queue is empty.
+		If the queue is not empty, removes the item at the front, stores it in `out` and
+		returns `true`. Otherwise, returns `false`.
 	**/
 	public function tryPop(out:Out<T>) {
 		if (isEmpty()) {
@@ -274,7 +276,8 @@ class PagedDeque<T> {
 	}
 
 	/**
-		Removes the item at the front of the queue and stores it in `out`. Returns `false` if the queue is empty.
+		If the queue is not empty, removes the item at the front, stores it in `out` and
+		returns `true`. Otherwise, returns `false`.
 	**/
 	public function tryPop(out:Out<T>) {
 		if (isEmpty()) {
@@ -306,7 +309,8 @@ class PagedDeque<T> {
 	}
 
 	/**
-		Stores the most recently pushed item in `out` without removing it. Returns `false` if the queue is empty.
+		If the queue is not empty, stores the most recently pushed item in `out` without
+		removing it and returns `true`. Otherwise, returns `false`.
 	**/
 	public function tryPeek(out:Out<T>) {
 		if (isEmpty()) {

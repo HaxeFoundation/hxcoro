@@ -5,7 +5,8 @@ package hxcoro.ds.channels;
 **/
 interface IChannelWriter<T> {
 	/**
-		Writes `out` without suspending. Returns `false` if the channel is full or closed.
+		If the channel can accept `out` right away, writes it and returns `true`. Otherwise,
+		for example if the channel is full or closed, returns `false` without suspending.
 	**/
 	function tryWrite(out:T):Bool;
 

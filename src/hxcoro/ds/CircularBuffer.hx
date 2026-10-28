@@ -28,7 +28,8 @@ final class CircularBuffer<T> {
 	}
 
 	/**
-		Adds `v` at the head of the buffer. Returns `false` if the buffer is full.
+		If the buffer is not full, adds `v` at the head and returns `true`. Otherwise,
+		returns `false`.
 	**/
 	public function tryPush(v:T) {
 		final nextHead = increment(head);
@@ -44,7 +45,8 @@ final class CircularBuffer<T> {
 	}
 
 	/**
-		Stores the most recently pushed item in `out` without removing it. Returns `false` if the buffer is empty.
+		If the buffer is not empty, stores the most recently pushed item in `out` without
+		removing it and returns `true`. Otherwise, returns `false`.
 	**/
 	public function tryPeekHead(out:Out<T>) {
 		if (wasEmpty()) {
@@ -57,7 +59,8 @@ final class CircularBuffer<T> {
 	}
 
 	/**
-		Removes the most recently pushed item and stores it in `out`. Returns `false` if the buffer is empty.
+		If the buffer is not empty, removes the most recently pushed item, stores it in `out`
+		and returns `true`. Otherwise, returns `false`.
 	**/
 	public function tryPopHead(out:Out<T>) {
 		if (wasEmpty()) {
@@ -72,7 +75,8 @@ final class CircularBuffer<T> {
 	}
 
 	/**
-		Removes the oldest item and stores it in `out`. Returns `false` if the buffer is empty.
+		If the buffer is not empty, removes the oldest item, stores it in `out` and returns
+		`true`. Otherwise, returns `false`.
 	**/
 	public function tryPopTail(out:Out<T>) {
 		if (wasEmpty()) {

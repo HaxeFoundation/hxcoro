@@ -11,14 +11,14 @@ import hxcoro.ds.Out;
 @:using(hxcoro.ds.channels.IChannelReader.ChannelReaderTools)
 interface IChannelReader<T> {
 	/**
-		Removes the next item and stores it in `out` without suspending. Returns `false` if
-		no item is available.
+		If an item is available, removes it, stores it in `out` and returns `true`. Otherwise,
+		returns `false` without suspending.
 	**/
 	function tryRead(out:Out<T>):Bool;
 
 	/**
-		Stores the most recently written item in `out` without removing it. Returns `false` if
-		no item is available.
+		If an item is available, stores the most recently written one in `out` without
+		removing it and returns `true`. Otherwise, returns `false` without suspending.
 	**/
 	function tryPeek(out:Out<T>):Bool;
 

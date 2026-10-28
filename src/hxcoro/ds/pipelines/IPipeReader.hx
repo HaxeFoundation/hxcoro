@@ -14,13 +14,14 @@ interface IPipeReader {
 	**/
 	@:coroutine function waitForRead():Bool;
 	/**
-		Stores the available data in `out` without suspending, including data from earlier reads
-		that was not consumed. Returns `false` if there is no data, or if all remaining data was
-		marked as observed and nothing new has arrived.
+		If data is available, stores it in `out` and returns `true`. This includes data from
+		earlier reads that was not consumed, unless all of it was marked as observed and nothing
+		new has arrived. Otherwise, returns `false` without suspending.
 	**/
 	function tryRead(out:Out<ArrayBufferView>):Bool;
 	/**
-		Like `tryRead`, but returns `true` only if at least `count` bytes are available.
+		Like `tryRead`, but returns `true` only if at least `count` bytes are available, and
+		`false` otherwise.
 		Throws `haxe.exceptions.ArgumentException` if `count` is not positive.
 	**/
 	function tryReadAtLeast(count:Int, out:Out<ArrayBufferView>):Bool;

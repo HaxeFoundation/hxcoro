@@ -35,9 +35,9 @@ class Coro {
 	}
 
 	/**
-	 * Suspends a coroutine which will be automatically resumed with a `haxe.exceptions.CancellationException` when cancelled.
-	 * If `func` returns a callback, it is registered to be invoked on cancellation allowing the easy cleanup of resources.
-	 */
+		Suspends a coroutine which will be automatically resumed with a `haxe.exceptions.CancellationException` when cancelled.
+		If `func` returns a callback, it is registered to be invoked on cancellation allowing the easy cleanup of resources.
+	**/
 	@:coroutine(transformed, outcome = { noThrow: true, noReturn: true })
 	public static function suspendCancellable<T>(completion:IContinuation<T>, func:SuspendCancellableFunc<T>):SuspensionResult<T> {
 		var safe = new CancellingContinuation(completion);
@@ -109,13 +109,13 @@ class Coro {
 	}
 
 	/**
-	 * Runs the provided lambda with a timeout, if the timeout is exceeded this functions throws `hxcoro.exceptions.TimeoutException`.
-	 * If a timeout of zero is provided the function immediately throws `hxcoro.exceptions.TimeoutException`.
-	 * @param ms Timeout in milliseconds.
-	 * @param lambda Lambda function to execute.
-	 * @throws `hxcoro.exceptions.TimeoutException` If the timeout is exceeded.
-	 * @throws `haxe.ArgumentException` If the `ms` parameter is less than zero.
-	 */
+		Runs `lambda` in a new task and returns its result. If the task does not complete
+		within `ms` milliseconds, it is cancelled and a `hxcoro.exceptions.TimeoutException`
+		is thrown.
+
+		A timeout of 0 throws the `TimeoutException` immediately without running `lambda`,
+		and a negative timeout throws a `haxe.exceptions.ArgumentException`.
+	**/
 	@:coroutine public static function timeout<T>(ms:Int, lambda:NodeLambda<T>#if coro.stack_traces, ?startPos:haxe.PosInfos#end):T {
 		if (ms < 0) {
 			throw new ArgumentException('timeout must be positive');
