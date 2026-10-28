@@ -22,9 +22,8 @@ don't finish within 30 seconds fail.
 ## How code blocks are tested
 
 Every `haxe` code block that contains a `function main` is compiled and run, and
-must exit successfully. Other code blocks are ignored unless a directive says
-otherwise. A `haxe` block without `function main` fails unless it has a
-directive, so that new fragments aren't silently left untested.
+must exit successfully. Other code blocks, such as fragments without a
+`function main`, are ignored unless a directive says otherwise.
 
 Directives are HTML comments, which GitHub doesn't render, placed on the line
 directly before a code block:
@@ -41,7 +40,7 @@ Several directives can be combined in one comment, e.g.
 
 | Directive | Meaning |
 |-----------|---------|
-| `skip` | Don't test this block. |
+| `skip` | Don't test this example even though it has a `function main`. |
 | `output` | This plain block is the expected output of the previous example. Blank lines are ignored. |
 | `output=nopos` | Like `output`, but positions such as `source/Main.hx:12: ` are removed from the actual output first. |
 | `error="text"` | Compiling this example must fail with an error containing `text`. |

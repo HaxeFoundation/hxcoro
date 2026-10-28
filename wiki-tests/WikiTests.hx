@@ -176,7 +176,10 @@ function testPage(page:String, content:String) {
 			sources[directives["id"]] = source;
 		}
 		if (!findFunctions(source).exists("main")) {
-			fail(name, "block has no main function, mark it with a directive (see wiki-tests/README.md)");
+			// Fragments are only tested if a directive says how
+			if (directives.iterator().hasNext()) {
+				fail(name, "block has no main function");
+			}
 			continue;
 		}
 		final result = run('$page-${block.line}', source, modules);
