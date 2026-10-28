@@ -2,7 +2,7 @@ import Helper;
 
 import hxcoro.Coro.*;
 
-class TestControlFlow extends utest.Test {
+class TestControlFlow extends atest.Test {
 	function testIfThen() {
 		@:coroutine function f(x) {
 			if (x) return 1;

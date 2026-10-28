@@ -1,12 +1,12 @@
 package issues.hf;
 
-import haxe.coro.Mutex;
+import sys.thread.Mutex;
 import hxcoro.ds.channels.Channel;
 import hxcoro.ds.Out;
 import hxcoro.CoroRun;
 import hxcoro.Coro.*;
 
-class Issue32 extends utest.Test {
+class Issue32 extends atest.Test {
 	function test() {
 		for (_ in 0...10) {
 			final channel = Channel.createBounded({size: 3});
@@ -47,7 +47,7 @@ class Issue32 extends utest.Test {
 			});
 
 			actual.sort(Reflect.compare);
-			utest.Assert.same(expected, actual);
+			atest.Assert.same(expected, actual);
 		}
 	}
 }

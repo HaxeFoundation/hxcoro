@@ -4,8 +4,8 @@ import haxe.coro.dispatchers.Dispatcher;
 import haxe.coro.dispatchers.IDispatchObject;
 import haxe.coro.schedulers.IScheduler;
 import haxe.exceptions.ArgumentException;
-import hxcoro.concurrent.Tls;
-import hxcoro.schedulers.EventLoopScheduler;
+import sys.thread.Tls;
+import hxcoro.schedulers.RealTimeScheduler;
 
 private class Trampoline {
 	public var running : Bool;
@@ -22,10 +22,9 @@ private class Trampoline {
 			return value;
 		}
 		#if target.threaded
-		final thread = sys.thread.Thread.current();
-		thread.onExit(function() {
+		sys.thread.Thread.addCurrentCallbacks({onExit: () -> {
 			tls.value = null;
-		});
+		}});
 		#end
 		final trampoline = new Trampoline();
 		tls.value = trampoline;
@@ -33,12 +32,19 @@ private class Trampoline {
 	}
 }
 
+/**
+	A dispatcher that runs dispatched objects immediately on the calling thread. Objects that are
+	dispatched while another one is running on the same thread are queued and run after it returns,
+	which avoids deep recursion.
+
+	If no `scheduler` is passed to the constructor, a `hxcoro.schedulers.RealTimeScheduler` is used.
+**/
 final class TrampolineDispatcher extends Dispatcher {
 	final s : IScheduler;
 	final trampolineTls : Tls<Trampoline>;
 
 	public function new(scheduler : IScheduler = null) {
-		s             = scheduler ?? new EventLoopScheduler();
+		s             = scheduler ?? new RealTimeScheduler();
 		trampolineTls = new Tls();
 	}
 

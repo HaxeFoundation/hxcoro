@@ -2,7 +2,7 @@ package hxcoro.ds.channels.bounded;
 
 import haxe.Exception;
 import hxcoro.ds.ConcurrentCircularBuffer;
-import hxcoro.concurrent.AtomicObject;
+import haxe.atomic.AtomicObject;
 import haxe.coro.IContinuation;
 import hxcoro.ds.Out;
 import hxcoro.ds.channels.Channel;
@@ -10,6 +10,9 @@ import hxcoro.ds.channels.exceptions.ChannelClosedException;
 
 using hxcoro.util.Convenience;
 
+/**
+	A bounded channel writer for a single reader and a single writer. Only the `Wait` and `DropWrite` behaviours are supported.
+**/
 final class SingleBoundedWriter<T> implements IChannelWriter<T> {
 	final closed : Out<Bool>;
 

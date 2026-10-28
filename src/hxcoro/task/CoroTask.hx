@@ -29,13 +29,16 @@ private class ResumeStatusTools {
 	}
 }
 
+/**
+	A task that is completed by resuming it as an `IContinuation` with its result or error.
+**/
 class CoroTask<T> extends CoroBaseTask<T> implements IContinuation<T> {
 	static public final CoroChildStrategy = new CoroChildStrategy();
 	static public final CoroScopeStrategy = new CoroScopeStrategy();
 	static public final CoroSupervisorStrategy = new CoroSupervisorStrategy();
 
-	public function new(context:Context, nodeStrategy:INodeStrategy, initialState:TaskState = Running#if debug, ?startPos:haxe.PosInfos#end) {
-		super(context, nodeStrategy, initialState#if debug, startPos#end);
+	public function new(context:Context, nodeStrategy:INodeStrategy, initialState:TaskState = Running#if coro.stack_traces, ?startPos:haxe.PosInfos#end) {
+		super(context, nodeStrategy, initialState#if coro.stack_traces, startPos#end);
 	}
 
 	/**
@@ -52,6 +55,9 @@ class CoroTask<T> extends CoroBaseTask<T> implements IContinuation<T> {
 	}
 
 	#if sys
+	/**
+		Prints the task's internal state to standard output, for debugging.
+	**/
 	public function dump() {
 		Sys.println('CoroTask $id');
 		Sys.println('\tstate: ${state.load().toString()}');
@@ -63,17 +69,20 @@ class CoroTask<T> extends CoroBaseTask<T> implements IContinuation<T> {
 	#end
 }
 
+/**
+	A task that executes a `NodeLambda`, as created by `async`, `lazy` and functions such as `Coro.scope`.
+**/
 class CoroTaskWithLambda<T> extends CoroTask<T> implements IDispatchObject implements IStartableCoroTask<T> {
 	final lambda:NodeLambda<T>;
 
 	/**
 		Creates a new task using the provided `context` in order to execute `lambda`.
 	**/
-	public function new(context:Context, lambda:NodeLambda<T>, nodeStrategy:INodeStrategy, initialState:TaskState = Running#if debug, ?startPos:haxe.PosInfos#end) {
+	public function new(context:Context, lambda:NodeLambda<T>, nodeStrategy:INodeStrategy, initialState:TaskState = Running#if coro.stack_traces, ?startPos:haxe.PosInfos#end) {
 		this.lambda = lambda;
-		super(context, nodeStrategy, Created#if debug,startPos#end);
+		super(context, nodeStrategy, Created#if coro.stack_traces,startPos#end);
 		if (initialState == Running) {
-			#if debug
+			#if coro.stack_traces
 			callFrameLocked = true;
 			#end
 			context.dispatchOrCall(this);
@@ -85,7 +94,7 @@ class CoroTaskWithLambda<T> extends CoroTask<T> implements IDispatchObject imple
 	}
 
 	/**
-		Starts executing this task's `lambda`. Has no effect if the task is already active or has completed.
+		Starts executing this task's `lambda`. Has no effect if the task has already been started or has completed.
 	**/
 	override public function doStart() {
 		super.doStart();

@@ -1,11 +1,11 @@
 import hxcoro.run.Setup;
 
 function main() {
-	#if sys
+	#if (sys && !lua_vanilla)
 	switch (Sys.getEnv("HXCORO_DISPATCHER")) {
 		case "trampoline":
 			Sys.println("Using trampoline dispatcher");
-			TestRun.setupFactory = Setup.createEventLoopTrampoline;
+			TestRun.setupFactory = Setup.createTrampoline;
 		#if target.threaded
 		case "threadpool":
 			Sys.println("Using threadpool dispatcher");
@@ -14,37 +14,35 @@ function main() {
 		case _:
 			Sys.println("Using default dispatcher");
 	}
+	#end // (sys && !lua_vanilla)
+
+	final runner = new atest.Runner();
+
+	runner.addCase(new TestBasic());
+	runner.addCase(new TestTricky());
+	runner.addCase(new TestControlFlow());
+	runner.addCase(new TestTryCatch());
+	runner.addCase(new TestHoisting());
+	runner.addCase(new TestTexpr());
+	#if js
+	// TODO: TestJsPromise needs conversion from utest.Async pattern to @:coroutine
+	// runner.addCase(new TestJsPromise());
 	#end
 
-	var cases = [
-		new TestBasic(),
-		new TestTricky(),
-		new TestControlFlow(),
-		new TestTryCatch(),
-		new TestHoisting(),
-		new TestTexpr(),
-		#if js
-		new TestJsPromise(),
-		#end
-	];
-
-	var runner = new utest.Runner();
-
-	for (eachCase in cases) {
-		runner.addCase(eachCase);
-	}
-	runner.addCases("issues");
-	runner.addCases("concurrent");
-	runner.addCases("ds");
-	runner.addCases("elements");
-	runner.addCases("features");
+	atest.Macros.addCases(runner, "issues");
+	atest.Macros.addCases(runner, "concurrent");
+	atest.Macros.addCases(runner, "ds");
+	atest.Macros.addCases(runner, "elements");
+	atest.Macros.addCases(runner, "features");
 	#if !hl // TODO: ping Yuxiao about this
-	runner.addCases("generators");
+	atest.Macros.addCases(runner, "generators");
 	#end
-	runner.addCases("run");
-	runner.addCases("schedulers");
-	runner.addCases("structured");
+	atest.Macros.addCases(runner, "run");
+	atest.Macros.addCases(runner, "schedulers");
+	atest.Macros.addCases(runner, "structured");
 
-    utest.ui.Report.create(runner, NeverShowSuccessResults, AlwaysShowHeader);
-    runner.run();
+	final passed = runner.run();
+	#if sys
+	Sys.exit(passed ? 0 : 1);
+	#end
 }

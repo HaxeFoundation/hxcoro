@@ -5,7 +5,7 @@ import hxcoro.schedulers.VirtualTimeScheduler;
 import haxe.exceptions.ArgumentException;
 import haxe.exceptions.CancellationException;
 
-class TestCancellingSuspend extends utest.Test {
+class TestCancellingSuspend extends atest.Test {
 	function test_callback() {
 		final actual     = [];
 		final scheduler  = new VirtualTimeScheduler();

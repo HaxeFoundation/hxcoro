@@ -5,7 +5,7 @@ import hxcoro.schedulers.VirtualTimeScheduler;
 import hxcoro.CoroRun;
 import hxcoro.Coro.*;
 
-class Issue3 extends utest.Test {
+class Issue3 extends atest.Test {
 	var f0_lambda : Coroutine<(?n0 : Int)->Int>;
 	var f1_lambda : Coroutine<(n0 : Int, ?n1 : Int)->Int>;
 	var f2_lambda : Coroutine<(?n0 : Int)->Null<Int>>;

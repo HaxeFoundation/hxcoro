@@ -2,7 +2,7 @@ package ds.channels;
 
 import haxe.coro.dispatchers.Dispatcher;
 import hxcoro.dispatchers.TrampolineDispatcher;
-import haxe.coro.Mutex;
+import sys.thread.Mutex;
 import haxe.coro.context.Context;
 import haxe.coro.IContinuation;
 import haxe.Exception;
@@ -37,7 +37,7 @@ private class TestContinuation<T> implements IContinuation<Bool> {
 	}
 }
 
-class TestUnboundedWriter extends utest.Test {
+class TestUnboundedWriter extends atest.Test {
 	function test_try_write() {
 		final out    = new Out();
 		final buffer = new PagedDeque();

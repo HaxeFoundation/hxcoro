@@ -1,7 +1,7 @@
 package ds.channels;
 
 import hxcoro.dispatchers.TrampolineDispatcher;
-import haxe.coro.Mutex;
+import sys.thread.Mutex;
 import haxe.coro.context.Context;
 import haxe.coro.IContinuation;
 import haxe.Exception;
@@ -15,7 +15,7 @@ import hxcoro.schedulers.VirtualTimeScheduler;
 
 using hxcoro.util.Convenience;
 
-class TestUnboundedReader extends utest.Test {
+class TestUnboundedReader extends atest.Test {
 	function test_try_read_has_data() {
 		final out    = new Out();
 		final buffer = new PagedDeque();

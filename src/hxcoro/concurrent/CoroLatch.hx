@@ -5,12 +5,15 @@ import haxe.coro.cancellation.CancellationToken;
 import haxe.exceptions.ArgumentException;
 import haxe.exceptions.CoroutineException;
 import hxcoro.Coro.*;
-import hxcoro.concurrent.AtomicInt;
+import haxe.atomic.AtomicInt;
 import hxcoro.concurrent.BackOff;
 import hxcoro.ds.PagedDeque;
 
 using hxcoro.util.Convenience;
 
+/**
+	The shared implementation of `CoroLatch` and `CoroBarrier`.
+**/
 class CoroLatchImpl {
 	final counter:AtomicInt;
 	final barrierCallback:Null<() -> Void>;
@@ -51,7 +54,7 @@ class CoroLatchImpl {
 	}
 
 	/**
-		Returns true if the internal counter is 0.
+		Returns `true` if the counter has reached 0, without suspending.
 	**/
 	public function tryWait() {
 		return counter.load() == 0;

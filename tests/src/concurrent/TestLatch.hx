@@ -3,7 +3,7 @@ package concurrent;
 import haxe.ds.Vector;
 import hxcoro.concurrent.CoroLatch;
 
-class TestLatch extends utest.Test {
+class TestLatch extends atest.Test {
 	function testCppSample() {
 		final numTasks = 3;
 		final actual = [];

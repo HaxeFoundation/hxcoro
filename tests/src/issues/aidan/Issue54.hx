@@ -14,7 +14,7 @@ package issues.aidan;
 	}
 }
 
-class Issue54 extends utest.Test {
+class Issue54 extends atest.Test {
 	public function test() {
 		Assert.equals("caught: fail", run(f));
 	}

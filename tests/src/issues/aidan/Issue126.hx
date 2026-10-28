@@ -57,7 +57,7 @@ import hxcoro.ds.PagedDeque;
 // 	}
 // }
 
-class Issue126 extends utest.Test {
+class Issue126 extends atest.Test {
 	function test() {
 		Assert.pass('TODO!');
 		// final scheduler = new VirtualTimeScheduler();

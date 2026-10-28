@@ -12,6 +12,9 @@ import hxcoro.ds.channels.exceptions.InvalidChannelStateException;
 using hxcoro.util.Convenience;
 using hxcoro.util.MutexExtensions;
 
+/**
+	The writer of a channel created by `Channel.createBounded`.
+**/
 final class BoundedWriter<T> implements IChannelWriter<T> {
 	final state : AtomicChannelState;
 

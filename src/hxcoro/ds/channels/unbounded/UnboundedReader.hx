@@ -1,6 +1,6 @@
 package hxcoro.ds.channels.unbounded;
 
-import haxe.coro.Mutex;
+import sys.thread.Mutex;
 import haxe.Exception;
 import haxe.coro.IContinuation;
 import haxe.coro.context.Context;
@@ -46,6 +46,9 @@ private final class WaitContinuation<T> implements IContinuation<Bool> {
 	}
 }
 
+/**
+	The reader of a channel created by `Channel.createUnbounded`.
+**/
 final class UnboundedReader<T> implements IChannelReader<T> {
 	final buffer : PagedDeque<T>;
 

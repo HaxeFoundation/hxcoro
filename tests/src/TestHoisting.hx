@@ -1,7 +1,7 @@
-import haxe.coro.Mutex;
+import sys.thread.Mutex;
 import hxcoro.Coro.*;
 
-class TestHoisting extends utest.Test {
+class TestHoisting extends atest.Test {
     function testLocalVariable() {
 
         @:coroutine function foo(_) {

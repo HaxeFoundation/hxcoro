@@ -17,6 +17,9 @@ import hxcoro.task.ICoroNode;
 import hxcoro.task.ICoroTask;
 import hxcoro.task.node.INodeStrategy;
 
+/**
+	Holds the continuations waiting for a task and resumes them with the task's outcome once it completes.
+**/
 class TaskContinuationManager extends ThreadSafeCallbacks<IContinuation<Any>, IContinuation<Any>, IContinuation<Any>> {
 	public function new(task:CoroBaseTask<Any>) {
 		super(handle -> handle.resume(task.get(), task.getError()));
@@ -28,9 +31,12 @@ class TaskContinuationManager extends ThreadSafeCallbacks<IContinuation<Any>, IC
 }
 
 /**
-	CoroTask provides the basic functionality for coroutine tasks.
+	CoroBaseTask provides the basic functionality for coroutine tasks.
 **/
 abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode implements ICoroTask<T> implements IElement<CoroBaseTask<Any>> implements IStackFrame {
+	/**
+		The `Context` key under which a task stores itself in its own context.
+	**/
 	public static final key = new Key<CoroBaseTask<Any>>('Task');
 
 	/**
@@ -38,7 +44,7 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 	**/
 	public var context(get, null):Context;
 
-	#if debug
+	#if coro.stack_traces
 	var callFrameLocked:Bool;
 	var startPos:Null<haxe.PosInfos>;
 	var callerTask:Null<IStackFrame>;
@@ -53,11 +59,11 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 		Creates a new task using the provided `context`.
 	**/
 	@:nullSafety(Off)
-	public function new(context:Context, nodeStrategy:INodeStrategy, initialState:TaskState#if debug, ?startPos:haxe.PosInfos#end) {
+	public function new(context:Context, nodeStrategy:INodeStrategy, initialState:TaskState#if coro.stack_traces, ?startPos:haxe.PosInfos#end) {
 		final parent = context.get(CoroBaseTask);
 		this.nodeStrategy = nodeStrategy;
 		awaitingContinuations = new TaskContinuationManager(this);
-		#if debug
+		#if coro.stack_traces
 		this.startPos = startPos;
 		callFrameLocked = initialState == Running;
 		#end
@@ -85,7 +91,7 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 		@see `IStackFrame.callerFrame`
 	**/
 	public function callerFrame():Null<IStackFrame> {
-		#if debug
+		#if coro.stack_traces
 		if (callerTask != null) {
 			return callerTask;
 		} else if (parent is IStackFrame) {
@@ -99,46 +105,49 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 	}
 
 	/**
-		@see `IStackFrame.callerFrame`
+		@see `IStackFrame.getStackItem`
 	**/
 	public function getStackItem() {
-		#if debug
+		#if coro.stack_traces
 		return startPos == null ? null : haxe.coro.CoroStackItem.PosInfo(startPos);
 		#else
 		return null;
 		#end
 	}
 
+	/**
+		Called once when the task starts running. Subclasses override this to begin their work.
+	**/
 	public function doStart() {
-		#if debug
+		#if coro.stack_traces
 		callFrameLocked = true;
 		#end
 	}
 
 	/**
 		Creates a lazy child task to execute `lambda`. The child task does not execute until its `start`
-		method is called. This occurrs automatically once this task has finished execution.
+		method is called. This occurs automatically once this task has finished execution.
 	**/
-	public function lazy<T>(lambda:NodeLambda<T>#if debug, ?startPos:haxe.PosInfos#end):IStartableCoroTask<T> {
-		return new CoroTaskWithLambda(context, lambda, CoroTask.CoroChildStrategy, Created#if debug, startPos#end);
+	public function lazy<T>(lambda:NodeLambda<T>#if coro.stack_traces, ?startPos:haxe.PosInfos#end):IStartableCoroTask<T> {
+		return new CoroTaskWithLambda(context, lambda, CoroTask.CoroChildStrategy, Created#if coro.stack_traces, startPos#end);
 	}
 
 	/**
 		Creates a child task to execute `lambda` and starts it automatically.
 	**/
-	public function async<T>(lambda:NodeLambda<T>#if debug, ?startPos:haxe.PosInfos#end):ICoroTask<T> {
-		return new CoroTaskWithLambda<T>(context, lambda, CoroTask.CoroChildStrategy#if debug, startPos#end);
+	public function async<T>(lambda:NodeLambda<T>#if coro.stack_traces, ?startPos:haxe.PosInfos#end):ICoroTask<T> {
+		return new CoroTaskWithLambda<T>(context, lambda, CoroTask.CoroChildStrategy#if coro.stack_traces, startPos#end);
 	}
 
 	/**
-		Returns a copy of this tasks' `Context` with `elements` added, which can be used to start child tasks.
+		Returns a copy of this task's `Context` with `elements` added, which can be used to start child tasks.
 	**/
 	public function with(...elements:IElement<Any>) {
 		return context.with(...elements);
 	}
 
 	/**
-		Returns a copy of this tasks' `Context` where all `keys` are unset, which can be used to start child tasks.
+		Returns a copy of this task's `Context` where all `keys` are unset, which can be used to start child tasks.
 	**/
 	public function without(...keys:Key<Any>) {
 		return context.without(...keys);
@@ -152,19 +161,19 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 
 		This function also starts this task if it has not been started yet.
 	**/
-	public function awaitContinuation(cont:IContinuation<T>#if debug, ?startPos:haxe.PosInfos #end) {
+	public function awaitContinuation(cont:IContinuation<T>#if coro.stack_traces, ?startPos:haxe.PosInfos #end) {
 		awaitingContinuations.add(cont);
-		start(cont.context.get(CoroBaseTask)#if debug, startPos#end);
+		start(cont.context.get(CoroBaseTask)#if coro.stack_traces, startPos#end);
 	}
 
 	/**
-		Starts executing this task. Has no effect if the task is already active or has completed.
+		Starts executing this task. Has no effect if the task has already been started or has completed.
 
 		When called from inside a task lambda, pass `node` as `caller` to include the calling task
 		in exception stack traces (e.g. `task1.start(node)`).
 	**/
-	public function start(?caller:ICoroNode#if debug, ?startPos:haxe.PosInfos #end) {
-		#if debug
+	public function start(?caller:ICoroNode#if coro.stack_traces, ?startPos:haxe.PosInfos #end) {
+		#if coro.stack_traces
 		if (!callFrameLocked) {
 			callFrameLocked = true;
 			if (caller is IStackFrame) {
@@ -210,9 +219,9 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 	/**
 		Suspends this task until it completes.
 	**/
-	@:coroutine public function await(#if debug ?startPos:haxe.PosInfos #end):T {
+	@:coroutine public function await(#if coro.stack_traces ?startPos:haxe.PosInfos #end):T {
 		return Coro.suspend(cont -> {
-			awaitContinuation(cont#if debug, startPos#end);
+			awaitContinuation(cont#if coro.stack_traces, startPos#end);
 		});
 	}
 

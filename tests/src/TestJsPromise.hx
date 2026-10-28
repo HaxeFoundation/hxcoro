@@ -14,7 +14,7 @@ class CoroTools {
 	}
 }
 
-class TestJsPromise extends utest.Test {
+class TestJsPromise extends atest.Test {
 	function testAwait(async:Async) {
 		var p = Promise.resolve(41);
 

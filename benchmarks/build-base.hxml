@@ -1,0 +1,5 @@
+--class-path src
+--library hxcoro
+--main Main
+-D use-vec-deque
+--macro nullSafety("hxcoro")

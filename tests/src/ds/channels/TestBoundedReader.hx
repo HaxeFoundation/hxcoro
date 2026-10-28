@@ -36,7 +36,7 @@ private class TestContinuation<T> implements IContinuation<Bool> {
 	}
 }
 
-class TestBoundedReader extends utest.Test {
+class TestBoundedReader extends atest.Test {
 	static function transitionTo(state : AtomicChannelState, next:ChannelState) {
 		switch state.lock() {
 			case Closed:

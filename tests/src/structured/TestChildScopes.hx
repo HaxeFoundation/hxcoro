@@ -3,7 +3,7 @@ package structured;
 import hxcoro.dispatchers.TrampolineDispatcher;
 import hxcoro.schedulers.VirtualTimeScheduler;
 
-class TestChildScopes extends utest.Test {
+class TestChildScopes extends atest.Test {
 	function test_waiting_for_child() {
 		var result = 0;
 

@@ -1,5 +1,6 @@
 package hxcoro.schedulers;
 
+import sys.thread.ThreadCallback;
 import haxe.Int64;
 import haxe.Timer;
 import haxe.coro.IContinuation;
@@ -11,7 +12,7 @@ import hxcoro.schedulers.ILoop;
 import sys.thread.Deque;
 import sys.thread.Semaphore;
 import sys.thread.Thread;
-import haxe.coro.Tls;
+import sys.thread.Tls;
 
 private class CircularQueueData {
 	public var read:Int;
@@ -25,9 +26,6 @@ private class CircularQueueData {
 }
 
 private class CircularQueue {
-	public var prev:Null<CircularQueue>;
-	public var next:Null<CircularQueue>;
-
 	var read:Int;
 	var write:Int;
 	var storage:CircularVector<ScheduledEvent>;
@@ -73,18 +71,33 @@ private class CircularQueue {
 
 private typedef TlsQueue = CircularQueue;
 
-private enum TlsQueueEvent {
-	Add(queue:TlsQueue);
-	Remove(queue:TlsQueue);
+private class ThreadQueue {
+	public final queue:TlsQueue;
+
+	public var onExitHandle:Null<IThreadCallbackHandle>;
+	public var prev:Null<ThreadQueue>;
+	public var next:Null<ThreadQueue>;
+
+	public function new(queue:TlsQueue) {
+		this.queue = queue;
+	}
 }
 
+private enum ThreadQueueEvent {
+	Add(queue:ThreadQueue);
+	Remove(queue:ThreadQueue);
+}
+
+/**
+	A scheduler for multi-threaded setups such as `hxcoro.run.Setup.createThreadPool`.
+**/
 class ThreadAwareScheduler implements IScheduler implements ILoop {
 	final heap:MinimumHeap;
 	final queueTls:Tls<TlsQueue>;
-	final queueDeque:Deque<TlsQueueEvent>;
+	final queueDeque:Deque<ThreadQueueEvent>;
 	final rootEvent:ScheduledEvent;
 	final semaphore:Semaphore;
-	var firstQueue:Null<TlsQueue>;
+	var firstQueue:Null<ThreadQueue>;
 
 	public function new() {
 		heap = new MinimumHeap();
@@ -101,16 +114,21 @@ class ThreadAwareScheduler implements IScheduler implements ILoop {
 		}
 
 		final newQueue = new CircularQueue(4);
-		final currentThread = Thread.current();
-		currentThread.onExit(function() {
-			queueDeque.add(Remove(newQueue));
+		final threadQueue = new ThreadQueue(newQueue);
+		final handle = Thread.addCurrentCallbacks({onExit: function() {
+			queueDeque.add(Remove(threadQueue));
 			queueTls.value = null;
-		});
+		}});
+		threadQueue.onExitHandle = handle;
 		queueTls.value = newQueue;
-		queueDeque.add(Add(newQueue));
+		queueDeque.add(Add(threadQueue));
 		return newQueue;
 	}
 
+	/**
+		Adds the event to a queue owned by the calling thread. This may be called from
+		any thread.
+	**/
     public function schedule(ms:Int64, cont:IContinuation<Any>):ISchedulerHandle {
 		if (ms < 0) {
 			throw new ArgumentException("Time must be greater or equal to zero");
@@ -179,7 +197,8 @@ class ThreadAwareScheduler implements IScheduler implements ILoop {
 			// Copy current slice data to our outQueue and iterate it.
 			var event:Null<ScheduledEvent>;
 			while (true) {
-				event = current.pop();
+				final queue = current.queue;
+				event = queue.pop();
 				if (event == null) {
 					break;
 				}
@@ -208,6 +227,13 @@ class ThreadAwareScheduler implements IScheduler implements ILoop {
 		}
 	}
 
+	/**
+		Collects the events from the queues of all threads and dispatches the due ones. In
+		`Once` mode, if no event is due, this blocks until the next event is due, a new event
+		is scheduled, or `wakeUp` is called.
+
+		This must not be called from multiple threads at the same time.
+	**/
 	public function loop(runMode:RunMode) {
 		var wasWokenUp = false;
 		while(true) {
@@ -232,19 +258,25 @@ class ThreadAwareScheduler implements IScheduler implements ILoop {
 		semaphore.release();
 	}
 
+	/**
+		Prints debugging information about this scheduler.
+	**/
 	public function dump() {
 		Sys.println("ThreadAwareScheduler");
 		Sys.println('\theap minimum: ${heap.minimum()}');
 		var current = firstQueue;
 		var totalWrites = 0;
 		@:privateAccess while (current != null) {
-			Sys.println('\tqueue: (r ${current.read}, w ${current.write}, l: ${current.storage.length})');
-			totalWrites += current.write;
+			Sys.println('\tqueue: (r ${current.queue.read}, w ${current.queue.write}, l: ${current.queue.storage.length})');
+			totalWrites += current.queue.write;
 			current = current.next;
 		}
 		Sys.println('\ttotal writes: $totalWrites');
 	}
 
+	/**
+		Returns a string representation of this scheduler.
+	**/
 	public function toString() {
 		return '[ThreadAwareScheduler]';
 	}

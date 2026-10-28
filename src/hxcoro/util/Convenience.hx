@@ -109,6 +109,9 @@ class ContinuationConvenience {
 		cont.context.getOrRaise(Dispatcher).dispatchContinuation(cont, result, error);
 	}
 
+	/**
+		Returns `cont` as an `IStackFrame` if it implements that interface, or `null` otherwise.
+	**/
 	static public inline function asStackFrame<T>(cont:IContinuation<T>):Null<IStackFrame> {
 		return if (cont is IStackFrame) {
 			cast cont;
@@ -118,34 +121,67 @@ class ContinuationConvenience {
 	}
 }
 
+/**
+	Static extensions for `Dispatcher`.
+**/
 class DispatcherConvenience {
+	/**
+		Dispatches a call to `f` on `dispatcher`.
+	**/
 	static public inline function dispatchFunction(dispatcher:Dispatcher, f:()->Void) {
 		return dispatcher.dispatch(new FunctionDispatchObject(f));
 	}
 
+	/**
+		Dispatches the resumption of `cont` with `result` and `error` on `dispatcher`.
+	**/
 	static public inline function dispatchContinuation<T>(dispatcher: Dispatcher, cont:IContinuation<T>, result:Null<T>, error:Null<Exception>) {
 		dispatcher.dispatch(new ContinuationDispatchObject(cont, result, error));
 	}
 }
 
+/**
+	Static extensions for `Context`.
+**/
 class ContextConvenience {
+	/**
+		Returns `true` if `context` has a `CancellationToken` element on which cancellation
+		has been requested.
+	**/
 	static public function isCancellationRequested(context:Context) {
 		final token = context.get(CancellationToken);
 		return token != null && token.isCancellationRequested();
 	}
 
+	/**
+		Schedules `func` to be called after `ms` milliseconds using the scheduler of the
+		context's `Dispatcher`, and returns the handle that can be closed to cancel the call.
+
+		Throws if `context` has no `Dispatcher` element.
+	**/
 	static public inline function scheduleFunction(context:Context, ms:Int64, func:() -> Void) {
 		return context.getOrRaise(Dispatcher).scheduler.schedule(ms, new FunctionContinuation(context, (_, _) -> func()));
 	}
 
+	/**
+		Starts executing `lambda` in a new task using `context`. If `context` contains a task,
+		the new task becomes its child.
+	**/
 	static public function async<T>(context:Context, lambda:NodeLambda<T>):ICoroTask<T> {
 		return new CoroTaskWithLambda<T>(context, lambda, CoroTask.CoroChildStrategy);
 	}
 
+	/**
+		Like `async`, but the task does not run `lambda` until it is started.
+	**/
 	static public function lazy<T>(context:Context, lambda:NodeLambda<T>):IStartableCoroTask<T> {
 		return new CoroTaskWithLambda(context, lambda, CoroTask.CoroChildStrategy, Created);
 	}
 
+	/**
+		Uses the context's `ExceptionHandler`, if any, to build the coroutine call stack of
+		`exc`, starting at `frame`.
+	**/
 	static public function setExceptionStack(context:Context, frame:IStackFrame, exc:Exception) {
 		final handler = context.get(ExceptionHandler);
 		if (handler != null) {
@@ -154,6 +190,10 @@ class ContextConvenience {
 		}
 	}
 
+	/**
+		Dispatches `obj` on the context's `Dispatcher`, or calls its `onDispatch` immediately
+		if the context has no `Dispatcher` element.
+	**/
 	static public inline function dispatchOrCall(context:Context, obj:IDispatchObject) {
 		final dispatcher = context.get(Dispatcher);
 		if (dispatcher != null) {
@@ -164,7 +204,14 @@ class ContextConvenience {
 	}
 }
 
+/**
+	Miscellaneous static extensions.
+**/
 class OtherConvenience {
+	/**
+		Returns `exc` if it is a `CancellationException`, or otherwise a new
+		`CancellationException` that carries the stack of `exc` where supported.
+	**/
 	static public inline function orCancellationException(exc:Null<Exception>):CancellationException {
 		return if (exc is CancellationException) {
 			cast exc;
@@ -179,6 +226,9 @@ class OtherConvenience {
 		 }
 	}
 
+	/**
+		Returns `true` if `ct` is not `null` and has a cancellation exception set.
+	**/
 	static public inline function isCancellationRequested(ct:ICancellationToken) {
 		return ct?.cancellationException != null;
 	}

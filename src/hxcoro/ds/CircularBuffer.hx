@@ -3,6 +3,12 @@ package hxcoro.ds;
 import haxe.ds.Vector;
 import haxe.exceptions.ArgumentException;
 
+/**
+	A fixed-capacity circular buffer which is not thread-safe.
+
+	Items are pushed at the head and can be removed from either end. The constructor
+	throws `haxe.exceptions.ArgumentException` if `capacity` is less than 1.
+**/
 final class CircularBuffer<T> {
 	final storage : Vector<T>;
 
@@ -21,6 +27,10 @@ final class CircularBuffer<T> {
 		tail    = 0;
 	}
 
+	/**
+		If the buffer is not full, adds `v` at the head and returns `true`. Otherwise,
+		returns `false`.
+	**/
 	public function tryPush(v:T) {
 		final nextHead = increment(head);
 
@@ -34,6 +44,10 @@ final class CircularBuffer<T> {
 		}
 	}
 
+	/**
+		If the buffer is not empty, stores the most recently pushed item in `out` without
+		removing it and returns `true`. Otherwise, returns `false`.
+	**/
 	public function tryPeekHead(out:Out<T>) {
 		if (wasEmpty()) {
 			return false;
@@ -44,6 +58,10 @@ final class CircularBuffer<T> {
 		return true;
 	}
 
+	/**
+		If the buffer is not empty, removes the most recently pushed item, stores it in `out`
+		and returns `true`. Otherwise, returns `false`.
+	**/
 	public function tryPopHead(out:Out<T>) {
 		if (wasEmpty()) {
 			return false;
@@ -56,6 +74,10 @@ final class CircularBuffer<T> {
 		return true;
 	}
 
+	/**
+		If the buffer is not empty, removes the oldest item, stores it in `out` and returns
+		`true`. Otherwise, returns `false`.
+	**/
 	public function tryPopTail(out:Out<T>) {
 		if (wasEmpty()) {
 			return false;
@@ -68,10 +90,16 @@ final class CircularBuffer<T> {
 		return true;
 	}
 
+	/**
+		Returns `true` if the buffer contains no items.
+	**/
 	public function wasEmpty() {
 		return head == tail;
 	}
 
+	/**
+		Returns `true` if the buffer has reached its capacity.
+	**/
 	public function wasFull() {
 		final nextHead = increment(head);
 

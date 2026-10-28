@@ -1,6 +1,6 @@
 package issues.aidan;
 
-import utest.Assert;
+import atest.Assert;
 
 private interface IFoo {
     @:coroutine function bar():Void;
@@ -14,7 +14,7 @@ private class Foo implements IFoo {
     }
 }
 
-class Issue69 extends utest.Test {
+class Issue69 extends atest.Test {
     public function test() {
         run((_) -> {
             final f : IFoo = new Foo();

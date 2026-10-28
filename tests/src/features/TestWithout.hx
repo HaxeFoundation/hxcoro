@@ -2,7 +2,7 @@ package features;
 
 import hxcoro.elements.CoroName;
 
-class TestWithout extends utest.Test {
+class TestWithout extends atest.Test {
 	function test() {
 		var outerElement = null;
 		var innerElement = new CoroName("foo");
