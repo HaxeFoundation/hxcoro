@@ -1,9 +1,12 @@
 # callstack-tests
 
 Mini-framework for asserting the shape of exception call stacks in hxcoro
-coroutines.  Unlike the main `tests/` suite (which uses `atest`), this
+coroutines. Unlike the main `tests/` suite (which uses `atest`), this
 directory has a self-contained runner so that individual cases can pin the
 exact stack frames they care about.
+
+Coroutine stack-frame tracking is only compiled in with
+`-D coro.stack-traces`, which `build-base.hxml` sets together with `-debug`.
 
 ## Running
 
@@ -11,154 +14,142 @@ exact stack frames they care about.
 haxe --cwd callstack-tests build-<target>.hxml
 ```
 
-Supported targets: `eval`, `js`, `hl`, `cpp`, `jvm`, `php`, `python`, `neko`.
+Supported targets: `eval`, `js`, `hl`, `cpp`, `jvm`, `php`, `python`, `neko`,
+`lua`. CI runs this suite on every OS/target combination in
+`.github/workflows/main.yml`. As in the main matrix, PHP doesn't run on macOS
+and Lua doesn't run on Windows.
 
 ## Adding a test case
 
 1. Create a new directory under `cases/`, e.g. `cases/mycasename/`.
-2. Add Haxe source files for the scenario (they live in the `mycasename`
-   package because the `cases/` directory is on the class-path).
-3. Add a `Test.hx` file in that directory with a `public static function
-   run():Void` that throws an `haxe.Exception` (or a subclass) on failure
-   and returns normally on success.
+2. Add Haxe source files for the scenario. They live in the `mycasename`
+   package because `cases/` is on the class path.
+3. Add a `Test.hx` file in that directory with a
+   `public static function run():Void` that throws a `haxe.Exception` (or a
+   subclass) on failure and returns normally on success.
 4. The `CaseMacro.discoverCases()` macro finds every `cases/*/Test.hx` at
    compile time and wires it into the runner automatically.
+5. Add the case to the [table below](#test-cases).
+
+Line numbers in the expectations refer to the scenario sources, so editing
+those files usually means updating `Test.hx` too.
+
+## Inspector
 
 Use the `Inspector` class to assert the shape of `e.stack.asArray()`.
+`inspect()` walks the stack from the innermost frame outwards. It returns
+`null` on success or an `InspectorFailure` that includes a dump of the whole
+stack. Frames after the last directive are ignored.
 
-## Target-specific stack-trace quirks
+| Directive          | Meaning                                                                  |
+|--------------------|--------------------------------------------------------------------------|
+| `File(file)`       | Set the expected file (suffix match) for the following directives.       |
+| `Line(n)`          | The next frame is in the current file at line `n`.                       |
+| `AnyLine`          | The next frame is in the current file, at any line.                      |
+| `OptionalLine(n)`  | Consume the next frame only if it is in the current file at line `n`.    |
+| `Skip(file)`       | Skip frames until a method or local-function frame in `file`, then make it the current file. |
 
-The sections below summarise what each compilation target actually does with
-coroutine exception stacks, based on the test cases in this suite.  Use this
-as a reference when writing new `#if target` branches.
+## Stack shape on all targets
 
-### eval (reference)
+These behaviours are asserted for every target. eval is the reference
+implementation.
 
-The eval interpreter produces the most complete and accurate stacks.
+- The innermost frame is the **exact throw line**, followed by every
+  coroutine call site in the chain. Intermediate coroutines that don't throw
+  themselves are included (`foobarbaz`, `directthrow`, `asyncscope`).
+- A task's entry lambda appears **twice at the same line**: once as the
+  lambda frame and once as the coroutine frame of the
+  `node.async()`/`CoroRun.run()` call site that created it.
+- **Rethrowing** a caught exception (`throw e`) appends the rethrow location
+  and its continuation chain to the existing stack instead of replacing it,
+  so the call path appears twice (`catchrethrow`).
+- A child task's chain links back to where the child was **created**
+  (`node.async()`), not to where the parent is **waiting**. The
+  `task.await()` call site doesn't appear (`awaittask`, `cancellation`).
+- **Lazy tasks** record their position at the first explicit `start()`,
+  `await()` or `awaitContinuation()` call, not at `node.lazy()`
+  (`lazytask`, `awaitcontinuation`). This is transitive: if lazy `task2`
+  awaits lazy `task1`, both the `task1.await()` site inside `task2` and the
+  `task2.start()` site appear. Because `start()` isn't a coroutine, it takes
+  an optional `?caller:ICoroNode` parameter (only with `-D coro.stack-traces`).
+  Pass `node`, as in `task1.start(node)`, to keep the chain intact.
+- A lazy task that starts **implicitly**, when its parent's lambda returns,
+  keeps the `node.lazy()` call site. A later `await()` from a sibling doesn't
+  overwrite it (`implicitlazy`).
+- `scope()` and `supervisor()` contribute their **call-site frame**
+  (`scopetask`, `supervisortask`).
+- `timeout()` throws a `TimeoutException` created inside hxcoro. Its stack
+  starts with a `hxcoro/Coro.hx` frame whose line varies by target, so match
+  it with `AnyLine`. That frame is followed by the `timeout()` call site, the
+  `node.async()` call site and the outer entry lambda (`timeout`).
+- When a child throws and its siblings are cancelled, each sibling's
+  `CancellationException` carries the **original thrower's stack**, not its
+  own suspension point. JS is the exception (`siblingcancellation`).
 
-- The innermost frame reports the **exact throw line** inside the coroutine.
-- Every coroutine call site in the chain gets its own frame, including
-  intermediate coroutine-to-coroutine calls that do not themselves throw
-  (e.g. `foo → bar → baz`: all three functions appear in the stack).
-- Each coroutine entry lambda (`_ -> someFn()`) appears as a `LocalFunction`
-  frame followed immediately by a `Method(…, coro)` frame at the same line.
-- Sync bridge frames (plain functions called from **named** `@:coroutine`
-  functions) are fully included when they are on the native call stack at throw
-  time.
-- `throw e` (rethrowing a caught exception) **appends** the rethrow location
-  and its continuation chain to the existing stack rather than replacing it,
-  producing a doubled call path in the stack array.
-- The `task.await()` call site does **not** appear as a stack frame when a child
-  async task's exception propagates through it.  The child async task's continuation
-  chain links back to where the child was **created** (`node.async()` call
-  site) rather than where the parent is currently *waiting* (`task.await()`
-  call site), so the awaiting position is not captured.
-- For **lazy** tasks however, the call-site frame comes from where the task was
-  **started** (`task.start()` or `task.await()` on a `lazy()` task), not from
-  where `lazy()` was called.  This is because lazy tasks record their start
-  position only when `start()` or `await()` is first called.
-- The above is **transitive** when using `await()`: if lazy `task2` awaits lazy
-  `task1` (and `task1` has not been started yet), calling `task2.start()` will
-  correctly show both the `task1.await()` call site inside `task2` and the
-  `task2.start()` call site in the stack (via `callerTask`, which captures the
-  awaiting task's context at first positioning in `await()`).
-- Transitivity also works through `start(node)`: since `start()` is not a
-  coroutine, it accepts an optional `?caller:ICoroNode` parameter (only used with `-D coro.stack-traces`).
-  Passing `node` (e.g. `task1.start(node)`) provides the calling task's context
-  so `callerTask` is set correctly.  Without `node`, the chain goes directly
-  from the started task to the parent entry task.
-- `scope()` and `supervisor()` now include their **call-site frame** in the
-  chain (as of hxcoro commit fd8002c, which passes `callPos` to the scope
-  task).  No `Skip` or internal `hxcoro/Coro.hx` frame is needed.
-- `timeout()` produces a `TimeoutException` whose stack contains **only pure
-  `coro` frames** (no throw-line frame, no `LocalFunction` duplicate): the
-  `timeout()` call site, the `node.async()` call site, and the outer entry
-  lambda line.  The exception is synthetic (created internally by the
-  `timeout` implementation, not thrown by user code) — use `Line(N)` directly
-  for all three frames on all targets.
-- When a child task throws and cancels its siblings, each sibling's
-  `CancellationException` carries the **original thrower's stack** (as of
-  hxcoro 0b56e3a, which propagates the error stack through
-  `AbstractTask.cancelChildren`).  The sibling's own suspension point does not
-  appear — only where the original exception was raised.
+## Target differences
 
-### js (Node.js)
+The cases with target-specific expectations (`nestedplainthrow`,
+`toprecursion`) split the targets into two groups with
+`#if (eval || cpp || jvm || hl)`.
 
-Identical stack shape to eval in all observed cases.  LocalFunction IDs
-differ (they are sequential integers and vary between targets/builds) — use
-`Skip` or `AnyLine` if the exact integer matters.
+### Full native stack: eval, cpp, jvm, hl
 
-One limitation: `Exception.stack` assignment (`e.stack = other.stack`) is not
-supported on JS.  As a result, sibling `CancellationException` instances do not
-inherit the original thrower's stack on JS; they instead contain only internal
-JS runtime frames.  Tests that assert sibling cancellation stacks should use
-`#if !js` guards.
+- Plain (non-`@:coroutine`) functions on the native call stack at throw time
+  get their own frames: the throw site inside the plain function and its call
+  site in the coroutine. This includes sync-bridge frames, such as a plain
+  function that calls `CoroRun.run()` from inside a coroutine.
+- The innermost coroutine frame is patched to its actual call position.
 
-### hl (HashLink)
+### Coroutine chain only: js, neko, python, php, lua
 
-Runs on Linux only in CI (excluded from Windows and macOS runners to avoid
-OS-dependent JIT quirks).  On Linux, HL produces the same stack shape as eval:
+- Frames of plain functions are missing. Only the reconstructed coroutine
+  chain is visible. In `nestedplainthrow` the innermost lambda therefore
+  appears twice (native frame plus coroutine-chain frame), with no
+  `thrower()` frames.
+- In `toprecursion`, the first coroutine frame of each chain segment shows
+  the function's **definition line** rather than its call line. The sync
+  bridge frames (`Top.hx`, `syncFun1`) are absent.
 
-- The innermost frame reports the **exact throw line** (matching eval).
-- Sync-bridge frames are captured, just as on eval and cpp.
-- The `toprecursion` test uses the same `#if (eval || cpp || jvm || hl)` branch
-  as the other "full-stack" targets.
-- Plain (non-`@:coroutine`) functions called from inside a coroutine lambda
-  have their frame fully present, so no `OptionalLine` is needed.
+### Other per-target notes
 
-### cpp
-
-Produces the same stack shape as eval: the innermost frame reports the
-**exact throw line** (as of Haxe commit e63e9897, which fixed the `HXDLIN`
-annotation in generated coroutine state machines).
-
-Sync-bridge frames (`Top.hx`) are fully present, as on eval.
-
-### jvm
-
-Stack shape matches eval: exact throw lines, sync-bridge frames present,
-full intermediate coroutine call chain reconstructed.
-
-### python
-
-Identical stack shape to eval.  The only cosmetic difference is that
-`trace()` output goes to stderr, so `Sys.println()` is used in probes.
-
-### neko
-
-Identical stack shape to eval.
-
-### php
-
-Identical stack shape to eval.
+- **js:** `Exception.stack` can't be assigned, so the sibling stack
+  propagation in `AbstractTask.cancelChildren` is disabled. Sibling
+  `CancellationException`s only contain internal JS frames, so assertions on
+  them need `#if !js`.
+- **python:** `trace()` writes to stderr. Use `Sys.println()` for debugging
+  output.
+- **lua:** builds use `-D lua-vanilla`, which has no `Sys.sleep`/`Sys.time`.
 
 ## Summary table
 
-| Quirk                                        | Targets affected         |
-|----------------------------------------------|--------------------------|
-| First frame = definition line, not throw line | none (HL runs Linux-only where it matches eval) |
-| Sync-bridge frames absent                    | js, python, neko, php (before first suspension point only; eval and cpp always expose them) |
-| Rethrow appends to stack instead of replacing | all targets              |
-| `task.await()` call site absent from stack   | all targets (child async creation-site shown; await-site not captured) |
-| Lazy `task.start()` / `task.await()` call-site frame present | all targets (start position recorded at first explicit start/await, not at `lazy()` call; transitive via `callerTask` for `await()` chains and `start(node)` calls) |
-| `scope()` / `supervisor()` call-site frame present | all targets (since fd8002c; use `Line(N)` directly) |
-| `CancellationException` from `cancel()` has no user-code frames | all targets (coroStack is empty; raw runtime frames only) |
-| Sibling `CancellationException` stack mirrors the original exception | all targets except JS (stack assignment not supported on JS; internal frames only) |
-| `timeout()` produces 3 pure `coro` frames (no throw-line, no `LocalFunction` duplicate) | all targets (synthetic exception; frames come from `PosInfo`, not `invokeResume`) |
+| Behaviour                                                     | Targets                          |
+|---------------------------------------------------------------|----------------------------------|
+| Plain-function and sync-bridge frames present                 | eval, cpp, jvm, hl               |
+| First coroutine frame shows definition line, not call line    | js, neko, python, php, lua       |
+| Rethrow appends to the stack instead of replacing it          | all                              |
+| `task.await()` call site absent (creation site shown instead) | all                              |
+| Lazy task position = first explicit `start()`/`await()`       | all                              |
+| Implicitly started lazy task position = `node.lazy()` site    | all                              |
+| `scope()` / `supervisor()` call-site frame present            | all                              |
+| `TimeoutException` starts with an internal `Coro.hx` frame    | all                              |
+| Sibling `CancellationException` mirrors the original stack    | all except js                    |
 
 ## Test cases
 
-| Case               | What it tests                                                     |
-|--------------------|-------------------------------------------------------------------|
-| `foobarbaz`        | 3-deep coroutine chain after `yield()`; full chain including intermediate call sites |
-| `toprecursion`     | Complex chain: sync → coro → recursive coro → sync bridge → throw |
-| `directthrow`      | Throw in a coroutine that never suspends (no `yield()`)          |
-| `catchrethrow`     | Catching an exception in a coroutine and rethrowing it           |
-| `asyncscope`       | Exception thrown from a `scope.async()` child coroutine          |
-| `nestedplainthrow` | Plain (non-`@:coroutine`) function called from deeply-nested `node.async()` lambdas |
-| `lazytask`        | Lazy task with `task.start()`, `task.await()`, transitive await chain, and transitive start chain |
-| `supervisortask`   | Child task throws inside a `supervisor()` scope; parent awaits child |
-| `scopetask`        | Child task throws inside a `scope()` call; scope call-site frame visible |
-| `awaittask`        | Child task throws; parent explicitly awaits it with `task.await()` |
-| `cancellation`       | Child task throws; exception propagates via scope cancellation (no explicit await) |
-| `timeout`          | Loop cancelled by `timeout()`; `TimeoutException` stack shows the `timeout()` call site and outer task chain |
+| Case                  | What it tests                                                                 |
+|-----------------------|-------------------------------------------------------------------------------|
+| `foobarbaz`           | 3-deep coroutine chain after `yield()`, directly and inside nested `async` scopes |
+| `toprecursion`        | sync → coro → recursive coro → sync bridge → throw                            |
+| `directthrow`         | Throw in a coroutine that never suspends                                      |
+| `catchrethrow`        | Catching an exception in a coroutine and rethrowing it                        |
+| `asyncscope`          | Exception thrown from a `scope.async()` child coroutine                       |
+| `nestedplainthrow`    | Plain function called from deeply nested `node.async()` lambdas               |
+| `lazytask`            | Lazy task with `start()`, `await()`, and transitive await and start chains    |
+| `implicitlazy`        | Lazy task started implicitly by its parent, with and without a sibling awaiting it |
+| `awaitcontinuation`   | Calling `awaitContinuation()` directly records the lazy task's position       |
+| `supervisortask`      | Child throws inside a `supervisor()` scope; parent awaits the child           |
+| `scopetask`           | Child throws inside a `scope()` call; scope call-site frame visible           |
+| `awaittask`           | Child throws; parent explicitly awaits it with `task.await()`                 |
+| `cancellation`        | Child throws; exception propagates through scope cancellation without an explicit await |
+| `siblingcancellation` | Sibling's `CancellationException` carries the original thrower's stack        |
+| `timeout`             | Loop cancelled by `timeout()`; `TimeoutException` stack shows the call site and task chain |
