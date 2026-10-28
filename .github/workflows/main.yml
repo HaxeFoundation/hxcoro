@@ -20,6 +20,8 @@ jobs:
           - os: windows-latest
             target: lua
     runs-on: ${{ matrix.os }}
+    # The slowest jobs (cpp) take around 15 minutes, everything above that is a hang.
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
       - uses: kLabz/setup-haxe@neko-latest
