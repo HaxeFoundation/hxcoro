@@ -4,7 +4,7 @@ import hxcoro.schedulers.ILoop;
 import haxe.Int64;
 import haxe.exceptions.ArgumentException;
 
-class VirtualTimeScheduler extends EventLoopScheduler.HeapScheduler implements ILoop {
+class VirtualTimeScheduler extends HeapScheduler implements ILoop {
 	var currentTime : Int64;
 
 	public function new() {

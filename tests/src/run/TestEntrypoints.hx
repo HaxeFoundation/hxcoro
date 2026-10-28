@@ -11,7 +11,7 @@ import hxcoro.thread.FixedThreadPool;
 import hxcoro.dispatchers.ThreadPoolDispatcher;
 #end
 import sys.thread.Mutex;
-import hxcoro.schedulers.EventLoopScheduler;
+import hxcoro.schedulers.RealTimeScheduler;
 import haxe.PosInfos;
 import hxcoro.schedulers.ILoop;
 import haxe.coro.context.Context;
@@ -117,8 +117,8 @@ class TestEntrypoints extends atest.Test {
 		loop.loop(NoWait);
 	}
 
-	public function testEventTrampoline() {
-		final setup = Setup.createEventLoopTrampoline();
+	public function testTrampoline() {
+		final setup = Setup.createTrampoline();
 		final context = setup.createContext();
 		runSuite(context, setup.loop);
 	}

@@ -44,8 +44,8 @@ class Setup {
 		}
 	}
 
-	static public function createEventLoopTrampoline() {
-		final scheduler = new hxcoro.schedulers.EventLoopScheduler();
+	static public function createTrampoline() {
+		final scheduler = new hxcoro.schedulers.RealTimeScheduler();
 		final dispatcher = new hxcoro.dispatchers.TrampolineDispatcher(scheduler);
 		return new LoopSetup(scheduler, dispatcher);
 	}
@@ -122,7 +122,7 @@ class Setup {
 		#elseif (jvm || cpp || interp)
 		return createThreadPool(10);
 		#else
-		return createEventLoopTrampoline();
+		return createTrampoline();
 		#end
 	}
 }

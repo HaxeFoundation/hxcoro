@@ -75,7 +75,7 @@ src/
     ├── run/               # Run/setup helpers (Setup, ContextRun, LoopRun)
     ├── task/              # Task tree: CoroTask, AbstractTask, cancellation, node strategies (child/scope/supervisor)
     ├── dispatchers/       # TrampolineDispatcher, ThreadPoolDispatcher, LuvDispatcher (.cpp.hx / .eval.hx)
-    ├── schedulers/        # Event loop, Haxe timer, virtual time, libuv schedulers
+    ├── schedulers/        # Real-time, virtual-time, thread-aware, Haxe timer and libuv schedulers
     ├── continuations/     # Cancelling, racing, timeout, stack-frame continuations
     ├── concurrent/        # CoroMutex, CoroSemaphore, CoroLatch, CoroBarrier, AtomicState, BackOff
     ├── ds/                # Data structures, channels/ and pipelines/
@@ -98,7 +98,7 @@ Files with a target suffix such as `Foo.cpp.hx` or `Foo.eval.hx` are only used o
 
 1. **Coroutines** are functions marked with `@:coroutine`. They can call other coroutines and suspend functions from `hxcoro.Coro`.
 2. **Structured concurrency:** coroutines run inside a task tree. `CoroRun.run(node -> ...)` starts a root task. `node.async(...)` and `node.lazy(...)` create child tasks. `scope`, `supervisor` and `timeout` create nested scopes with defined lifetimes. Cancellation propagates through the tree as `CancellationException`.
-3. **Dispatchers and schedulers** decide where and when continuations resume. `hxcoro.run.Setup` contains factory helpers such as `createEventLoopTrampoline` and `createThreadPool`.
+3. **Dispatchers and schedulers** decide where and when continuations resume. `hxcoro.run.Setup` contains factory helpers such as `createTrampoline` and `createThreadPool`.
 4. **Generators** are a coroutine use case for yielding values. `Generator<T, R>` uses Kotlin-style restricted suspension, and `AsyncGenerator<T>` allows arbitrary suspension. Both extend `SuspensionResult` and implement `IContinuation`.
 
 ## Code Style and Conventions
