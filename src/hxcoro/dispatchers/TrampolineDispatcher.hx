@@ -32,6 +32,13 @@ private class Trampoline {
 	}
 }
 
+/**
+	A dispatcher that runs dispatched objects immediately on the calling thread. Objects that are
+	dispatched while another one is running on the same thread are queued and run after it returns,
+	which avoids deep recursion.
+
+	If no `scheduler` is passed to the constructor, a `hxcoro.schedulers.RealTimeScheduler` is used.
+**/
 final class TrampolineDispatcher extends Dispatcher {
 	final s : IScheduler;
 	final trampolineTls : Tls<Trampoline>;

@@ -46,6 +46,9 @@ private final class WaitContinuation<T> implements IContinuation<Bool> {
 	}
 }
 
+/**
+	The reader of a channel created by `Channel.createUnbounded`.
+**/
 final class UnboundedReader<T> implements IChannelReader<T> {
 	final buffer : PagedDeque<T>;
 

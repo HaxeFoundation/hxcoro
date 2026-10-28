@@ -12,6 +12,10 @@ private enum abstract State(Int) to Int {
 	var Resolved;
 }
 
+/**
+	Continuation wrapper used by `Coro.suspend` that handles the race between a
+	resumption and the suspending function returning.
+**/
 class RacingContinuation<T> extends StackFrameContinuation<T> implements IDispatchObject {
 	var resumeState:AtomicInt;
 
@@ -29,6 +33,10 @@ class RacingContinuation<T> extends StackFrameContinuation<T> implements IDispat
 		}
 	}
 
+	/**
+		Must be called after the suspending function has run. If this continuation was
+		already resumed, the wrapped continuation is dispatched.
+	**/
 	public function resolve():Void {
 		if (resumeState.compareExchange(Active, Resolved) == Active) {
 			state = Pending;

@@ -40,6 +40,9 @@ private final class WaitContinuation<T> implements IContinuation<Bool> {
 	}
 }
 
+/**
+	A bounded channel reader for a single reader and a single writer. `tryPeek` is not implemented.
+**/
 final class SingleBoundedReader<T> implements IChannelReader<T> {
 	final buffer : ConcurrentCircularBuffer<T>;
 

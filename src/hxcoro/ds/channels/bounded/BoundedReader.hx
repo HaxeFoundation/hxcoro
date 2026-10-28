@@ -39,6 +39,9 @@ private final class WaitContinuation<T> implements IContinuation<Bool> {
 	}
 }
 
+/**
+	The reader of a channel created by `Channel.createBounded`.
+**/
 final class BoundedReader<T> implements IChannelReader<T> {
 	final buffer : CircularBuffer<T>;
 

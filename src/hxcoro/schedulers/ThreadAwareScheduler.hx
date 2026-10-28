@@ -88,6 +88,14 @@ private enum ThreadQueueEvent {
 	Remove(queue:ThreadQueue);
 }
 
+/**
+	A scheduler for multi-threaded setups such as `hxcoro.run.Setup.createThreadPool`. `schedule` may be
+	called from any thread and adds the event to a queue owned by the calling thread, and `loop`
+	collects the events from all these queues and dispatches the due ones.
+
+	`loop` must not be called from multiple threads at the same time. In `Once` mode, if no event
+	is due, it blocks until the next event is due, a new event is scheduled, or `wakeUp` is called.
+**/
 class ThreadAwareScheduler implements IScheduler implements ILoop {
 	final heap:MinimumHeap;
 	final queueTls:Tls<TlsQueue>;
@@ -244,6 +252,9 @@ class ThreadAwareScheduler implements IScheduler implements ILoop {
 		semaphore.release();
 	}
 
+	/**
+		Prints debugging information about this scheduler.
+	**/
 	public function dump() {
 		Sys.println("ThreadAwareScheduler");
 		Sys.println('\theap minimum: ${heap.minimum()}');
@@ -257,6 +268,9 @@ class ThreadAwareScheduler implements IScheduler implements ILoop {
 		Sys.println('\ttotal writes: $totalWrites');
 	}
 
+	/**
+		Returns a string representation of this scheduler.
+	**/
 	public function toString() {
 		return '[ThreadAwareScheduler]';
 	}

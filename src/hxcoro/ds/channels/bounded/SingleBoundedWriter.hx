@@ -10,6 +10,9 @@ import hxcoro.ds.channels.exceptions.ChannelClosedException;
 
 using hxcoro.util.Convenience;
 
+/**
+	A bounded channel writer for a single reader and a single writer. Only the `Wait` and `DropWrite` behaviours are supported.
+**/
 final class SingleBoundedWriter<T> implements IChannelWriter<T> {
 	final closed : Out<Bool>;
 

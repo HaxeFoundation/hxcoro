@@ -72,6 +72,9 @@ class WorkStealingQueue<T> {
 		}
 	}
 
+	/**
+		Prints debugging information about this queue.
+	**/
 	public function dump() {
 		final r = read.load();
 		final w = write.load();

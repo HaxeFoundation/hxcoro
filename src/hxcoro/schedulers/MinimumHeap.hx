@@ -2,6 +2,9 @@ package hxcoro.schedulers;
 
 import haxe.ds.Vector;
 
+/**
+	A binary min-heap of `ScheduledEvent` instances ordered by `runTime`. It is not thread-safe.
+**/
 class MinimumHeap {
 	var storage:Vector<Null<ScheduledEvent>>;
 	var length:Int;
@@ -11,22 +14,37 @@ class MinimumHeap {
 		length = 0;
 	}
 
+	/**
+		Returns `true` if this heap contains no events.
+	**/
 	public function isEmpty() {
 		return length == 0;
 	}
 
+	/**
+		Returns the storage index of the left child of index `i`.
+	**/
 	public inline function left(i:Int) {
 		return (i << 1) + 1;
 	}
 
+	/**
+		Returns the storage index of the right child of index `i`.
+	**/
 	public inline function right(i:Int) {
 		return (i << 1) + 2;
 	}
 
+	/**
+		Returns the storage index of the parent of index `i`.
+	**/
 	public inline function parent(i:Int) {
 		return (i - 1) >> 1;
 	}
 
+	/**
+		Returns the event with the earliest `runTime` without removing it, or `null` if this heap is empty.
+	**/
 	public inline function minimum() {
 		return storage[0];
 	}
@@ -66,6 +84,10 @@ class MinimumHeap {
 		storage[length] = null;
 	}
 
+	/**
+		Inserts `event`. If an event with the same `runTime` is already present, `event` is
+		attached to it as a child event instead of occupying its own slot.
+	**/
 	@:nullSafety(Off)
 	public function insert(event:ScheduledEvent) {
 		ensureCapacity();
@@ -92,6 +114,9 @@ class MinimumHeap {
 		}
 	}
 
+	/**
+		Removes and returns the event with the earliest `runTime`, or `null` if this heap is empty.
+	**/
 	public function extract() {
 		return switch (length) {
 			case 0:

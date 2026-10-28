@@ -15,7 +15,17 @@ import hxcoro.task.NodeLambda;
 
 private typedef SuspendCancellableFunc<T> = IContinuation<T> -> Null<(CancellationException -> Void)>;
 
+/**
+	Core coroutine functions for suspending, delaying and structuring coroutine execution.
+**/
 class Coro {
+	/**
+		Suspends the current coroutine and calls `func` with a continuation that resumes it.
+
+		The continuation may be resumed while `func` is still running or at any later point,
+		including from another thread. Cancellation does not resume the coroutine, see
+		`suspendCancellable` for that.
+	**/
 	@:coroutine(transformed, outcome = { noThrow: true, noReturn: true })
 	public static function suspend<T>(completion:IContinuation<T>, func:IContinuation<T>->Void):SuspensionResult<T> {
 		var safe = new RacingContinuation(completion);
@@ -48,16 +58,34 @@ class Coro {
 		}
 	}
 
+	/**
+		Suspends the current coroutine for `ms` milliseconds, as measured by the scheduler of
+		the context's `Dispatcher`.
+
+		If the coroutine is cancelled while waiting, the scheduled resumption is removed and a
+		`haxe.exceptions.CancellationException` is thrown.
+	**/
 	@:coroutine(outcome = { noThrow: true, noReturn: true }, assert = { numStates: 1})
 	public static function delay(ms:Int):Void {
 		suspendCancellable(cont -> delayImpl(ms, cont));
 	}
 
+	/**
+		Suspends the current coroutine and schedules it to be resumed without delay, giving
+		other pending work a chance to run. Equivalent to `delay(0)`.
+	**/
 	@:coroutine(outcome = { noThrow: true, noReturn: true }, assert = { numStates: 1})
 	public static function yield():Void {
 		suspendCancellable(cont -> delayImpl(0, cont));
 	}
 
+	/**
+		Executes `lambda` in a new task and returns its result once the task and all its
+		children have completed.
+
+		If a child raises an exception, the task is cancelled and the exception is thrown
+		from this call.
+	**/
 	@:coroutine static public function scope<T>(lambda:NodeLambda<T>#if coro.stack_traces, ?startPos:haxe.PosInfos#end):T {
 		return suspend(cont -> {
 			final context = cont.context;

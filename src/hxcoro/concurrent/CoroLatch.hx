@@ -11,6 +11,9 @@ import hxcoro.ds.PagedDeque;
 
 using hxcoro.util.Convenience;
 
+/**
+	The shared implementation of `CoroLatch` and `CoroBarrier`.
+**/
 class CoroLatchImpl {
 	final counter:AtomicInt;
 	final barrierCallback:Null<() -> Void>;

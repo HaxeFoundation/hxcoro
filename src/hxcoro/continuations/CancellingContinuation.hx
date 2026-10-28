@@ -19,6 +19,11 @@ private enum abstract State(Int) to Int {
 	final Completed;
 }
 
+/**
+	Continuation wrapper used by `Coro.suspendCancellable` that resumes the wrapped
+	continuation with a `CancellationException` if cancellation is requested before
+	it is resumed normally.
+**/
 class CancellingContinuation<T> extends StackFrameContinuation<T> implements ICancellationCallback implements IDispatchObject {
 	final resumeState : AtomicInt;
 
@@ -26,6 +31,11 @@ class CancellingContinuation<T> extends StackFrameContinuation<T> implements ICa
 
 	final cancellationToken : Null<ICancellationToken>;
 
+	/**
+		Callback that is invoked if cancellation wins over a normal resumption. If
+		cancellation was already requested when it is set, it is invoked immediately.
+		Setting it a second time throws an exception.
+	**/
 	public var onCancellationRequested (default, set) : Null<CancellationException->Void>;
 
 	function set_onCancellationRequested(f : CancellationException->Void) {
@@ -94,6 +104,9 @@ class CancellingContinuation<T> extends StackFrameContinuation<T> implements ICa
 		}
 	}
 
+	/**
+		Resumes the wrapped continuation with `cause` unless it was already resumed.
+	**/
 	public function onCancellation(cause:CancellationException) {
 		if (updateState(null, cause)) {
 			if (null != onCancellationRequested) {
@@ -103,6 +116,10 @@ class CancellingContinuation<T> extends StackFrameContinuation<T> implements ICa
 		}
 	}
 
+	/**
+		Must be called after the suspending function has run. If this continuation was
+		already resumed or cancelled, the wrapped continuation is dispatched.
+	**/
 	public function resolve():Void {
 		if (resumeState.compareExchange(Active, Resolved) != Active) {
 			while (resumeState.load() == Completing) {

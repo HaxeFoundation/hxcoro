@@ -10,7 +10,7 @@ import hxcoro.task.NodeLambda;
 /**
 	This class provides static extensions for `ILoop` to work with `Task` instances.
 
-	The intended usage is to add `using hxcoro.run.LooptRun`.
+	The intended usage is to add `using hxcoro.run.LoopRun`.
 **/
 class LoopRun {
 	/**

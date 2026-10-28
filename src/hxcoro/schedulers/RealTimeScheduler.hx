@@ -3,6 +3,13 @@ package hxcoro.schedulers;
 import hxcoro.concurrent.BackOff;
 import hxcoro.schedulers.ILoop;
 
+/**
+	A scheduler driven by `loop` calls that dispatches events based on the time returned
+	by `haxe.Timer.milliseconds`.
+
+	`loop(Once)` busy-waits with back-off until at least one event has been dispatched,
+	and `wakeUp` has no effect.
+**/
 class RealTimeScheduler extends HeapScheduler implements ILoop {
 	function loopOnce() {
 		final currentTime = now();
@@ -38,6 +45,9 @@ class RealTimeScheduler extends HeapScheduler implements ILoop {
 
 	public function wakeUp() {}
 
+	/**
+		Returns a string representation of this scheduler.
+	**/
 	public function toString() {
 		return '[RealTimeScheduler]';
 	}

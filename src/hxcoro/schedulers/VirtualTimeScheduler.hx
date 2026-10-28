@@ -4,6 +4,10 @@ import hxcoro.schedulers.ILoop;
 import haxe.Int64;
 import haxe.exceptions.ArgumentException;
 
+/**
+	A scheduler with a virtual clock that starts at 0 and only advances when explicitly
+	told to, which makes time-dependent code deterministic, e.g. in tests.
+**/
 class VirtualTimeScheduler extends HeapScheduler implements ILoop {
 	var currentTime : Int64;
 
@@ -17,6 +21,13 @@ class VirtualTimeScheduler extends HeapScheduler implements ILoop {
 		return currentTime;
 	}
 
+	/**
+		Advances the virtual time by `ms` milliseconds, dispatching all events that become
+		due in order of their due time. Returns `true` if there are events scheduled after
+		the new time.
+
+		Throws `haxe.exceptions.ArgumentException` if `ms` is negative.
+	**/
 	public function advanceBy(ms:Int) {
 		if (ms < 0) {
 			throw new ArgumentException("Time must be greater or equal to zero");
@@ -25,6 +36,13 @@ class VirtualTimeScheduler extends HeapScheduler implements ILoop {
 		return virtualRun(currentTime + ms);
 	}
 
+	/**
+		Advances the virtual time to `ms`, dispatching all events that become due in order
+		of their due time. Returns `true` if there are events scheduled after the new time.
+
+		Throws `haxe.exceptions.ArgumentException` if `ms` is negative or lies before the
+		current virtual time.
+	**/
 	public function advanceTo(ms:Int) {
 		if (ms < 0) {
 			throw new ArgumentException("Time must be greater or equal to zero");
@@ -56,6 +74,9 @@ class VirtualTimeScheduler extends HeapScheduler implements ILoop {
 		return hasMoreEvents;
 	}
 
+	/**
+		Advances the virtual time by 1 millisecond, regardless of `runMode`.
+	**/
 	public function loop(runMode:RunMode) {
 		advanceBy(1);
 	}

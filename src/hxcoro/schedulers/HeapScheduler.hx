@@ -8,6 +8,9 @@ import haxe.exceptions.ArgumentException;
 import haxe.coro.schedulers.IScheduler;
 import haxe.coro.schedulers.ISchedulerHandle;
 
+/**
+	Base class for schedulers that keep scheduled events in a `MinimumHeap` ordered by due time.
+**/
 class HeapScheduler implements IScheduler {
 	final futureMutex : Mutex;
 	final heap : MinimumHeap;

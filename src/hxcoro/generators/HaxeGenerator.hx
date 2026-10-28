@@ -4,6 +4,10 @@ import haxe.Unit;
 import haxe.coro.Coroutine;
 import hxcoro.generators.Generator;
 
+/**
+	The yield API passed to `HaxeGenerator.create` functions, supporting only
+	`yield(value)`.
+**/
 @:coroutine.scope(restrictedSuspension)
 abstract HaxeYield<T>(Generator<T, Unit>) to Generator<T, Unit> from Generator<T, Unit> {
 	@:op(a()) @:coroutine function next(value:T):Void {
@@ -43,6 +47,10 @@ abstract HaxeGenerator<T>(Generator<T, Unit>) from Generator<T, Unit> {
 		return new Generator(f);
 	}
 
+	/**
+		Creates a new generator that produces values by calling and resuming `f`, which
+		does not return any final values.
+	**/
 	extern static inline overload  public function create<T>(f:Coroutine<HaxeYield<T> -> Void>):HaxeGenerator<T> {
 		return new Generator(yield -> {
 			f(yield);

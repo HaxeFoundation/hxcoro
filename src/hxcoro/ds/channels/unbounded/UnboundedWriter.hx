@@ -10,6 +10,9 @@ import hxcoro.ds.channels.exceptions.ChannelClosedException;
 using hxcoro.util.Convenience;
 using hxcoro.util.MutexExtensions;
 
+/**
+	The writer of a channel created by `Channel.createUnbounded`. `waitForWrite` never suspends.
+**/
 final class UnboundedWriter<T> implements IChannelWriter<T> {
 	final closed : Out<Bool>;
 

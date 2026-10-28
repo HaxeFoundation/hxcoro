@@ -14,15 +14,24 @@ private abstract OutData<T>(Array<T>) from Array<T> {
 	}
 }
 
+/**
+	A mutable container for a single value, used as an out parameter by `try*` functions.
+**/
 abstract Out<T>(OutData<T>) {
 	public inline function new() {
 		this = new OutData();
 	}
 
+	/**
+		Returns the stored value.
+	**/
 	public inline function get() {
 		return this.get();
 	}
 
+	/**
+		Stores `v`, replacing any previous value.
+	**/
 	public inline function set(v:T) {
 		this.set(v);
 	}
