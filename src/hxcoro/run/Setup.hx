@@ -85,8 +85,9 @@ class Setup {
 		final scheduler = new hxcoro.schedulers.LuvScheduler(loop);
 		final dispatcher = createDispatcher(loop, scheduler);
 		function finalize() {
-			scheduler.shutDown();
+			// The dispatcher goes first: work that is still running might use the scheduler.
 			shutDownDispatcher(dispatcher);
+			scheduler.shutDown();
 			cpp.luv.Luv.shutdownLoop(loop);
 			cpp.luv.Luv.freeLoop(loop);
 		}
