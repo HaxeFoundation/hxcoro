@@ -17,20 +17,35 @@ private final class WaitContinuation<T> implements IContinuation<Bool> {
 
 	final buffer : CircularBuffer<T>;
 
+	final state : AtomicChannelState;
+
 	public var context (get, never) : Context;
 
 	function get_context() {
 		return cont.context;
 	}
 
-	public function new(cont, buffer) {
+	public function new(cont, buffer, state) {
 		this.cont   = cont;
 		this.buffer = buffer;
+		this.state  = state;
 	}
 
 	public function resume(result:Null<Bool>, error:Null<Exception>) {
 		final result = if (false == result) {
-			buffer.wasEmpty();
+			// The channel was closed, but there might still be data left to read.
+			switch state.lock() {
+				case Closed:
+					false;
+				case Locked:
+					throw new InvalidChannelStateException();
+				case previous:
+					final hasData = buffer.wasEmpty() == false;
+
+					state.store(previous);
+
+					hasData;
+			}
 		} else {
 			true;
 		}
@@ -145,7 +160,7 @@ final class BoundedReader<T> implements IChannelReader<T> {
 				}
 
 				return suspendCancellable(cont -> {
-					final obj       = new WaitContinuation(cont, buffer);
+					final obj       = new WaitContinuation(cont, buffer, state);
 					final hostPage  = readWaiters.push(obj);
 
 					state.store(Open);
