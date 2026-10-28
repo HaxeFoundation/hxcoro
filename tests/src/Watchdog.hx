@@ -1,6 +1,9 @@
 #if target.threaded
+import hxcoro.dispatchers.ThreadPoolDispatcher;
 import hxcoro.run.Setup;
+import hxcoro.schedulers.ThreadAwareScheduler;
 import hxcoro.task.AbstractTask;
+import hxcoro.thread.FixedThreadPool;
 import sys.thread.Mutex;
 import sys.thread.Thread;
 
@@ -69,15 +72,11 @@ class Watchdog {
 					Sys.println("Task tree:");
 					dumpTask(task, "\t");
 			}
-			if (watched.setup.loop is hxcoro.schedulers.ThreadAwareScheduler) {
-				(cast watched.setup.loop : hxcoro.schedulers.ThreadAwareScheduler).dump();
-			}
-			final dispatcher = watched.setup.dispatcher;
-			if (dispatcher is hxcoro.dispatchers.ThreadPoolDispatcher) {
-				final pool = @:privateAccess (cast dispatcher : hxcoro.dispatchers.ThreadPoolDispatcher).pool;
-				if (pool is hxcoro.thread.FixedThreadPool) {
-					(cast pool : hxcoro.thread.FixedThreadPool).dump();
-				}
+			Std.downcast(watched.setup.loop, ThreadAwareScheduler)?.dump();
+			switch (Std.downcast(watched.setup.dispatcher, ThreadPoolDispatcher)) {
+				case null:
+				case dispatcher:
+					Std.downcast(@:privateAccess dispatcher.pool, FixedThreadPool)?.dump();
 			}
 		} catch (e:Dynamic) {
 			Sys.println('Dump failed: $e');

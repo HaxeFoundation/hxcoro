@@ -1,6 +1,7 @@
 import hxcoro.run.Setup;
 import hxcoro.run.LoopRun;
 import hxcoro.task.NodeLambda;
+import hxcoro.task.CoroBaseTask;
 
 var setupFactory:() -> hxcoro.run.Setup.LoopSetup = Setup.createDefault;
 
@@ -10,7 +11,7 @@ function run<T>(lambda:NodeLambda<T>#if coro.stack_traces, ?callPos:haxe.PosInfo
 	#if target.threaded
 	final watched = Watchdog.watch(s);
 	final task = LoopRun.runTask(s.loop, context, node -> {
-		watched.rootTask = cast node;
+		watched.rootTask = node.context.get(CoroBaseTask);
 		return lambda(node);
 	}#if coro.stack_traces, callPos#end);
 	#else
