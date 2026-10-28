@@ -33,19 +33,8 @@ private class ResumeStatusTools {
 	A task that is completed by resuming it as an `IContinuation` with its result or error.
 **/
 class CoroTask<T> extends CoroBaseTask<T> implements IContinuation<T> {
-	/**
-		Shared `CoroChildStrategy` instance.
-	**/
 	static public final CoroChildStrategy = new CoroChildStrategy();
-
-	/**
-		Shared `CoroScopeStrategy` instance.
-	**/
 	static public final CoroScopeStrategy = new CoroScopeStrategy();
-
-	/**
-		Shared `CoroSupervisorStrategy` instance.
-	**/
 	static public final CoroSupervisorStrategy = new CoroSupervisorStrategy();
 
 	public function new(context:Context, nodeStrategy:INodeStrategy, initialState:TaskState = Running#if coro.stack_traces, ?startPos:haxe.PosInfos#end) {

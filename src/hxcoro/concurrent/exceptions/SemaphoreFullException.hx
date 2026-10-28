@@ -3,8 +3,8 @@ package hxcoro.concurrent.exceptions;
 import haxe.Exception;
 
 /**
-	Thrown by `CoroSemaphore.release` (and thus `CoroMutex.release`) if the number of
-	available permits is already at its maximum.
+	Thrown when releasing a semaphore whose number of available permits is already at
+	its maximum.
 **/
 class SemaphoreFullException extends Exception {
 	public function new() {

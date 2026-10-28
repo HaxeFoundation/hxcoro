@@ -6,9 +6,6 @@ import hxcoro.schedulers.ILoop;
 /**
 	A scheduler driven by `loop` calls that dispatches events based on the time returned
 	by `haxe.Timer.milliseconds`.
-
-	`loop(Once)` busy-waits with back-off until at least one event has been dispatched,
-	and `wakeUp` has no effect.
 **/
 class RealTimeScheduler extends HeapScheduler implements ILoop {
 	function loopOnce() {
@@ -32,6 +29,10 @@ class RealTimeScheduler extends HeapScheduler implements ILoop {
 		return didSomething;
 	}
 
+	/**
+		Dispatches the events that are due. In `Once` mode, this busy-waits with back-off
+		until at least one event has been dispatched.
+	**/
 	public function loop(runMode:RunMode) {
 		switch (runMode) {
 			case NoWait:
@@ -43,6 +44,9 @@ class RealTimeScheduler extends HeapScheduler implements ILoop {
 		}
 	}
 
+	/**
+		Has no effect, because `loop` busy-waits instead of blocking.
+	**/
 	public function wakeUp() {}
 
 	/**

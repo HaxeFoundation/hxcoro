@@ -7,6 +7,9 @@ import hxcoro.concurrent.AtomicState;
 	The state of a bounded channel.
 **/
 enum abstract ChannelState(Int) to Int {
+	/**
+		The channel can be written to and read from.
+	**/
 	final Open;
 	/**
 		Closed for writing, but there are still items to read.
@@ -16,6 +19,9 @@ enum abstract ChannelState(Int) to Int {
 		An operation currently has exclusive access to the channel.
 	**/
 	final Locked;
+	/**
+		Closed for writing, and all items have been read.
+	**/
 	final Closed;
 }
 

@@ -63,7 +63,8 @@ typedef ChannelOptions = {
 **/
 typedef BoundedChannelOptions<T> = ChannelOptions & {
 	/**
-		The maximum number of items the channel can hold. Must be at least 1.
+		The number of items the channel buffers. Once the buffer is full, `write` behaves
+		according to `writeBehaviour`, e.g. by suspending the writer. Must be at least 1.
 	**/
 	var size : Int;
 
@@ -98,7 +99,8 @@ class Channel<T> implements IChannelReader<T> implements IChannelWriter<T> {
 	}
 
 	/**
-		Creates a channel which holds at most `options.size` items.
+		Creates a channel which buffers up to `options.size` items, after which `write`
+		behaves according to `options.writeBehaviour`.
 
 		Throws `haxe.exceptions.ArgumentException` if `options.size` is less than 1.
 	**/

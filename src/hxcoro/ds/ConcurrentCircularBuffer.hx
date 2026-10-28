@@ -67,14 +67,14 @@ final class ConcurrentCircularBuffer<T> {
 	}
 
 	/**
-		Returns `true` if the buffer contained no items at the time of the call.
+		Returns `true` if the buffer contains no items.
 	**/
 	public function wasEmpty() {
 		return head.load() == tail.load();
 	}
 
 	/**
-		Returns `true` if the buffer was at capacity at the time of the call.
+		Returns `true` if the buffer has reached its capacity.
 	**/
 	public function wasFull() {
 		final nextTail = increment(tail.load());

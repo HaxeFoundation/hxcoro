@@ -5,7 +5,7 @@ import haxe.io.ArrayBufferView;
 import haxe.exceptions.ArgumentException;
 
 /**
-	The writer of a `Pipe`. `getBuffer` allocates 1024 bytes if no `minimumSize` is given.
+	The writer of a `Pipe`.
 **/
 class PipeWriter implements IPipeWriter {
 	final state : State;

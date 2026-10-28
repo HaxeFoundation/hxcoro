@@ -1,17 +1,17 @@
 package hxcoro.schedulers;
 
 /**
-	Determines how long a call to `ILoop.loop` may run.
+	Determines whether a call to `ILoop.loop` blocks if no events are ready.
 **/
 enum abstract RunMode(Int) {
 	/**
-		Processes pending events, waiting for at least one if none are ready.
-		The exact waiting behavior depends on the implementation.
+		Processes the events that are ready. If there are none, blocks until at least
+		one is ready. How exactly this waits depends on the implementation.
 	**/
 	final Once = 1;
 
 	/**
-		Processes the events that are ready and returns without waiting.
+		Processes the events that are ready, without blocking if there are none.
 	**/
 	final NoWait = 2;
 }

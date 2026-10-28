@@ -17,7 +17,7 @@ class ScheduledEvent implements ISchedulerHandle implements IDispatchObject {
 	**/
 	public final runTime:Int64;
 	/**
-		Link to the next event, used by schedulers to build intrusive lists of events.
+		The next event, which schedulers use to chain events into a list.
 	**/
 	public var next:Null<ScheduledEvent>;
 
@@ -63,7 +63,8 @@ class ScheduledEvent implements ISchedulerHandle implements IDispatchObject {
 	}
 
 	/**
-		Calls `f` on this event and then on each child event, detaching the child events from this event.
+		Calls `f` on this event and then on each of its child events. The child events are
+		removed from this event, so later calls don't visit them again.
 	**/
 	public function iterateEvents(f:IDispatchObject->Void) {
 		final childEvents = childEvents;

@@ -15,7 +15,7 @@ private abstract OutData<T>(Array<T>) from Array<T> {
 }
 
 /**
-	A mutable container for a single value, used as an out parameter by `try*` functions.
+	A mutable container for a single value.
 **/
 abstract Out<T>(OutData<T>) {
 	public inline function new() {

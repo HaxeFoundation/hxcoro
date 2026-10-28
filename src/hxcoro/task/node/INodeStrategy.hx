@@ -6,9 +6,7 @@ import hxcoro.task.AbstractTask;
 import hxcoro.task.CoroTask;
 
 /**
-	Defines how a task reacts to its own completion and to the outcome of its children. The `child*`
-	callbacks are only invoked for children whose own strategy reports their outcome to the parent,
-	which is the case for `CoroChildStrategy`.
+	Defines how a task reacts to its own completion and to the outcome of its children.
 **/
 interface INodeStrategy {
 	/**

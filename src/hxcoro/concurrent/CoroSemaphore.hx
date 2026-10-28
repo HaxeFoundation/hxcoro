@@ -17,11 +17,12 @@ class CoroSemaphore {
 	var free:AtomicInt;
 
 	/**
-		Creates a new `CoroSemaphore` instance with `free` available permits and a
-		maximum of `maxFree` permits, which defaults to `free`.
+		Creates a new `CoroSemaphore` instance with `free` initially available permits.
 
-		Throws an `ArgumentException` if `free < 0`, if `free` is 0 and `maxFree` is not
-		set, if `maxFree < 1` or if `free > maxFree`.
+		`maxFree` is the maximum number of permits and defaults to `free`, so it has to be
+		set if the semaphore starts without any free permits. An `ArgumentException` is
+		thrown if `free` is negative, if `maxFree` is less than 1, or if `free` exceeds
+		`maxFree`.
 	**/
 	@:nullSafety(Off)
 	public function new(free:Int, ?maxFree:Int) {
@@ -46,10 +47,8 @@ class CoroSemaphore {
 	}
 
 	/**
-		Acquires a permit, suspending until one becomes available if necessary.
-
-		If the calling coroutine is cancelled while waiting, a `CancellationException`
-		is thrown.
+		Acquires a permit, suspending until one becomes available if necessary. Waiting
+		for a permit reacts to cancellation of the calling coroutine.
 	**/
 	@:coroutine public function acquire() {
 		// CAS loop until we update the free atomic or it reports full.

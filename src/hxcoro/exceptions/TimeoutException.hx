@@ -3,6 +3,6 @@ package hxcoro.exceptions;
 import haxe.exceptions.CancellationException;
 
 /**
-	Thrown by `Coro.timeout` when the timeout elapses before the lambda completes.
+	Thrown when an operation does not complete within its time limit.
 **/
 class TimeoutException extends CancellationException {}

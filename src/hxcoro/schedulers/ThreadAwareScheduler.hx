@@ -89,12 +89,7 @@ private enum ThreadQueueEvent {
 }
 
 /**
-	A scheduler for multi-threaded setups such as `hxcoro.run.Setup.createThreadPool`. `schedule` may be
-	called from any thread and adds the event to a queue owned by the calling thread, and `loop`
-	collects the events from all these queues and dispatches the due ones.
-
-	`loop` must not be called from multiple threads at the same time. In `Once` mode, if no event
-	is due, it blocks until the next event is due, a new event is scheduled, or `wakeUp` is called.
+	A scheduler for multi-threaded setups such as `hxcoro.run.Setup.createThreadPool`.
 **/
 class ThreadAwareScheduler implements IScheduler implements ILoop {
 	final heap:MinimumHeap;
@@ -130,6 +125,10 @@ class ThreadAwareScheduler implements IScheduler implements ILoop {
 		return newQueue;
 	}
 
+	/**
+		Adds the event to a queue owned by the calling thread. This may be called from
+		any thread.
+	**/
     public function schedule(ms:Int64, cont:IContinuation<Any>):ISchedulerHandle {
 		if (ms < 0) {
 			throw new ArgumentException("Time must be greater or equal to zero");
@@ -228,6 +227,13 @@ class ThreadAwareScheduler implements IScheduler implements ILoop {
 		}
 	}
 
+	/**
+		Collects the events from the queues of all threads and dispatches the due ones. In
+		`Once` mode, if no event is due, this blocks until the next event is due, a new event
+		is scheduled, or `wakeUp` is called.
+
+		This must not be called from multiple threads at the same time.
+	**/
 	public function loop(runMode:RunMode) {
 		var wasWokenUp = false;
 		while(true) {

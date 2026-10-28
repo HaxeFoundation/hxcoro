@@ -22,7 +22,7 @@ class VirtualTimeScheduler extends HeapScheduler implements ILoop {
 	}
 
 	/**
-		Advances the virtual time by `ms` milliseconds, dispatching all events that become
+		Advances the virtual time by `ms`, dispatching all events that become
 		due in order of their due time. Returns `true` if there are events scheduled after
 		the new time.
 
@@ -75,7 +75,7 @@ class VirtualTimeScheduler extends HeapScheduler implements ILoop {
 	}
 
 	/**
-		Advances the virtual time by 1 millisecond, regardless of `runMode`.
+		Advances the virtual time by 1, regardless of `runMode`.
 	**/
 	public function loop(runMode:RunMode) {
 		advanceBy(1);
