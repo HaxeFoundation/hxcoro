@@ -5,7 +5,7 @@ import haxe.coro.dispatchers.IDispatchObject;
 import haxe.coro.schedulers.IScheduler;
 import haxe.exceptions.ArgumentException;
 import sys.thread.Tls;
-import hxcoro.schedulers.EventLoopScheduler;
+import hxcoro.schedulers.RealTimeScheduler;
 
 private class Trampoline {
 	public var running : Bool;
@@ -37,7 +37,7 @@ final class TrampolineDispatcher extends Dispatcher {
 	final trampolineTls : Tls<Trampoline>;
 
 	public function new(scheduler : IScheduler = null) {
-		s             = scheduler ?? new EventLoopScheduler();
+		s             = scheduler ?? new RealTimeScheduler();
 		trampolineTls = new Tls();
 	}
 

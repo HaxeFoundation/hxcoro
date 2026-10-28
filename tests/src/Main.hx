@@ -5,7 +5,7 @@ function main() {
 	switch (Sys.getEnv("HXCORO_DISPATCHER")) {
 		case "trampoline":
 			Sys.println("Using trampoline dispatcher");
-			TestRun.setupFactory = Setup.createEventLoopTrampoline;
+			TestRun.setupFactory = Setup.createTrampoline;
 		#if target.threaded
 		case "threadpool":
 			Sys.println("Using threadpool dispatcher");
