@@ -1,6 +1,12 @@
 package hxcoro.concurrent;
 
+/**
+	Helper for spin loops that wait for another thread to make progress.
+**/
 class BackOff {
+	/**
+		Briefly yields to other threads or reaches a GC safepoint, depending on the target.
+	**/
 	static public inline function backOff() {
 		#if hl
 		hl.Gc.safepoint();

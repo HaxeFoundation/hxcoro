@@ -10,6 +10,12 @@ import haxe.coro.schedulers.IScheduler;
 import haxe.ds.Option;
 import hxcoro.schedulers.LuvScheduler;
 
+/**
+	A dispatcher that runs dispatched objects on the libuv thread pool of `loop`.
+
+	If no `scheduler` is passed to the constructor, a `hxcoro.schedulers.LuvScheduler` for `loop`
+	is created and owned by this dispatcher.
+**/
 class LuvDispatcher extends Dispatcher
 {
 	final loop:Loop;
@@ -45,6 +51,10 @@ class LuvDispatcher extends Dispatcher
 		});
 	}
 
+	/**
+		Shuts down the scheduler if it is owned by this dispatcher, queues any pending work and
+		closes the internal libuv handle.
+	**/
 	public function shutDown() {
 		switch (luvScheduler) {
 			case Some(s):

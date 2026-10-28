@@ -15,7 +15,17 @@ import hxcoro.task.NodeLambda;
 
 private typedef SuspendCancellableFunc<T> = IContinuation<T> -> Null<(CancellationException -> Void)>;
 
+/**
+	Core coroutine functions for suspending, delaying and structuring coroutine execution.
+**/
 class Coro {
+	/**
+		Suspends the current coroutine and calls `func` with a continuation that resumes it.
+
+		The continuation may be resumed while `func` is still running or at any later point,
+		including from another thread. Cancellation does not resume the coroutine, see
+		`suspendCancellable` for that.
+	**/
 	@:coroutine(transformed, outcome = { noThrow: true, noReturn: true })
 	public static function suspend<T>(completion:IContinuation<T>, func:IContinuation<T>->Void):SuspensionResult<T> {
 		var safe = new RacingContinuation(completion);
@@ -25,9 +35,12 @@ class Coro {
 	}
 
 	/**
-	 * Suspends a coroutine which will be automatically resumed with a `haxe.exceptions.CancellationException` when cancelled.
-	 * If `func` returns a callback, it is registered to be invoked on cancellation allowing the easy cleanup of resources.
-	 */
+		Like `suspend`, but cancellation also resumes the coroutine, which then throws a
+		`haxe.exceptions.CancellationException`.
+
+		If `func` returns a callback, it is invoked if the coroutine is cancelled while
+		suspended, which allows cleaning up resources.
+	**/
 	@:coroutine(transformed, outcome = { noThrow: true, noReturn: true })
 	public static function suspendCancellable<T>(completion:IContinuation<T>, func:SuspendCancellableFunc<T>):SuspensionResult<T> {
 		var safe = new CancellingContinuation(completion);
@@ -48,16 +61,31 @@ class Coro {
 		}
 	}
 
+	/**
+		Suspends the current coroutine for `ms` milliseconds, as measured by the scheduler of
+		the context's `Dispatcher`.
+	**/
 	@:coroutine(outcome = { noThrow: true, noReturn: true }, assert = { numStates: 1})
 	public static function delay(ms:Int):Void {
 		suspendCancellable(cont -> delayImpl(ms, cont));
 	}
 
+	/**
+		Suspends the current coroutine and schedules it to be resumed without delay, giving
+		other pending work a chance to run. Equivalent to `delay(0)`.
+	**/
 	@:coroutine(outcome = { noThrow: true, noReturn: true }, assert = { numStates: 1})
 	public static function yield():Void {
 		suspendCancellable(cont -> delayImpl(0, cont));
 	}
 
+	/**
+		Executes `lambda` in a new task and returns its result once the task and all its
+		children have completed.
+
+		If `lambda` or one of the children raises an exception, the remaining children are
+		cancelled and the exception is thrown from this call.
+	**/
 	@:coroutine static public function scope<T>(lambda:NodeLambda<T>#if coro.stack_traces, ?startPos:haxe.PosInfos#end):T {
 		return suspend(cont -> {
 			final context = cont.context;
@@ -67,10 +95,12 @@ class Coro {
 	}
 
 	/**
-		Executes `lambda` in a new task, ignoring all child exceptions.
+		Executes `lambda` in a new task and returns its result once the task and all its
+		children have completed.
 
-		The task itself can still raise an exception. This is also true when calling
-		`child.await()` on a child that raises an exception.
+		Exceptions raised by children are ignored, but calling `await` on such a child still
+		throws its exception. If `lambda` raises an exception, the remaining children are
+		cancelled and the exception is thrown from this call.
 	**/
 	@:coroutine static public function supervisor<T>(lambda:NodeLambda<T>#if coro.stack_traces, ?startPos:haxe.PosInfos#end):T {
 		return suspend(cont -> {
@@ -81,13 +111,13 @@ class Coro {
 	}
 
 	/**
-	 * Runs the provided lambda with a timeout, if the timeout is exceeded this functions throws `hxcoro.exceptions.TimeoutException`.
-	 * If a timeout of zero is provided the function immediately throws `hxcoro.exceptions.TimeoutException`.
-	 * @param ms Timeout in milliseconds.
-	 * @param lambda Lambda function to execute.
-	 * @throws `hxcoro.exceptions.TimeoutException` If the timeout is exceeded.
-	 * @throws `haxe.ArgumentException` If the `ms` parameter is less than zero.
-	 */
+		Like `scope`, executes `lambda` in a new task and returns its result once the task and
+		all its children have completed. If this takes longer than `ms` milliseconds, the task
+		is cancelled and a `hxcoro.exceptions.TimeoutException` is thrown from this call.
+
+		A timeout of 0 throws the `TimeoutException` immediately without running `lambda`,
+		and a negative timeout throws a `haxe.exceptions.ArgumentException`.
+	**/
 	@:coroutine public static function timeout<T>(ms:Int, lambda:NodeLambda<T>#if coro.stack_traces, ?startPos:haxe.PosInfos#end):T {
 		if (ms < 0) {
 			throw new ArgumentException('timeout must be positive');

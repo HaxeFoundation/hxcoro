@@ -8,6 +8,9 @@ import hxcoro.ds.Out;
 
 using hxcoro.util.Convenience;
 
+/**
+	The reader of a `Pipe`.
+**/
 class PipeReader implements IPipeReader {
 	final state : State;
 	final readOut : Out<ArrayBufferView>;

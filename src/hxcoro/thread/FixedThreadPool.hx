@@ -12,6 +12,9 @@ import sys.thread.Tls;
 #end
 
 
+/**
+	The queue type used by `FixedThreadPool` for its main queue and for each worker.
+**/
 typedef DispatchQueue = WorkStealingQueue<IDispatchObject>;
 
 private class WorkerActivity {
@@ -130,6 +133,9 @@ class FixedThreadPool implements IThreadPool {
 		shutdownState.store(ShutDown);
 	}
 
+	/**
+		Prints debugging information about this pool.
+	**/
 	public function dump() {
 		Sys.println("FixedThreadPool");
 		Sys.println('\tisShutDown: $isShutDown');
@@ -154,6 +160,9 @@ class FixedThreadPool implements IThreadPool {
 
 private class ShutdownException extends ThreadPoolException {}
 
+/**
+	The state of a `FixedThreadPool` worker, as shown by `FixedThreadPool.dump`.
+**/
 @:using(FixedThreadPool.WorkerStateTools)
 enum abstract WorkerState(Int) {
 	final Created;

@@ -88,6 +88,9 @@ private enum ThreadQueueEvent {
 	Remove(queue:ThreadQueue);
 }
 
+/**
+	A scheduler for multi-threaded setups such as `hxcoro.run.Setup.createThreadPool`.
+**/
 class ThreadAwareScheduler implements IScheduler implements ILoop {
 	final heap:MinimumHeap;
 	final queueTls:Tls<TlsQueue>;
@@ -122,6 +125,10 @@ class ThreadAwareScheduler implements IScheduler implements ILoop {
 		return newQueue;
 	}
 
+	/**
+		Adds the event to a queue owned by the calling thread. This may be called from
+		any thread.
+	**/
     public function schedule(ms:Int64, cont:IContinuation<Any>):ISchedulerHandle {
 		if (ms < 0) {
 			throw new ArgumentException("Time must be greater or equal to zero");
@@ -220,6 +227,13 @@ class ThreadAwareScheduler implements IScheduler implements ILoop {
 		}
 	}
 
+	/**
+		Collects the events from the queues of all threads and dispatches the due ones. In
+		`Once` mode, if no event is due, this blocks until the next event is due, a new event
+		is scheduled, or `wakeUp` is called.
+
+		This must not be called from multiple threads at the same time.
+	**/
 	public function loop(runMode:RunMode) {
 		var wasWokenUp = false;
 		while(true) {
@@ -244,6 +258,9 @@ class ThreadAwareScheduler implements IScheduler implements ILoop {
 		semaphore.release();
 	}
 
+	/**
+		Prints debugging information about this scheduler.
+	**/
 	public function dump() {
 		Sys.println("ThreadAwareScheduler");
 		Sys.println('\theap minimum: ${heap.minimum()}');
@@ -257,6 +274,9 @@ class ThreadAwareScheduler implements IScheduler implements ILoop {
 		Sys.println('\ttotal writes: $totalWrites');
 	}
 
+	/**
+		Returns a string representation of this scheduler.
+	**/
 	public function toString() {
 		return '[ThreadAwareScheduler]';
 	}

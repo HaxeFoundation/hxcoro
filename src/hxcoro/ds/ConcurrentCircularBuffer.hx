@@ -5,11 +5,11 @@ import haxe.exceptions.ArgumentException;
 import haxe.atomic.AtomicInt;
 
 /**
- * Thread safe FIFO circular buffer.
- *
- * This buffer supports at most a single producer and a single consumer at any one time,
- * the behaviour when multiple produces and consumers act on the buffer is undefined.
- */
+	A thread-safe FIFO circular buffer.
+
+	It supports at most a single producer and a single consumer at any one time. The
+	behaviour with multiple producers or consumers is undefined.
+**/
 final class ConcurrentCircularBuffer<T> {
 	final storage : Vector<T>;
 
@@ -29,10 +29,9 @@ final class ConcurrentCircularBuffer<T> {
 	}
 
 	/**
-	 * Attempts to add an item to the end of the buffer.
-	 * @param v Item to add.
-	 * @returns `true` if the item was added to the buffer, otherwise `false`.
-	 */
+		If the buffer is not full, adds `v` at the end and returns `true`. Otherwise,
+		returns `false`.
+	**/
 	public function tryPush(v : T) {
 		final currentTail = tail.load();
 		final nextTail    = increment(currentTail);
@@ -47,10 +46,9 @@ final class ConcurrentCircularBuffer<T> {
 	}
 
 	/**
-	 * Attempts to remove an item from the beginning of the buffer.
-	 * @param out If this function returns `true` the removed item will be stored in this out object.
-	 * @returns `true` if an item was removed from the buffer, otherwise `false`.
-	 */
+		If the buffer is not empty, removes the item at the beginning, stores it in `out`
+		and returns `true`. Otherwise, returns `false`.
+	**/
 	public function tryPop(out : Out<T>) {
 		final currentHead = head.load();
 		if (currentHead == tail.load()) {
@@ -66,10 +64,16 @@ final class ConcurrentCircularBuffer<T> {
 		return true;
 	}
 
+	/**
+		Returns `true` if the buffer contains no items.
+	**/
 	public function wasEmpty() {
 		return head.load() == tail.load();
 	}
 
+	/**
+		Returns `true` if the buffer has reached its capacity.
+	**/
 	public function wasFull() {
 		final nextTail = increment(tail.load());
 

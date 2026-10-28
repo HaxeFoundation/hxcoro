@@ -4,20 +4,36 @@ package hxcoro.ds;
 
 import haxe.ds.VecDeque;
 
+/**
+	A FIFO queue, implemented on top of `haxe.ds.VecDeque` when `use_vec_deque` is defined.
+**/
 @:forward.new
 abstract PagedDeque<T>(VecDeque<T>) {
+	/**
+		Returns `true` if the queue contains no items.
+	**/
 	public inline function isEmpty() {
 		return this.length == 0;
 	}
 
+	/**
+		Adds `x` to the back of the queue.
+	**/
 	public inline function push(x:T) {
 		return this.pushBack(x);
 	}
 
+	/**
+		Removes and returns the item at the front of the queue.
+	**/
 	public inline function pop() {
 		return this.popFront();
 	}
 
+	/**
+		If the queue is not empty, stores the most recently pushed item in `out` without
+		removing it and returns `true`. Otherwise, returns `false`.
+	**/
 	public function tryPeek(out:Out<T>) {
 		final value = this.peekBack();
 		if (value == null) {
@@ -27,6 +43,10 @@ abstract PagedDeque<T>(VecDeque<T>) {
 		return true;
 	}
 
+	/**
+		If the queue is not empty, removes the item at the front, stores it in `out` and
+		returns `true`. Otherwise, returns `false`.
+	**/
 	public function tryPop(out:Out<T>) {
 		if (isEmpty()) {
 			return false;
@@ -35,6 +55,9 @@ abstract PagedDeque<T>(VecDeque<T>) {
 		return true;
 	}
 
+	/**
+		Removes the item at `index`. Returns `true` if an item was removed.
+	**/
 	public inline function remove(index:Int, value:T) {
 		final removed = this.removeAt(index);
 		return removed != null;
@@ -47,9 +70,21 @@ import haxe.ds.Vector;
 import haxe.Exception;
 import hxcoro.ds.Out;
 
+/**
+	A fixed-size page of storage used by `PagedDeque`.
+**/
 class Page<T> {
+	/**
+		The storage of this page.
+	**/
 	public final data:Vector<T>;
+	/**
+		The number of items that were removed from the middle of this page.
+	**/
 	public var numDeleted:Int;
+	/**
+		The next page in the deque, if any.
+	**/
 	public var next:Null<Page<T>>;
 
 	public function new(size:Int) {
@@ -57,6 +92,9 @@ class Page<T> {
 		numDeleted = 0;
 	}
 
+	/**
+		Removes the first occurrence of `element` at or after `startIndex`, returning `true` if it was found.
+	**/
 	public function removeFrom(element:T, startIndex:Int) {
 		for (i in startIndex...data.length - numDeleted) {
 			if (data[i] == element) {
@@ -68,11 +106,17 @@ class Page<T> {
 		return false;
 	}
 
+	/**
+		Clears the deletion count and the link to the next page so the page can be reused.
+	**/
 	public function reset() {
 		numDeleted = 0;
 		next = null;
 	}
 
+	/**
+		Returns the number of usable slots, which is the page size minus `numDeleted`.
+	**/
 	public inline function freeSpace() {
 		return data.length - numDeleted;
 	}
@@ -85,6 +129,11 @@ class Page<T> {
 	}
 }
 
+/**
+	A FIFO queue which is not thread-safe, stored as a linked list of fixed-size pages that are reused once consumed.
+
+	Items can be removed from the middle of the queue via `remove`, using the page returned by `push`.
+**/
 class PagedDeque<T> {
 	final vectorSize:Int;
 	var currentPage:Page<T>;
@@ -108,6 +157,9 @@ class PagedDeque<T> {
 		page.data[index - page.numDeleted] = value;
 	}
 
+	/**
+		Calls `f` on each item in the queue, from front to back.
+	**/
 	public function forEach(f:T->Void) {
 		var currentPage = currentPage;
 		var currentIndex = currentIndex;
@@ -123,6 +175,9 @@ class PagedDeque<T> {
 		}
 	}
 
+	/**
+		Replaces each item in the queue with the result of calling `f` on it.
+	**/
 	public function mapInPlace(f:T->T) {
 		var currentPage = currentPage;
 		var currentIndex = currentIndex;
@@ -138,6 +193,9 @@ class PagedDeque<T> {
 		}
 	}
 
+	/**
+		Combines the items in the queue from front to back using `f`, starting with `acc`.
+	**/
 	public function fold<A>(acc:A, f:(acc:A, elt:T) -> A) {
 		var currentPage = currentPage;
 		var currentIndex = currentIndex;
@@ -154,6 +212,9 @@ class PagedDeque<T> {
 		return acc;
 	}
 
+	/**
+		Adds `x` to the back of the queue and returns the page it was stored in.
+	**/
 	public function push(x:T) {
 		if (lastIndex == lastPage.freeSpace()) {
 			// current page is full
@@ -171,6 +232,9 @@ class PagedDeque<T> {
 		return lastPage;
 	}
 
+	/**
+		Removes and returns the item at the front of the queue. Throws an exception if the queue is empty.
+	**/
 	public function pop() {
 		if (currentIndex == currentPage.freeSpace()) {
 			// end of page, need to swap
@@ -195,6 +259,9 @@ class PagedDeque<T> {
 		}
 	}
 
+	/**
+		Removes `element` from `page`, which should be the page returned by the `push` call that added it. Returns `true` if it was found.
+	**/
 	public function remove(page:Page<T>, element:T) {
 		final wasRemoved = if (page == currentPage) {
 			page.removeFrom(element, currentIndex);
@@ -208,6 +275,10 @@ class PagedDeque<T> {
 		return wasRemoved;
 	}
 
+	/**
+		If the queue is not empty, removes the item at the front, stores it in `out` and
+		returns `true`. Otherwise, returns `false`.
+	**/
 	public function tryPop(out:Out<T>) {
 		if (isEmpty()) {
 			// TODO: could probably integrate this better in the branches below
@@ -237,6 +308,10 @@ class PagedDeque<T> {
 		}
 	}
 
+	/**
+		If the queue is not empty, stores the most recently pushed item in `out` without
+		removing it and returns `true`. Otherwise, returns `false`.
+	**/
 	public function tryPeek(out:Out<T>) {
 		if (isEmpty()) {
 			return false;
@@ -247,6 +322,9 @@ class PagedDeque<T> {
 		return true;
 	}
 
+	/**
+		Returns `true` if the queue contains no items.
+	**/
 	public function isEmpty() {
 		while (currentIndex == currentPage.freeSpace()) {
 			if (currentPage.next == null || currentPage == lastPage) {

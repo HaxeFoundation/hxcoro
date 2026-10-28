@@ -2,14 +2,39 @@ package hxcoro.ds.channels;
 
 import hxcoro.ds.Out;
 
+/**
+	The reading end of a channel.
+
+	A reader can be iterated over in a coroutine, which yields items until the channel
+	is closed and empty.
+**/
 @:using(hxcoro.ds.channels.IChannelReader.ChannelReaderTools)
 interface IChannelReader<T> {
+	/**
+		If an item is available, removes it, stores it in `out` and returns `true`. Otherwise,
+		returns `false` without suspending.
+	**/
 	function tryRead(out:Out<T>):Bool;
 
+	/**
+		If an item is available, stores the most recently written one in `out` without
+		removing it and returns `true`. Otherwise, returns `false` without suspending.
+	**/
 	function tryPeek(out:Out<T>):Bool;
 
+	/**
+		Removes and returns the next item, suspending until one is available. Throws
+		`hxcoro.ds.channels.exceptions.ChannelClosedException` if the channel is closed and empty.
+	**/
 	@:coroutine function read():T;
 
+	/**
+		Suspends until an item is available or the channel is closed. Returns `false` if
+		the channel is closed and no more items can be read.
+
+		A `true` result does not guarantee that a subsequent `tryRead` succeeds, since
+		another reader may take the item first.
+	**/
 	@:coroutine function waitForRead():Bool;
 }
 
@@ -55,7 +80,13 @@ class ChannelIterator<T> {
 	}
 }
 
+/**
+	Static extensions for `IChannelReader`.
+**/
 class ChannelReaderTools {
+	/**
+		Returns a coroutine iterator over the items of `reader`.
+	**/
 	static public function iterator<T>(reader:IChannelReader<T>) {
 		return new ChannelIterator(reader);
 	}

@@ -3,6 +3,10 @@ package hxcoro.task.node;
 import haxe.Exception;
 import haxe.exceptions.CancellationException;
 
+/**
+	Strategy for tasks created by `async` and `lazy`, which report their outcome to their parent and are
+	cancelled when one of their children fails or is cancelled.
+**/
 @:access(hxcoro.task.AbstractTask)
 @:access(hxcoro.task.CoroTask)
 class CoroChildStrategy implements INodeStrategy {

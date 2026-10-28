@@ -29,6 +29,9 @@ private class ResumeStatusTools {
 	}
 }
 
+/**
+	A task that is completed by resuming it as an `IContinuation` with its result or error.
+**/
 class CoroTask<T> extends CoroBaseTask<T> implements IContinuation<T> {
 	static public final CoroChildStrategy = new CoroChildStrategy();
 	static public final CoroScopeStrategy = new CoroScopeStrategy();
@@ -52,6 +55,9 @@ class CoroTask<T> extends CoroBaseTask<T> implements IContinuation<T> {
 	}
 
 	#if sys
+	/**
+		Prints the task's internal state to standard output, for debugging.
+	**/
 	public function dump() {
 		Sys.println('CoroTask $id');
 		Sys.println('\tstate: ${state.load().toString()}');
@@ -63,6 +69,9 @@ class CoroTask<T> extends CoroBaseTask<T> implements IContinuation<T> {
 	#end
 }
 
+/**
+	A task that executes a `NodeLambda`, as created by `async`, `lazy` and functions such as `Coro.scope`.
+**/
 class CoroTaskWithLambda<T> extends CoroTask<T> implements IDispatchObject implements IStartableCoroTask<T> {
 	final lambda:NodeLambda<T>;
 
@@ -85,7 +94,7 @@ class CoroTaskWithLambda<T> extends CoroTask<T> implements IDispatchObject imple
 	}
 
 	/**
-		Starts executing this task's `lambda`. Has no effect if the task is already active or has completed.
+		Starts executing this task's `lambda`. Has no effect if the task has already been started or has completed.
 	**/
 	override public function doStart() {
 		super.doStart();

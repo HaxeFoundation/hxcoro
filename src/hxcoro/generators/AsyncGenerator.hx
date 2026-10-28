@@ -9,6 +9,9 @@ import haxe.coro.context.Context;
 import hxcoro.concurrent.AtomicState;
 import hxcoro.concurrent.BackOff;
 
+/**
+	The internal state of an `AsyncGenerator`.
+**/
 enum abstract AsyncGeneratorState(Int) to Int {
 	final Created;
 	final Running;
@@ -193,10 +196,21 @@ class AsyncGenerator<T> extends SuspensionResult<Iterator<T>> implements IContin
 		}
 	}
 
+	/**
+		Creates a new asynchronous generator that produces values by running `f`.
+
+		Unlike the synchronous generators, `f` is not restricted and may call arbitrary
+		coroutines that suspend. If `f` returns a non-null iterable, its elements are
+		offered as the final values of this generator.
+	**/
 	extern static inline overload public function create<T>(f:Coroutine<AsyncYield<T> -> Null<Iterable<T>>>) {
 		return new AsyncGenerator(f);
 	}
 
+	/**
+		Creates a new asynchronous generator that produces values by running `f`, which
+		does not return any final values.
+	**/
 	extern static inline overload public function create<T>(f:Coroutine<AsyncYield<T> -> Void>) {
 		return new AsyncGenerator(gen -> {
 			f(gen);
@@ -205,6 +219,10 @@ class AsyncGenerator<T> extends SuspensionResult<Iterator<T>> implements IContin
 	}
 }
 
+/**
+	The yield API passed to `AsyncGenerator.create` functions, supporting only
+	`yield(value)`.
+**/
 abstract AsyncYield<T>(AsyncGenerator<T>) to AsyncGenerator<T> from AsyncGenerator<T> {
 	@:op(a()) @:coroutine function yield(value:T) {
 		this.yield(value);

@@ -12,6 +12,10 @@ import haxe.coro.schedulers.IScheduler;
 import haxe.coro.schedulers.ISchedulerHandle;
 import sys.thread.Deque;
 
+/**
+	A thread-safe deque paired with a libuv async handle that runs a callback on the loop thread
+	after elements are added.
+**/
 class AsyncDeque<T> {
 	final deque:Deque<T>;
 	var async:Async;
@@ -21,15 +25,25 @@ class AsyncDeque<T> {
 		this.async = Async.init(loop, f).resolve();
 	}
 
+	/**
+		Adds `x` and signals the loop thread.
+	**/
 	public function add(x:T) {
 		deque.add(x);
 		async.send();
 	}
 
+	/**
+		Removes and returns the first element. If the deque is empty, blocks if `block` is `true`
+		and returns `null` otherwise.
+	**/
 	public function pop(block:Bool) {
 		return deque.pop(block);
 	}
 
+	/**
+		Closes the underlying async handle.
+	**/
 	public function close() {
 		async.close(() -> { });
 	}
@@ -152,6 +166,9 @@ class LuvScheduler implements IScheduler implements ILoop {
 		@:privateAccess eventQueue.async.send();
 	}
 
+	/**
+		Pops all elements from `deque` and passes them to `f`.
+	**/
 	static public function consumeDeque<T>(deque:AsyncDeque<T>, f:T->Void) {
 		do {
 			final event = deque.pop(false);
@@ -170,6 +187,9 @@ class LuvScheduler implements IScheduler implements ILoop {
 		consumeDeque(closeQueue, event -> event.stop());
 	}
 
+	/**
+		Processes pending timer requests and closes the libuv handles used by this scheduler.
+	**/
 	public function shutdown() {
 		loopEvents(null);
 		loopCloses(null);
