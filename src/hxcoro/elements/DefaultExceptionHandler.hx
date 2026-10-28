@@ -5,7 +5,7 @@ import haxe.Exception;
 import haxe.PosInfos;
 import haxe.coro.CoroStackItem;
 import haxe.coro.IStackFrame;
-import haxe.coro.Tls;
+import sys.thread.Tls;
 import haxe.coro.context.Context;
 import haxe.coro.context.ExceptionHandler;
 import haxe.coro.context.IElement;

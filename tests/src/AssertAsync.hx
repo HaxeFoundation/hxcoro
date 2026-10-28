@@ -12,14 +12,15 @@ class AssertAsync {
 		} catch (ex:Dynamic) {
 			var ex = Std.isOfType(ex, ValueException) ? (cast ex:ValueException).value : (ex:Any);
 
-			return Assert.isTrue(Std.isOfType(ex, type), "expected " + typeDescr + " but it is "  + ex);
+			Assert.isTrue(Std.isOfType(ex, type), "expected " + typeDescr + " but it is " + ex);
+			return;
 		}
 
-		return Assert.fail('Exception not thrown');
+		Assert.fail('Exception not thrown');
 	}
 
 	@:coroutine
-	public static function raises(method:Coroutine<() -> Void>, type:Any) : Bool {
-		return _raisesImpl(method, type);
+	public static function raises(method:Coroutine<() -> Void>, type:Any) {
+		_raisesImpl(method, type);
 	}
 }

@@ -19,7 +19,7 @@ class ResultPusherHandle implements ICancellationCallback {
 	}
 }
 
-class TestTaskCancellation extends utest.Test {
+class TestTaskCancellation extends atest.Test {
 	public function test_cancellation_callback() {
 		final result     = [];
 		final scheduler  = new VirtualTimeScheduler();

@@ -24,7 +24,6 @@ jobs:
       - name: Setup haxelib
         run: |
           haxelib newrepo
-          haxelib git utest https://github.com/haxe-utest/utest.git
           haxelib install hxjava
           haxelib git hxcpp https://github.com/HaxeFoundation/hxcpp.git
           haxe --cwd .haxelib/hxcpp/git/tools/hxcpp compile.hxml

@@ -7,7 +7,7 @@ import hxcoro.elements.NonCancellable;
 import haxe.exceptions.CancellationException;
 import haxe.ValueException;
 
-class Issue47 extends utest.Test {
+class Issue47 extends atest.Test {
 	function testTaskActiveAfterCancellation() {
 		run(node -> {
 			var cancelCause = null;

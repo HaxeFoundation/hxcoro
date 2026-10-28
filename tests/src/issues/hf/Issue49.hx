@@ -6,7 +6,7 @@ private class C {
 	@:coroutine public function map(f:Int->Void) {}
 }
 
-class Issue49 extends utest.Test {
+class Issue49 extends atest.Test {
 	function test() {
 		var c = new C();
 		run(node -> {

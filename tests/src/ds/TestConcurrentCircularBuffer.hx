@@ -4,7 +4,7 @@ import haxe.exceptions.ArgumentException;
 import hxcoro.ds.Out;
 import hxcoro.ds.ConcurrentCircularBuffer;
 
-class TestConcurrentCircularBuffer extends utest.Test {
+class TestConcurrentCircularBuffer extends atest.Test {
 	public function test_invalid_capacity() {
 		Assert.raises(() -> new ConcurrentCircularBuffer(0), ArgumentException);
 	}

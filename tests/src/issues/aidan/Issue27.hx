@@ -1,6 +1,6 @@
 package issues.aidan;
 
-import hxcoro.schedulers.EventLoopScheduler;
+import hxcoro.schedulers.RealTimeScheduler;
 import hxcoro.dispatchers.TrampolineDispatcher;
 import haxe.ValueException;
 import haxe.coro.schedulers.IScheduler;
@@ -27,7 +27,7 @@ class DebugName implements IElement<DebugName> {
 	}
 }
 
-class Issue27 extends utest.Test {
+class Issue27 extends atest.Test {
 	@:coroutine
 	function logDebug() {
 		return suspend(cont -> {
@@ -54,7 +54,7 @@ class Issue27 extends utest.Test {
 	}
 
 	function newTrampoline() {
-		return new TrampolineDispatcher(new EventLoopScheduler());
+		return new TrampolineDispatcher(new RealTimeScheduler());
 	}
 
 	function testScope() {

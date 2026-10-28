@@ -3,12 +3,19 @@ package hxcoro.concurrent;
 import hxcoro.concurrent.AtomicState;
 import hxcoro.concurrent.BackOff;
 
+/**
+	The internal state of a `ThreadSafeCallbacks` instance.
+**/
 enum abstract CallbacksState(Int) to Int {
 	final Ready;
 	final Modifying;
 	final Finished;
 }
 
+/**
+	Base class for a thread-safe collection of callbacks that are executed once when
+	`run` is called.
+**/
 abstract class ThreadSafeCallbacks<Element, HandleIn : HandleOut, HandleOut> {
 	var handles:Null<Array<HandleIn>>;
 	final execute:HandleIn -> Void;
@@ -22,6 +29,9 @@ abstract class ThreadSafeCallbacks<Element, HandleIn : HandleOut, HandleOut> {
 
 	// single threaded
 
+	/**
+		Executes all registered callbacks. Subsequent calls have no effect.
+	**/
 	public function run() {
 		while (true) {
 			switch (state.compareExchange(Ready, Finished)) {
@@ -49,6 +59,10 @@ abstract class ThreadSafeCallbacks<Element, HandleIn : HandleOut, HandleOut> {
 
 	abstract function createHandle(element:Element):HandleIn;
 
+	/**
+		Registers `element` and returns its handle. If `run` has already been called, the
+		callback is executed immediately and `null` is returned instead.
+	**/
 	public function add(element:Element):Null<HandleOut> {
 		final handle = createHandle(element);
 		while (true) {
@@ -68,6 +82,9 @@ abstract class ThreadSafeCallbacks<Element, HandleIn : HandleOut, HandleOut> {
 		return handle;
 	}
 
+	/**
+		Unregisters `handle`. Has no effect if `run` has already been called.
+	**/
 	public function remove(handle:HandleIn) {
 		while (true) {
 			switch (state.compareExchange(Ready, Modifying)) {

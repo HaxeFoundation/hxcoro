@@ -35,7 +35,7 @@ private class TestContinuation<T> implements IContinuation<Bool> {
 	}
 }
 
-class TestBoundedWriter extends utest.Test {
+class TestBoundedWriter extends atest.Test {
 	function test_try_write_has_space() {
 		final buffer        = new CircularBuffer(1);
 		final writeWaiters  = new PagedDeque();

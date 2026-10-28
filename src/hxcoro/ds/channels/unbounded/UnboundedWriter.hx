@@ -1,7 +1,7 @@
 package hxcoro.ds.channels.unbounded;
 
 import haxe.coro.CoroIntrinsics;
-import haxe.coro.Mutex;
+import sys.thread.Mutex;
 import haxe.coro.IContinuation;
 import hxcoro.ds.Out;
 import hxcoro.ds.PagedDeque;
@@ -10,6 +10,9 @@ import hxcoro.ds.channels.exceptions.ChannelClosedException;
 using hxcoro.util.Convenience;
 using hxcoro.util.MutexExtensions;
 
+/**
+	The writer of a channel created by `Channel.createUnbounded`. `waitForWrite` never suspends.
+**/
 final class UnboundedWriter<T> implements IChannelWriter<T> {
 	final closed : Out<Bool>;
 

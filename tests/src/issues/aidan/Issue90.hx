@@ -1,6 +1,6 @@
 package issues.aidan;
 
-class Issue90 extends utest.Test {
+class Issue90 extends atest.Test {
 	function testIf() {
 		var val = "foo";
 		function ret(value:String) {

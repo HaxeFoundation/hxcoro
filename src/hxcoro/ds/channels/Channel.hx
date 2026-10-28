@@ -1,9 +1,9 @@
 package hxcoro.ds.channels;
 
 import haxe.coro.IContinuation;
-import haxe.coro.Mutex;
+import sys.thread.Mutex;
 import haxe.exceptions.ArgumentException;
-import hxcoro.concurrent.AtomicObject;
+import haxe.atomic.AtomicObject;
 import hxcoro.ds.CircularBuffer;
 import hxcoro.ds.Out;
 import hxcoro.ds.PagedDeque;
@@ -16,31 +16,81 @@ import hxcoro.ds.channels.unbounded.UnboundedReader;
 import hxcoro.ds.channels.unbounded.UnboundedWriter;
 import hxcoro.generators.AsyncGenerator;
 
+/**
+	A callback which receives an item that was dropped by a full channel.
+**/
 typedef DropCallback<T> = (dropped : T)->Void;
 
+/**
+	Determines what `write` does when a bounded channel is full.
+**/
 enum FullBehaviour<T> {
+	/**
+		Suspend until there is space in the channel.
+	**/
 	Wait;
+	/**
+		Remove the most recently written item to make space, passing it to `f`.
+	**/
 	DropNewest(f : DropCallback<T>);
+	/**
+		Remove the oldest item to make space, passing it to `f`.
+	**/
 	DropOldest(f : DropCallback<T>);
+	/**
+		Discard the item being written, passing it to `f`.
+	**/
 	DropWrite(f : DropCallback<T>);
 }
 
+/**
+	Options for creating a channel.
+**/
 typedef ChannelOptions = {
+	/**
+		Hint that the channel has only one reader. Currently ignored.
+	**/
 	var ?singleReader : Bool;
 
+	/**
+		Hint that the channel has only one writer. Currently ignored.
+	**/
 	var ?singleWriter : Bool;
 }
 
+/**
+	Options for creating a bounded channel.
+**/
 typedef BoundedChannelOptions<T> = ChannelOptions & {
+	/**
+		The number of items the channel buffers. Once the buffer is full, `write` behaves
+		according to `writeBehaviour`, e.g. by suspending the writer. Must be at least 1.
+	**/
 	var size : Int;
 
+	/**
+		What `write` does when the channel is full. Defaults to `Wait`.
+	**/
 	var ?writeBehaviour : FullBehaviour<T>;
 }
 
+/**
+	A thread-safe queue for passing values between coroutines.
+
+	A channel combines a `reader` and a `writer`, and itself forwards to both. After
+	`close` is called, no more items can be written, but items already in the channel
+	can still be read.
+**/
 class Channel<T> implements IChannelReader<T> implements IChannelWriter<T> {
 
+	/**
+		The reading end of this channel.
+	**/
 	public final reader : IChannelReader<T>;
 
+	/**
+		The writing end of this channel.
+	**/
 	public final writer : IChannelWriter<T>;
 
 	public function new(reader, writer) {
@@ -48,6 +98,12 @@ class Channel<T> implements IChannelReader<T> implements IChannelWriter<T> {
 		this.writer = writer;
 	}
 
+	/**
+		Creates a channel which buffers up to `options.size` items, after which `write`
+		behaves according to `options.writeBehaviour`.
+
+		Throws `haxe.exceptions.ArgumentException` if `options.size` is less than 1.
+	**/
 	public static function createBounded<T>(options : BoundedChannelOptions<T>):Channel<T> {
 		if (options.size < 1) {
 			throw new ArgumentException("size");
@@ -80,6 +136,9 @@ class Channel<T> implements IChannelReader<T> implements IChannelWriter<T> {
 				new BoundedWriter(buffer, writeWaiters, readWaiters, writeBehaviour, state));
 	}
 
+	/**
+		Creates a channel without a size limit, so writing never suspends.
+	**/
 	public static function createUnbounded<T>(options : ChannelOptions):Channel<T> {
 		final closed      = new Out();
 		final buffer      = new PagedDeque();

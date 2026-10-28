@@ -1,15 +1,14 @@
 package hxcoro.continuations;
 
 import haxe.Exception;
-import haxe.coro.IContinuation;
+import haxe.coro.SuspensionResult;
 import haxe.coro.cancellation.CancellationToken;
 import haxe.coro.cancellation.ICancellationCallback;
 import haxe.coro.cancellation.ICancellationHandle;
 import haxe.coro.cancellation.ICancellationToken;
-import haxe.coro.dispatchers.Dispatcher;
 import haxe.coro.dispatchers.IDispatchObject;
 import haxe.exceptions.CancellationException;
-import hxcoro.concurrent.AtomicInt;
+import haxe.atomic.AtomicInt;
 import hxcoro.concurrent.BackOff;
 
 private enum abstract State(Int) to Int {
@@ -19,6 +18,11 @@ private enum abstract State(Int) to Int {
 	final Completed;
 }
 
+/**
+	Continuation wrapper used by `Coro.suspendCancellable` that resumes the wrapped
+	continuation with a `CancellationException` if cancellation is requested before
+	it is resumed normally.
+**/
 class CancellingContinuation<T> extends StackFrameContinuation<T> implements ICancellationCallback implements IDispatchObject {
 	final resumeState : AtomicInt;
 
@@ -26,6 +30,11 @@ class CancellingContinuation<T> extends StackFrameContinuation<T> implements ICa
 
 	final cancellationToken : Null<ICancellationToken>;
 
+	/**
+		Callback that is invoked if cancellation wins over a normal resumption. If
+		cancellation was already requested when it is set, it is invoked immediately.
+		Setting it a second time throws an exception.
+	**/
 	public var onCancellationRequested (default, set) : Null<CancellationException->Void>;
 
 	function set_onCancellationRequested(f : CancellationException->Void) {
@@ -94,6 +103,9 @@ class CancellingContinuation<T> extends StackFrameContinuation<T> implements ICa
 		}
 	}
 
+	/**
+		Resumes the wrapped continuation with `cause` unless it was already resumed.
+	**/
 	public function onCancellation(cause:CancellationException) {
 		if (updateState(null, cause)) {
 			if (null != onCancellationRequested) {
@@ -103,16 +115,19 @@ class CancellingContinuation<T> extends StackFrameContinuation<T> implements ICa
 		}
 	}
 
-	public function resolve():Void {
-		if (resumeState.compareExchange(Active, Resolved) != Active) {
+	/**
+		Must be called after the suspending function has run. Returns `SuspensionResult.suspended`
+		if this continuation was not resumed or cancelled yet, otherwise returns itself in
+		`Returned` or `Thrown` state.
+	**/
+	public function resolve():SuspensionResult<T> {
+		if (resumeState.compareExchange(Active, Resolved) == Active) {
+			return cast SuspensionResult.suspended;
+		} else {
 			while (resumeState.load() == Completing) {
 				BackOff.backOff();
 			}
-			// Resume (or cancellation) beat resolve(). Dispatch so that onDispatch() →
-			// cont.resume() is always called, regardless of whether the caller was a
-			// BaseContinuation state machine or a plain lambda (where an inline Returned
-			// result would be silently discarded on multi-threaded targets).
-			context.dispatchOrCall(this);
+			return this;
 		}
 	}
 

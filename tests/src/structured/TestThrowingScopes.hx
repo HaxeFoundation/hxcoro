@@ -10,7 +10,7 @@ class FooException extends Exception {
 	}
 }
 
-class TestThrowingScopes extends utest.Test {
+class TestThrowingScopes extends atest.Test {
 	public function test_error_passes_up() {
 		Assert.raises(() -> {
 			run(node -> {

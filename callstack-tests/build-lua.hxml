@@ -1,3 +1,4 @@
 build-base.hxml
+-D lua-vanilla
 --lua bin/test.lua
 --cmd lua bin/test.lua

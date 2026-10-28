@@ -6,9 +6,19 @@ import haxe.coro.schedulers.IScheduler;
 import hxcoro.elements.DefaultExceptionHandler;
 import hxcoro.schedulers.ILoop;
 
+/**
+	Combines a `Dispatcher` with the code needed to shut it down, and provides factory
+	functions for the dispatcher configurations supported by hxcoro.
+**/
 class Setup {
+	/**
+		The base context used by `CoroRun`, which contains a `DefaultExceptionHandler`.
+	**/
 	static public final defaultContext = Context.empty.with(new DefaultExceptionHandler());
 
+	/**
+		The `Dispatcher` that this setup installs into contexts.
+	**/
 	public final dispatcher:Dispatcher;
 	final finalize:Null<() -> Void>;
 
@@ -44,12 +54,20 @@ class Setup {
 		}
 	}
 
-	static public function createEventLoopTrampoline() {
-		final scheduler = new hxcoro.schedulers.EventLoopScheduler();
+	/**
+		Creates a single-threaded setup that uses a `TrampolineDispatcher` with a
+		`RealTimeScheduler`.
+	**/
+	static public function createTrampoline() {
+		final scheduler = new hxcoro.schedulers.RealTimeScheduler();
 		final dispatcher = new hxcoro.dispatchers.TrampolineDispatcher(scheduler);
 		return new LoopSetup(scheduler, dispatcher);
 	}
 
+	/**
+		Creates a single-threaded setup that uses a `TrampolineDispatcher` with a
+		`VirtualTimeScheduler`, which simulates time instead of reading a clock.
+	**/
 	static public function createVirtualTrampoline() {
 		final scheduler = new hxcoro.schedulers.VirtualTimeScheduler();
 		final dispatcher = new hxcoro.dispatchers.TrampolineDispatcher(scheduler);
@@ -58,6 +76,10 @@ class Setup {
 
 	#if (cpp && hxcpp_luv_io)
 
+	/**
+		Creates a setup with a `LuvScheduler` on a newly allocated libuv loop. The dispatcher is
+		created by `createDispatcher` and shut down by `shutDownDispatcher` when the setup is closed.
+	**/
 	static public function createLuvGen<T:Dispatcher>(createDispatcher:(cpp.luv.Luv.LuvLoop, IScheduler) -> T, shutDownDispatcher:T -> Void) {
 		final loop = cpp.luv.Luv.allocLoop();
 		final scheduler = new hxcoro.schedulers.LuvScheduler(loop);
@@ -71,6 +93,9 @@ class Setup {
 		return new LoopSetup(scheduler, dispatcher, finalize);
 	}
 
+	/**
+		Creates a setup that uses a `LuvDispatcher` and `LuvScheduler` on a new libuv loop.
+	**/
 	static public function createLuv() {
 		return createLuvGen(
 			(uvLoop, loop) -> new hxcoro.dispatchers.LuvDispatcher(uvLoop, loop),
@@ -78,24 +103,29 @@ class Setup {
 		);
 	}
 
+	/**
+		Creates a setup with a `LuvScheduler` on a new libuv loop and a `ThreadPoolDispatcher`
+		that runs work on a pool of 10 threads.
+	**/
 	static public function createLuvThreadPool() {
 		final pool = new hxcoro.thread.FixedThreadPool(10);
 		return createLuvGen(
 			(uvLoop, loop) -> new hxcoro.dispatchers.ThreadPoolDispatcher(loop, pool),
-			dispatcher -> pool.shutDown()
+			dispatcher -> pool.shutDown(true)
 		);
 	}
 
 	#elseif interp
 
+	/**
+		Creates a setup that uses a `LuvDispatcher` and `LuvScheduler` on a new libuv loop.
+	**/
 	static public function createLuv() {
 		final loop = eval.luv.Loop.init().resolve();
-		final pool = new hxcoro.thread.FixedThreadPool(1);
 		final scheduler = new hxcoro.schedulers.LuvScheduler(loop);
-		final dispatcher = new hxcoro.dispatchers.ThreadPoolDispatcher(scheduler, pool);
+		final dispatcher = new hxcoro.dispatchers.LuvDispatcher(loop, scheduler);
 		function finalize() {
 			scheduler.shutdown();
-			pool.shutDown();
 			loop.stop();
 			loop.close();
 		}
@@ -106,6 +136,10 @@ class Setup {
 
 	#if target.threaded
 
+	/**
+		Creates a setup with a `ThreadPoolDispatcher` that runs work on a pool of `numThreads`
+		threads. Closing the setup shuts down the pool and blocks until its threads have exited.
+	**/
 	static public function createThreadPool(numThreads:Int) {
 		final scheduler = new hxcoro.schedulers.ThreadAwareScheduler();
 		final pool = new hxcoro.thread.FixedThreadPool(numThreads);
@@ -118,20 +152,30 @@ class Setup {
 
 	#end
 
+	/**
+		Creates the default setup for the current target, as used by `CoroRun.runWith`:
+		`createLuv` on C++ with `hxcpp_luv_io`, a thread pool of 10 threads on JVM, C++ and
+		eval, and `createTrampoline` otherwise.
+	**/
 	static public function createDefault() {
-		#if interp
+		#if (cpp && hxcpp_luv_io)
 		return createLuv();
-		#elseif (cpp && hxcpp_luv_io)
-		return createLuv();
-		#elseif (jvm || cpp || hl)
+		#elseif (jvm || cpp || interp)
 		return createThreadPool(10);
 		#else
-		return createEventLoopTrampoline();
+		return createTrampoline();
 		#end
 	}
 }
 
+/**
+	A `Setup` whose scheduler is an `ILoop` that has to be driven explicitly, e.g. via
+	`hxcoro.run.LoopRun`.
+**/
 class LoopSetup extends Setup {
+	/**
+		The loop that has to be run in order for this setup's dispatcher to make progress.
+	**/
 	public final loop:ILoop;
 
 	public function new(loop:ILoop, dispatcher:Dispatcher, ?finalize:() -> Void) {

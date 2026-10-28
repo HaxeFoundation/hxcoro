@@ -1,7 +1,7 @@
 package ds.channels;
 
 import hxcoro.dispatchers.TrampolineDispatcher;
-import haxe.coro.Mutex;
+import sys.thread.Mutex;
 import haxe.ds.Option;
 import hxcoro.schedulers.VirtualTimeScheduler;
 import haxe.exceptions.ArgumentException;
@@ -9,7 +9,7 @@ import hxcoro.ds.Out;
 import hxcoro.ds.channels.Channel;
 import hxcoro.exceptions.TimeoutException;
 
-class TestBoundedChannel extends utest.Test {
+class TestBoundedChannel extends atest.Test {
 	public function test_creating() {
 		Assert.notNull(Channel.createBounded({ size : 3 }));
 	}

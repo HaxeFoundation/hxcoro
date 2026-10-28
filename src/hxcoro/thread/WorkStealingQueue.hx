@@ -1,5 +1,5 @@
 package hxcoro.thread;
-import hxcoro.concurrent.AtomicInt;
+import haxe.atomic.AtomicInt;
 import hxcoro.ds.CircularVector;
 
 /**
@@ -72,6 +72,9 @@ class WorkStealingQueue<T> {
 		}
 	}
 
+	/**
+		Prints debugging information about this queue.
+	**/
 	public function dump() {
 		final r = read.load();
 		final w = write.load();

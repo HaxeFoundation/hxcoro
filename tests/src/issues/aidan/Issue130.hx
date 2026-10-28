@@ -5,7 +5,7 @@ import hxcoro.schedulers.VirtualTimeScheduler;
 import hxcoro.CoroRun;
 import hxcoro.Coro.*;
 
-class Issue130 extends utest.Test {
+class Issue130 extends atest.Test {
 	public function test() {
 		final count      = 10;
 		final actual     = [];

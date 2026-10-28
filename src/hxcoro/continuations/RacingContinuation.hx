@@ -2,9 +2,9 @@ package hxcoro.continuations;
 
 import haxe.Exception;
 import haxe.coro.IContinuation;
-import haxe.coro.dispatchers.Dispatcher;
+import haxe.coro.SuspensionResult;
 import haxe.coro.dispatchers.IDispatchObject;
-import hxcoro.concurrent.AtomicInt;
+import haxe.atomic.AtomicInt;
 
 private enum abstract State(Int) to Int {
 	var Active;
@@ -12,6 +12,10 @@ private enum abstract State(Int) to Int {
 	var Resolved;
 }
 
+/**
+	Continuation wrapper used by `Coro.suspend` that handles the race between a
+	resumption and the suspending function returning.
+**/
 class RacingContinuation<T> extends StackFrameContinuation<T> implements IDispatchObject {
 	var resumeState:AtomicInt;
 
@@ -29,11 +33,16 @@ class RacingContinuation<T> extends StackFrameContinuation<T> implements IDispat
 		}
 	}
 
-	public function resolve():Void {
+	/**
+		Must be called after the suspending function has run. Returns `SuspensionResult.suspended`
+		if this continuation was not resumed yet, otherwise returns itself in `Returned` or
+		`Thrown` state.
+	**/
+	public function resolve():SuspensionResult<T> {
 		if (resumeState.compareExchange(Active, Resolved) == Active) {
-			state = Pending;
+			return cast SuspensionResult.suspended;
 		} else {
-			context.dispatchOrCall(this);
+			return this;
 		}
 	}
 

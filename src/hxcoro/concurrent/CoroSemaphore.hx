@@ -4,12 +4,26 @@ import haxe.coro.IContinuation;
 import haxe.exceptions.ArgumentException;
 import hxcoro.concurrent.exceptions.SemaphoreFullException;
 import hxcoro.ds.PagedDeque;
+import haxe.atomic.AtomicInt;
 
+/**
+	A counting semaphore for coroutines that limits concurrent access to a resource
+	to a number of permits. Coroutines waiting in `acquire` are resumed in the order
+	in which they started waiting.
+**/
 class CoroSemaphore {
 	@:nullSafety(Off) final maxFree:Int;
 	var deque:PagedDeque<IContinuation<Any>>;
 	var free:AtomicInt;
 
+	/**
+		Creates a new `CoroSemaphore` instance with `free` initially available permits.
+
+		`maxFree` is the maximum number of permits and defaults to `free`, so it has to be
+		set if the semaphore starts without any free permits. An `ArgumentException` is
+		thrown if `free` is negative, if `maxFree` is less than 1, or if `free` exceeds
+		`maxFree`.
+	**/
 	@:nullSafety(Off)
 	public function new(free:Int, ?maxFree:Int) {
 		if (free < 0) {
@@ -32,6 +46,9 @@ class CoroSemaphore {
 		deque = new PagedDeque();
 	}
 
+	/**
+		Acquires a permit, suspending until one becomes available if necessary.
+	**/
 	@:coroutine public function acquire() {
 		// CAS loop until we update the free atomic or it reports full.
 		while (true) {
@@ -60,6 +77,10 @@ class CoroSemaphore {
 		});
 	}
 
+	/**
+		If a permit is available, acquires it and returns `true`. Otherwise, returns `false`
+		without suspending.
+	**/
 	public function tryAcquire() {
 		while (true) {
 			var free = free.load();
@@ -72,6 +93,13 @@ class CoroSemaphore {
 		}
 	}
 
+	/**
+		Releases a permit. If coroutines are waiting in `acquire`, the permit is handed
+		to the first one, which is then resumed.
+
+		Throws a `SemaphoreFullException` if the number of available permits is already
+		at its maximum.
+	**/
 	public function release() {
 		var old = free.load();
 		while (true) {

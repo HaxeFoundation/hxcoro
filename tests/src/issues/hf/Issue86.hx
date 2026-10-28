@@ -2,7 +2,7 @@ package issues.hf;
 
 import hxcoro.ds.channels.Channel;
 
-class Issue86 extends utest.Test {
+class Issue86 extends atest.Test {
 	function test() {
 		final channel = Channel.createUnbounded({});
 		final numTasks = 50;

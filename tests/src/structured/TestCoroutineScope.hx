@@ -2,7 +2,7 @@ package structured;
 
 import hxcoro.concurrent.CoroBarrier;
 import hxcoro.dispatchers.TrampolineDispatcher;
-import haxe.coro.Mutex;
+import sys.thread.Mutex;
 import haxe.Exception;
 import haxe.exceptions.CancellationException;
 import hxcoro.schedulers.VirtualTimeScheduler;
@@ -22,7 +22,7 @@ function has(what:Array<String>, has:Array<String>, hasNot:Array<String>, ?p:hax
 	}
 }
 
-class TestCoroutineScope extends utest.Test {
+class TestCoroutineScope extends atest.Test {
 	function test_scope_returning_value_suspending() {
 		final expected = 'Hello, World';
 		final actual   = run(_ -> {

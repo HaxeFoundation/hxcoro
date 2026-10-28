@@ -5,18 +5,44 @@ import haxe.coro.cancellation.ICancellationCallback;
 import haxe.coro.cancellation.ICancellationHandle;
 import haxe.coro.cancellation.ICancellationToken;
 import haxe.exceptions.CancellationException;
-import hxcoro.concurrent.AtomicInt;
-import hxcoro.concurrent.AtomicObject;
+import haxe.atomic.AtomicInt;
+import haxe.atomic.AtomicObject;
 import hxcoro.concurrent.AtomicState;
 import hxcoro.concurrent.BackOff;
 
+/**
+	The lifecycle state of a task.
+**/
 @:using(AbstractTask.TaskStateTools)
 enum abstract TaskState(Int) to Int {
+	/**
+		The task has been created but not started.
+	**/
 	final Created;
+
+	/**
+		The task has been started and its own work has not finished yet.
+	**/
 	final Running;
+
+	/**
+		The task's own work has finished with a result and it is waiting for its children to complete.
+	**/
 	final Completing;
+
+	/**
+		The task and all its children have completed successfully. This is a final state.
+	**/
 	final Completed;
+
+	/**
+		The task's own work has failed or been cancelled and it is waiting for its children to complete.
+	**/
 	final Cancelling;
+
+	/**
+		The task has completed with an error, which `getError` returns. This is a final state.
+	**/
 	final Cancelled;
 }
 
@@ -33,6 +59,9 @@ private class TaskStateTools {
 	};
 }
 
+/**
+	Raised as a task's error when the task detects an invalid internal state.
+**/
 class TaskException extends Exception {}
 
 /**
@@ -51,7 +80,14 @@ abstract class AbstractTask implements ICancellationToken {
 	final error:AtomicObject<Null<Exception>>;
 	final state:AtomicState<TaskState>;
 
+	/**
+		The task's unique id, assigned on creation.
+	**/
 	public var id(get, null):Int;
+
+	/**
+		`null` if the task has no error, otherwise its error as a `CancellationException`.
+	**/
 	public var cancellationException(get, never):Null<CancellationException>;
 
 	// children
@@ -95,7 +131,7 @@ abstract class AbstractTask implements ICancellationToken {
 	}
 
 	/**
-		Returns the task's error value, if any/
+		Returns the task's error value, if any.
 	**/
 	public function getError() {
 		return error.load();
@@ -131,7 +167,7 @@ abstract class AbstractTask implements ICancellationToken {
 	}
 
 	/**
-		Returns `true` if the task is still active. Note that an task that was created but not started yet
+		Returns `true` if the task is still active. Note that a task that was created but not started yet
 		is considered to be active.
 	**/
 	public function isActive() {
@@ -143,6 +179,10 @@ abstract class AbstractTask implements ICancellationToken {
 		}
 	}
 
+	/**
+		Returns `true` if the task has an error, i.e. cancellation has been requested or the task has failed.
+		This remains `true` after the task has completed.
+	**/
 	public function isCancelling() {
 		return error.load() != null;
 	}
@@ -152,7 +192,7 @@ abstract class AbstractTask implements ICancellationToken {
 	}
 
 	/**
-		Starts executing this task. Has no effect if the task is already active or has completed.
+		Starts executing this task. Has no effect if the task has already been started or has completed.
 	**/
 	function activate() {
 		if (state.compareExchange(Created, Running) == Created) {

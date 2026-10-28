@@ -16,21 +16,17 @@ jobs:
           # php is not available by default for macos runners, probably not worth bothering
           - os: macos-latest
             target: php
-          # HL has OS-dependent JIT quirks on Windows/macOS (first frame = definition
-          # line rather than throw line).  Run HL only on Linux where it matches eval.
-          - os: macos-latest
-            target: hl
-          - os: windows-latest
-            target: hl
           # Lua is annoying to set up on Windows, so only run it on Linux and macOS
           - os: windows-latest
             target: lua
     runs-on: ${{ matrix.os }}
+    # The slowest jobs (cpp) take around 15 minutes, everything above that is a hang.
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
       - uses: kLabz/setup-haxe@neko-latest
         with:
-          haxe-version: "2026-02-28_development_4a08029"
+          haxe-version: "latest"
 
       - name: Setup hashlink
         if: matrix.target == 'hl'
@@ -44,26 +40,13 @@ jobs:
 
       - name: Setup Lua
         if: matrix.target == 'lua'
-        # Note: -D lua-vanilla cannot be used here because hxcoro unconditionally requires luv:
-        # 1. The generated event loop calls luv.run() at startup to drive async tasks.
-        # 2. Sys.getenv (inside #if sys, which is true for Lua) reads HXCORO_DISPATCHER at
-        #    startup; with -D lua-vanilla, any Sys call throws NotImplementedException.
-        # Therefore the full luarocks dependency set (luv, lrexlib-pcre2, luautf8, bit32) is needed.
         shell: bash
         run: |
           if [[ "$RUNNER_OS" == "Linux" ]]; then
-            sudo apt-get install -y lua5.4 lua5.4-dev luarocks libpcre2-dev
+            sudo apt-get install -y lua5.4
             sudo update-alternatives --set lua-interpreter /usr/bin/lua5.4
-            sudo luarocks --lua-version 5.4 install luv
-            sudo luarocks --lua-version 5.4 install lrexlib-pcre2
-            sudo luarocks --lua-version 5.4 install luautf8
-            sudo luarocks --lua-version 5.4 install bit32
           elif [[ "$RUNNER_OS" == "macOS" ]]; then
-            brew install lua luarocks pcre2
-            luarocks install luv
-            luarocks install lrexlib-pcre2
-            luarocks install luautf8
-            luarocks install bit32
+            brew install lua
           fi
 
       - name: Setup haxelib
@@ -73,7 +56,6 @@ jobs:
           ${{ matrix.target != 'cpp' }} || haxelib git hxcpp https://github.com/HaxeFoundation/hxcpp.git
           ${{ matrix.target != 'cpp' }} || haxe --cwd .haxelib/hxcpp/git/tools/hxcpp compile.hxml
           ${{ matrix.target != 'cpp' }} || haxelib git hxcpp_luv_io https://github.com/Aidan63/hxcpp_luv_io
-          haxelib git utest https://github.com/haxe-utest/utest.git
           haxelib dev hxcoro .
           haxelib list
           haxe -version
@@ -90,7 +72,7 @@ jobs:
 
           # Run with the default dispatcher for this target
           run_default() {
-            haxe --cwd tests -debug build-$TARGET.hxml
+            haxe --cwd tests -debug -D coro.stack-traces build-$TARGET.hxml
             run_release
             haxe --cwd tests build-$TARGET.hxml --hxb-lib bin/test.hxb
           }

@@ -3,6 +3,10 @@ package hxcoro.task.node;
 import haxe.Exception;
 import haxe.exceptions.CancellationException;
 
+/**
+	Strategy for `Coro.supervisor` tasks, which ignore the outcome of their children and do not report
+	their outcome to their parent.
+**/
 @:access(hxcoro.task.AbstractTask)
 @:access(hxcoro.task.CoroBaseTask)
 class CoroSupervisorStrategy implements INodeStrategy {

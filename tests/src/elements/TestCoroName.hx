@@ -2,9 +2,9 @@ package elements;
 
 import hxcoro.dispatchers.TrampolineDispatcher;
 import hxcoro.elements.CoroName;
-import hxcoro.schedulers.EventLoopScheduler;
+import hxcoro.schedulers.RealTimeScheduler;
 
-class TestCoroName extends utest.Test {
+class TestCoroName extends atest.Test {
 	@:coroutine
 	function logDebug() {
 		return suspend(cont -> {
@@ -31,7 +31,7 @@ class TestCoroName extends utest.Test {
 	}
 
 	function newTrampoline() {
-		return new TrampolineDispatcher(new EventLoopScheduler());
+		return new TrampolineDispatcher(new RealTimeScheduler());
 	}
 
 	function testChildrenNames() {

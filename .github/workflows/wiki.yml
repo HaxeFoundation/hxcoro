@@ -1,0 +1,31 @@
+name: Wiki examples
+on:
+  push:
+  pull_request:
+  # Wiki page edits
+  gollum:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  wiki:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Checkout wiki
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository }}.wiki
+          path: wiki
+
+      - uses: kLabz/setup-haxe@neko-latest
+        with:
+          haxe-version: "latest"
+
+      - name: Run wiki examples
+        run: haxe --cwd wiki-tests --run WikiTests ../wiki

@@ -10,7 +10,7 @@ import hxcoro.task.NodeLambda;
 /**
 	This class provides static extensions for `ILoop` to work with `Task` instances.
 
-	The intended usage is to add `using hxcoro.run.LooptRun`.
+	The intended usage is to add `using hxcoro.run.LoopRun`.
 **/
 class LoopRun {
 	/**
@@ -22,8 +22,8 @@ class LoopRun {
 		example, this function does not verify that the dispatcher's scheduler handles
 		events in such a way that the loop processes them.
 	**/
-	static public function runTask<T>(loop:ILoop, context:Context, lambda:NodeLambda<T>#if debug, ?callPos:haxe.PosInfos#end):ICoroTask<T> {
-		final task = @:privateAccess ContextRun.createEntryTask(context, lambda, CoroTask.CoroScopeStrategy, Running#if debug, callPos#end);
+	static public function runTask<T>(loop:ILoop, context:Context, lambda:NodeLambda<T>#if coro.stack_traces, ?callPos:haxe.PosInfos#end):ICoroTask<T> {
+		final task = @:privateAccess ContextRun.createEntryTask(context, lambda, CoroTask.CoroScopeStrategy, Running#if coro.stack_traces, callPos#end);
 		awaitTaskCompletion(loop, task);
 		return task;
 	}

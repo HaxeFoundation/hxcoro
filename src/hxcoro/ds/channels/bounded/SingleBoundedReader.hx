@@ -6,7 +6,7 @@ import haxe.coro.context.Context;
 import hxcoro.ds.Out;
 import hxcoro.ds.channels.exceptions.ChannelClosedException;
 import hxcoro.ds.ConcurrentCircularBuffer;
-import hxcoro.concurrent.AtomicObject;
+import haxe.atomic.AtomicObject;
 
 using hxcoro.util.Convenience;
 
@@ -40,6 +40,9 @@ private final class WaitContinuation<T> implements IContinuation<Bool> {
 	}
 }
 
+/**
+	A bounded channel reader for a single reader and a single writer. `tryPeek` is not implemented.
+**/
 final class SingleBoundedReader<T> implements IChannelReader<T> {
 	final buffer : ConcurrentCircularBuffer<T>;
 

@@ -9,7 +9,7 @@ package issues.aidan;
 	throw "throwing";
 }
 
-class Issue145 extends utest.Test {
+class Issue145 extends atest.Test {
 	function testSurprisinglySimple1() {
 		final result = run((_) -> try {
 			throwing();
