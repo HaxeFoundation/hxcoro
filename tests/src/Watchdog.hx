@@ -1,79 +1,50 @@
 #if target.threaded
+import haxe.atomic.AtomicInt;
+import haxe.atomic.AtomicObject;
 import hxcoro.dispatchers.ThreadPoolDispatcher;
 import hxcoro.run.Setup;
 import hxcoro.schedulers.ThreadAwareScheduler;
 import hxcoro.task.AbstractTask;
 import hxcoro.thread.FixedThreadPool;
-import sys.thread.Mutex;
 import sys.thread.Thread;
 
-private class Watched {
-	public final setup:LoopSetup;
+/**
+	A `run` call observed by the `Watchdog`.
+**/
+class Watched {
 	public final deadline:Float;
-	public var rootTask:Null<AbstractTask>;
+
+	final setup:LoopSetup;
+	final rootTask:AtomicObject<Null<AbstractTask>>;
 
 	public function new(setup:LoopSetup, deadline:Float) {
 		this.setup = setup;
 		this.deadline = deadline;
-	}
-}
-
-/**
-	Terminates the test process if a single `run` call takes longer than `timeoutSeconds`, after
-	printing the state of its task tree, thread pool and scheduler.
-
-	The atest runner's own per-test timeout cannot fire while `run` blocks its thread, so without
-	this a hang inside `run` blocks CI until the job times out.
-**/
-class Watchdog {
-	static public var timeoutSeconds = 120.0;
-
-	static final mutex = new Mutex();
-	static var current:Null<Watched>;
-	static var thread:Null<Thread>;
-
-	static public function watch(setup:LoopSetup) {
-		final watched = new Watched(setup, Sys.time() + timeoutSeconds);
-		mutex.acquire();
-		current = watched;
-		thread ??= Thread.create(loop);
-		mutex.release();
-		return watched;
+		rootTask = new AtomicObject(null);
 	}
 
-	static public function unwatch() {
-		mutex.acquire();
-		current = null;
-		mutex.release();
+	/**
+		Records the root task of the run, which `dump` then prints.
+	**/
+	public function setRootTask(task:Null<AbstractTask>) {
+		rootTask.store(task);
 	}
 
-	static function loop() {
-		while (true) {
-			Sys.sleep(1);
-			mutex.acquire();
-			final watched = current;
-			mutex.release();
-			if (watched != null && Sys.time() > watched.deadline) {
-				Sys.println("");
-				Sys.println('WATCHDOG: run did not complete within ${timeoutSeconds}s');
-				dump(watched);
-				Sys.exit(2);
-			}
-		}
-	}
-
-	static function dump(watched:Watched) {
-		// Everything here is read without synchronization while other threads might still be running.
+	/**
+		Prints the task tree, scheduler and thread pool state of the run.
+	**/
+	public function dump() {
+		// The task tree, scheduler and pool are read without synchronization while other threads might still be running.
 		try {
-			switch (watched.rootTask) {
+			switch (rootTask.load()) {
 				case null:
 					Sys.println("Root task: not started");
 				case task:
 					Sys.println("Task tree:");
 					dumpTask(task, "\t");
 			}
-			Std.downcast(watched.setup.loop, ThreadAwareScheduler)?.dump();
-			switch (Std.downcast(watched.setup.dispatcher, ThreadPoolDispatcher)) {
+			Std.downcast(setup.loop, ThreadAwareScheduler)?.dump();
+			switch (Std.downcast(setup.dispatcher, ThreadPoolDispatcher)) {
 				case null:
 				case dispatcher:
 					Std.downcast(@:privateAccess dispatcher.pool, FixedThreadPool)?.dump();
@@ -91,6 +62,46 @@ class Watchdog {
 		while (child != null) {
 			dumpTask(child, indent + "\t");
 			child = child.nextSibling;
+		}
+	}
+}
+
+/**
+	Terminates the test process if a single `run` call takes longer than `timeoutSeconds`, after
+	printing the state of its task tree, thread pool and scheduler.
+
+	The atest runner's own per-test timeout cannot fire while `run` blocks its thread, so without
+	this a hang inside `run` blocks CI until the job times out.
+**/
+class Watchdog {
+	static public var timeoutSeconds = 120.0;
+
+	static final current = new AtomicObject<Null<Watched>>(null);
+	static final started = new AtomicInt(0);
+
+	static public function watch(setup:LoopSetup) {
+		final watched = new Watched(setup, Sys.time() + timeoutSeconds);
+		current.store(watched);
+		if (started.exchange(1) == 0) {
+			Thread.create(loop);
+		}
+		return watched;
+	}
+
+	static public function unwatch() {
+		current.store(null);
+	}
+
+	static function loop() {
+		while (true) {
+			Sys.sleep(1);
+			final watched = current.load();
+			if (watched != null && Sys.time() > watched.deadline) {
+				Sys.println("");
+				Sys.println('WATCHDOG: run did not complete within ${timeoutSeconds}s');
+				watched.dump();
+				Sys.exit(2);
+			}
 		}
 	}
 }

@@ -11,7 +11,7 @@ function run<T>(lambda:NodeLambda<T>#if coro.stack_traces, ?callPos:haxe.PosInfo
 	#if target.threaded
 	final watched = Watchdog.watch(s);
 	final task = LoopRun.runTask(s.loop, context, node -> {
-		watched.rootTask = node.context.get(CoroBaseTask);
+		watched.setRootTask(node.context.get(CoroBaseTask));
 		return lambda(node);
 	}#if coro.stack_traces, callPos#end);
 	#else
