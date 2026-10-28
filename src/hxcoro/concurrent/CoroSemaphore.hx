@@ -47,8 +47,7 @@ class CoroSemaphore {
 	}
 
 	/**
-		Acquires a permit, suspending until one becomes available if necessary. Waiting
-		for a permit reacts to cancellation of the calling coroutine.
+		Acquires a permit, suspending until one becomes available if necessary.
 	**/
 	@:coroutine public function acquire() {
 		// CAS loop until we update the free atomic or it reports full.
