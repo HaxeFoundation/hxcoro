@@ -106,6 +106,31 @@ class TestCallbackExceptions extends atest.Test {
 	}
 
 	/**
+		Same as `testThrowingCompletionCallbackDoesNotStarveOthers`, with the dispatcher that the
+		test run uses, which is a thread pool on some targets. There, the exception is reported on a
+		worker thread, and the run and the process must carry on.
+	**/
+	function testThrowingCompletionCallbackWithDefaultSetup() {
+		var secondCalled = false;
+		try {
+			run(node -> {
+				final child = node.async(_ -> {
+					delay(1);
+					1;
+				});
+				child.onCompletion((_, _) -> throw new Exception("callback failure"));
+				child.onCompletion((_, _) -> secondCalled = true);
+				child.await();
+				delay(20);
+			});
+		} catch (e:Exception) {
+			// On a single-threaded setup, the reported exception ends the run.
+			Assert.equals("callback failure", e.message);
+		}
+		Assert.isTrue(secondCalled, "the second completion callback was never called");
+	}
+
+	/**
 		Every throwing callback is reported, not just the first one.
 	**/
 	function testEveryThrowingCallbackIsReported() {
