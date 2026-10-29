@@ -155,8 +155,10 @@ class Setup {
 
 	/**
 		Creates the default setup for the current target, as used by `CoroRun.runWith`:
-		`createLuv` on C++ with `hxcpp_luv_io`, a thread pool of 10 threads on JVM, C++ and
-		eval, and `createTrampoline` otherwise.
+
+		- C++ with `hxcpp_luv_io`: `createLuv()`
+		- JVM, C++ without `hxcpp_luv_io` and eval: `createThreadPool(10)`
+		- Other targets: `createTrampoline()`
 	**/
 	static public function createDefault() {
 		#if (cpp && hxcpp_luv_io)

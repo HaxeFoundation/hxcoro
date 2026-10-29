@@ -42,11 +42,6 @@ function main() {
 	atest.Macros.addCases(runner, "structured");
 
 	final passed = runner.run();
-	#if (cpp && hxcpp_luv_io)
-	// Join libuv's worker threads while the hxcpp runtime is still intact. Otherwise this
-	// happens in libuv's library destructor after static destructors have run.
-	cpp.luv.Luv.shutdown();
-	#end
 	#if sys
 	Sys.exit(passed ? 0 : 1);
 	#end
