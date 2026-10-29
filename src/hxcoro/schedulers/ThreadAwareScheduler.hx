@@ -7,69 +7,20 @@ import haxe.coro.IContinuation;
 import haxe.coro.schedulers.IScheduler;
 import haxe.coro.schedulers.ISchedulerHandle;
 import haxe.exceptions.ArgumentException;
-import hxcoro.ds.CircularVector;
 import hxcoro.schedulers.ILoop;
+import hxcoro.thread.WorkStealingQueue;
 import sys.thread.Deque;
 import sys.thread.Semaphore;
 import sys.thread.Thread;
 import sys.thread.Tls;
 
-private class CircularQueueData {
-	public var read:Int;
-	public var write:Int;
-	public var storage:CircularVector<ScheduledEvent>;
-
-	public function new() {
-		read = write = 0;
-		storage = CircularVector.create(1);
-	}
-}
-
-private class CircularQueue {
-	var read:Int;
-	var write:Int;
-	var storage:CircularVector<ScheduledEvent>;
-
-	public function new(size:Int) {
-		storage = CircularVector.create(size);
-		read = 0;
-		write = 0;
-	}
-
-	function resize(from:Int, to:Int) {
-		final newStorage = CircularVector.create(storage.length << 1);
-		for (i in from...to) {
-			newStorage[i] = storage[i];
-		}
-		storage = newStorage;
-	}
-
-	public function add(value:ScheduledEvent) {
-		final w = write;
-		final r = read;
-		final sizeNeeded = w - r;
-		if (sizeNeeded >= storage.length) {
-			resize(r, w);
-		}
-		storage[w] = value;
-		++write;
-	}
-
-	public function pop() {
-		final r = read;
-		final w = write;
-		if (w - r <= 0) {
-			return null;
-		}
-		return storage[read++];
-	}
-
-	public function toString() {
-		return 'CircularQueue(r $read, w $write, l ${storage.length})';
-	}
-}
-
-private typedef TlsQueue = CircularQueue;
+/**
+	The queue that a thread schedules its events into. It is shared between two threads: the
+	thread that owns it is the only producer, and the loop thread is the only consumer. Being
+	a TLS value only rules out competing producers, so the queue still has to publish its
+	events to the loop thread, which `WorkStealingQueue` does with atomic stores and loads.
+**/
+private typedef TlsQueue = WorkStealingQueue<ScheduledEvent>;
 
 private class ThreadQueue {
 	public final queue:TlsQueue;
@@ -95,7 +46,6 @@ class ThreadAwareScheduler implements IScheduler implements ILoop {
 	final heap:MinimumHeap;
 	final queueTls:Tls<TlsQueue>;
 	final queueDeque:Deque<ThreadQueueEvent>;
-	final rootEvent:ScheduledEvent;
 	final semaphore:Semaphore;
 	var firstQueue:Null<ThreadQueue>;
 
@@ -103,7 +53,6 @@ class ThreadAwareScheduler implements IScheduler implements ILoop {
 		heap = new MinimumHeap();
 		queueTls = new Tls();
 		queueDeque = new Deque();
-		rootEvent = new ScheduledEvent(null, 0);
 		semaphore = new Semaphore(0);
 	}
 
@@ -113,7 +62,7 @@ class ThreadAwareScheduler implements IScheduler implements ILoop {
 			return threadQueue;
 		}
 
-		final newQueue = new CircularQueue(4);
+		final newQueue = new WorkStealingQueue();
 		final threadQueue = new ThreadQueue(newQueue);
 		final handle = Thread.addCurrentCallbacks({onExit: function() {
 			queueDeque.add(Remove(threadQueue));
@@ -177,53 +126,34 @@ class ThreadAwareScheduler implements IScheduler implements ILoop {
 		// First we consume the coordination deque so we know all queues.
 		consumeQueueDeque();
 
-		var currentEvent = rootEvent;
-
-		// Next we dispatch all expired and current events in the heap.
-		while (true) {
-			var minimum = heap.minimum();
-			if (minimum == null || minimum.runTime > currentTime) {
-				break;
-			}
-
-			heap.extract();
-			currentEvent.next = minimum;
-			currentEvent = minimum;
-		}
-
-		// Now we loop over all queues from the threads.
+		// Move the events from the threads' queues into the heap, so that all events are
+		// dispatched from one place, in order of due time.
 		var current = firstQueue;
 		while (current != null) {
-			// Copy current slice data to our outQueue and iterate it.
-			var event:Null<ScheduledEvent>;
+			final queue = current.queue;
 			while (true) {
-				final queue = current.queue;
-				event = queue.pop();
+				// This thread is the only consumer, so `steal` only returns null if the queue is empty.
+				final event = queue.steal();
 				if (event == null) {
 					break;
 				}
-				if (event.runTime > currentTime) {
-					// Future events are added to the heap.
-					heap.insert(event);
-				} else {
-					// Other events are dispatched immediately.
-					currentEvent.next = event;
-					currentEvent = event;
-				}
+				heap.insert(event);
 			}
 			current = current.next;
 		}
-		currentEvent.next = null;
-		var event:Null<ScheduledEvent> = rootEvent;
+
+		// Dispatch the due events one at a time, so that the ones after an event whose dispatch
+		// throws stay in the heap. Only this thread touches the heap, and events scheduled while
+		// dispatching go to a thread queue, so this loop ends.
 		var didSomething = false;
 		while (true) {
-			event = event.next;
-			if (event == null) {
-				rootEvent.next = null;
+			final minimum = heap.minimum();
+			if (minimum == null || minimum.runTime > currentTime) {
 				return didSomething;
 			}
+			heap.extract();
 			didSomething = true;
-			event.dispatch();
+			minimum.dispatch();
 		}
 	}
 
@@ -267,8 +197,8 @@ class ThreadAwareScheduler implements IScheduler implements ILoop {
 		var current = firstQueue;
 		var totalWrites = 0;
 		@:privateAccess while (current != null) {
-			Sys.println('\tqueue: (r ${current.queue.read}, w ${current.queue.write}, l: ${current.queue.storage.length})');
-			totalWrites += current.queue.write;
+			Sys.println('\tqueue: (r ${current.queue.read.load()}, w ${current.queue.write.load()}, l: ${current.queue.loadSlots().length})');
+			totalWrites += current.queue.write.load();
 			current = current.next;
 		}
 		Sys.println('\ttotal writes: $totalWrites');
