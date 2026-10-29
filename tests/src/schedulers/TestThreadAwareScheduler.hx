@@ -1,6 +1,10 @@
 package schedulers;
 
-#if target.threaded
+// Not on neko: assigning a declared field for the first time adds it to the object, which is
+// not safe while another thread reads the object. The thread pool shares continuations
+// between threads like that, so this test fails there for reasons unrelated to the scheduler.
+// See https://github.com/HaxeFoundation/neko/issues/335
+#if (target.threaded && !neko)
 import hxcoro.run.LoopRun;
 import hxcoro.run.Setup;
 import sys.thread.Lock;
@@ -8,7 +12,7 @@ import sys.thread.Thread;
 #end
 
 class TestThreadAwareScheduler extends atest.Test {
-	#if target.threaded
+	#if (target.threaded && !neko)
 	/**
 		Pool threads schedule their `yield` resumptions into their own queues, which the loop
 		thread drains. The queue's indices used to be plain fields, so the loop thread could see
@@ -41,7 +45,7 @@ class TestThreadAwareScheduler extends atest.Test {
 		Assert.isTrue(done.wait(60.0), "the run hung, so an event was lost");
 	}
 	#else
-	function testNotThreaded() {
+	function testNotSupported() {
 		Assert.pass();
 	}
 	#end
