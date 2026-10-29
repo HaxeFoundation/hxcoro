@@ -267,12 +267,12 @@ class PagedDeque<T> {
 		Removes and returns the item at the front of the queue. Throws an exception if the queue is empty.
 	**/
 	public function pop() {
-		if (isEmpty()) {
+		if (skipConsumedPages()) {
 			throw new Exception("pop() was called on empty PagedDeque");
 		}
 		final value = currentPage.take(currentIndex++);
-		// Recycle the page right away if this emptied it.
-		isEmpty();
+		// If that consumed the current page, recycle it now so that `push` can reuse it.
+		skipConsumedPages();
 		return value;
 	}
 
@@ -321,11 +321,33 @@ class PagedDeque<T> {
 	}
 
 	/**
-		Returns `true` if the queue contains no items.
+		Returns `true` if the queue contains no items. Does not modify the queue.
+	**/
+	public function isEmpty() {
+		var page = currentPage;
+		var index = currentIndex;
+		while (true) {
+			final endIndex = page == lastPage ? lastIndex - page.numDeleted : page.freeSpace();
+			if (index < endIndex) {
+				return false;
+			}
+			final next = page.next;
+			if (page == lastPage || next == null) {
+				return true;
+			}
+			// Pages before `lastPage` can be consumed or emptied by `remove`.
+			page = next;
+			index = 0;
+		}
+	}
+
+	/**
+		Moves `currentPage` past pages that were consumed, recycling them as the spare page after
+		`lastPage`, and resets the indices once all pages are consumed so that `push` reuses the
+		page. Returns `true` if the queue is empty.
 	**/
 	@:nullSafety(Off)
-	public function isEmpty() {
-		// Skip pages that were consumed, recycling them as the spare page after `lastPage`.
+	function skipConsumedPages() {
 		while (currentIndex == currentPage.freeSpace()) {
 			if (currentPage == lastPage) {
 				resetCurrent();
