@@ -43,6 +43,22 @@ class WorkStealingQueue<T> {
 		storage = new AtomicObject(new Slots(CircularVector.create(16)));
 	}
 
+	/**
+		Returns the current slots.
+	**/
+	function loadSlots():CircularVector<T> {
+		return loadHolder().slots;
+	}
+
+	/**
+		On hxcpp, `AtomicObject.load` returns an untyped `hx::Object`, so a field access directly
+		on its result fails to compile. The declared return type makes hxcpp convert it. This is
+		not inline, so the conversion can't be optimized away.
+	**/
+	function loadHolder():Slots<T> {
+		return storage.load();
+	}
+
 	function resize(slots:CircularVector<T>, from:Int, to:Int) {
 		final newSlots = CircularVector.create(slots.length << 1);
 		for (i in from...to) {
@@ -60,7 +76,7 @@ class WorkStealingQueue<T> {
 	public function add(value:T) {
 		final w = write.load();
 		final r = read.load();
-		var slots = storage.load().slots;
+		var slots = loadSlots();
 		if (w - r >= slots.length) {
 			slots = resize(slots, r, w);
 			storage.store(new Slots(slots));
@@ -85,7 +101,7 @@ class WorkStealingQueue<T> {
 		if (size <= 0) {
 			return null;
 		}
-		final v = storage.load().slots[r];
+		final v = loadSlots()[r];
 		if (read.compareExchange(r, r + 1) == r) {
 			return v;
 		} else {
@@ -99,7 +115,7 @@ class WorkStealingQueue<T> {
 	public function dump() {
 		final r = read.load();
 		final w = write.load();
-		final slots = storage.load().slots;
+		final slots = loadSlots();
 		Sys.print('(r $r, w $w, l ${slots.length}): ');
 		for (i in r...w) {
 			if (i != r) {

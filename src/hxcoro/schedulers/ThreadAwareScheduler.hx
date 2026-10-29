@@ -197,7 +197,7 @@ class ThreadAwareScheduler implements IScheduler implements ILoop {
 		var current = firstQueue;
 		var totalWrites = 0;
 		@:privateAccess while (current != null) {
-			Sys.println('\tqueue: (r ${current.queue.read.load()}, w ${current.queue.write.load()}, l: ${current.queue.storage.load().slots.length})');
+			Sys.println('\tqueue: (r ${current.queue.read.load()}, w ${current.queue.write.load()}, l: ${current.queue.loadSlots().length})');
 			totalWrites += current.queue.write.load();
 			current = current.next;
 		}
