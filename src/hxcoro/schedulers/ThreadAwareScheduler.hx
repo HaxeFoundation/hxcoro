@@ -1,6 +1,5 @@
 package hxcoro.schedulers;
 
-import haxe.atomic.AtomicInt;
 import sys.thread.ThreadCallback;
 import haxe.Int64;
 import haxe.Timer;
@@ -8,77 +7,20 @@ import haxe.coro.IContinuation;
 import haxe.coro.schedulers.IScheduler;
 import haxe.coro.schedulers.ISchedulerHandle;
 import haxe.exceptions.ArgumentException;
-import hxcoro.ds.CircularVector;
 import hxcoro.schedulers.ILoop;
+import hxcoro.thread.WorkStealingQueue;
 import sys.thread.Deque;
 import sys.thread.Semaphore;
 import sys.thread.Thread;
 import sys.thread.Tls;
 
-private class CircularQueueData {
-	public var read:Int;
-	public var write:Int;
-	public var storage:CircularVector<ScheduledEvent>;
-
-	public function new() {
-		read = write = 0;
-		storage = CircularVector.create(1);
-	}
-}
-
 /**
-	A queue with one producer, the thread that owns it, and one consumer, the loop thread.
-
-	`read` and `write` are atomic: storing `write` after writing the slot publishes the slot and,
-	after a resize, the new `storage` to the consumer, which loads `write` before reading them.
-	With plain fields, the consumer could see the new `write` before the slot, and lose the event.
+	The queue that a thread schedules its events into. It is shared between two threads: the
+	thread that owns it is the only producer, and the loop thread is the only consumer. Being
+	a TLS value only rules out competing producers, so the queue still has to publish its
+	events to the loop thread, which `WorkStealingQueue` does with atomic stores and loads.
 **/
-private class CircularQueue {
-	final read:AtomicInt;
-	final write:AtomicInt;
-	var storage:CircularVector<ScheduledEvent>;
-
-	public function new(size:Int) {
-		storage = CircularVector.create(size);
-		read = new AtomicInt(0);
-		write = new AtomicInt(0);
-	}
-
-	function resize(from:Int, to:Int) {
-		final newStorage = CircularVector.create(storage.length << 1);
-		for (i in from...to) {
-			newStorage[i] = storage[i];
-		}
-		storage = newStorage;
-	}
-
-	public function add(value:ScheduledEvent) {
-		final w = write.load();
-		final r = read.load();
-		if (w - r >= storage.length) {
-			resize(r, w);
-		}
-		storage[w] = value;
-		write.store(w + 1);
-	}
-
-	public function pop() {
-		final r = read.load();
-		final w = write.load();
-		if (w - r <= 0) {
-			return null;
-		}
-		final value = storage[r];
-		read.store(r + 1);
-		return value;
-	}
-
-	public function toString() {
-		return 'CircularQueue(r ${read.load()}, w ${write.load()}, l ${storage.length})';
-	}
-}
-
-private typedef TlsQueue = CircularQueue;
+private typedef TlsQueue = WorkStealingQueue<ScheduledEvent>;
 
 private class ThreadQueue {
 	public final queue:TlsQueue;
@@ -122,7 +64,7 @@ class ThreadAwareScheduler implements IScheduler implements ILoop {
 			return threadQueue;
 		}
 
-		final newQueue = new CircularQueue(4);
+		final newQueue = new WorkStealingQueue();
 		final threadQueue = new ThreadQueue(newQueue);
 		final handle = Thread.addCurrentCallbacks({onExit: function() {
 			queueDeque.add(Remove(threadQueue));
@@ -207,7 +149,8 @@ class ThreadAwareScheduler implements IScheduler implements ILoop {
 			var event:Null<ScheduledEvent>;
 			while (true) {
 				final queue = current.queue;
-				event = queue.pop();
+				// This thread is the only consumer, so `steal` only returns null if the queue is empty.
+				event = queue.steal();
 				if (event == null) {
 					break;
 				}
@@ -276,7 +219,7 @@ class ThreadAwareScheduler implements IScheduler implements ILoop {
 		var current = firstQueue;
 		var totalWrites = 0;
 		@:privateAccess while (current != null) {
-			Sys.println('\tqueue: (r ${current.queue.read.load()}, w ${current.queue.write.load()}, l: ${current.queue.storage.length})');
+			Sys.println('\tqueue: (r ${current.queue.read.load()}, w ${current.queue.write.load()}, l: ${current.queue.storage.load().slots.length})');
 			totalWrites += current.queue.write.load();
 			current = current.next;
 		}
