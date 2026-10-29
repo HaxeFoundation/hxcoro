@@ -56,11 +56,19 @@ abstract PagedDeque<T>(VecDeque<T>) {
 	}
 
 	/**
-		Removes the item at `index`. Returns `true` if an item was removed.
+		Removes `value` from the queue. Returns `true` if it was found, and `false` if it is no
+		longer in the queue, e.g. because it was popped already.
+
+		`handle` is what `push` returned for `value`. It is not used: positions shift as items
+		are popped or removed, so the item is looked up by value instead.
 	**/
-	public inline function remove(index:Int, value:T) {
-		final removed = this.removeAt(index);
-		return removed != null;
+	public function remove(handle:Int, value:T) {
+		final index = this.indexOf(value);
+		if (index < 0) {
+			return false;
+		}
+		this.removeAt(index);
+		return true;
 	}
 }
 
@@ -93,10 +101,11 @@ class Page<T> {
 	}
 
 	/**
-		Removes the first occurrence of `element` at or after `startIndex`, returning `true` if it was found.
+		Removes the first occurrence of `element` in the slots from `startIndex` to `endIndex`
+		(exclusive), returning `true` if it was found.
 	**/
-	public function removeFrom(element:T, startIndex:Int) {
-		for (i in startIndex...data.length - numDeleted) {
+	public function removeFrom(element:T, startIndex:Int, endIndex:Int) {
+		for (i in startIndex...endIndex) {
 			if (data[i] == element) {
 				blitAt(i);
 				++numDeleted;
@@ -104,6 +113,17 @@ class Page<T> {
 			}
 		}
 		return false;
+	}
+
+	/**
+		Returns the item at `index` and clears its slot, so that the page neither keeps it alive
+		nor finds it in a later `removeFrom`.
+	**/
+	@:nullSafety(Off)
+	public inline function take(index:Int):T {
+		final value = data[index];
+		data[index] = null;
+		return value;
 	}
 
 	/**
@@ -121,11 +141,15 @@ class Page<T> {
 		return data.length - numDeleted;
 	}
 
+	@:nullSafety(Off)
 	function blitAt(index:Int) {
-		final toBlit = freeSpace() - index - 1;
+		final end = freeSpace();
+		final toBlit = end - index - 1;
 		if (toBlit > 0) {
 			Vector.blit(data, index + 1, data, index, toBlit);
 		}
+		// The last slot was moved one to the left, don't leave a copy behind.
+		data[end - 1] = null;
 	}
 }
 
@@ -243,38 +267,26 @@ class PagedDeque<T> {
 		Removes and returns the item at the front of the queue. Throws an exception if the queue is empty.
 	**/
 	public function pop() {
-		if (currentIndex == currentPage.freeSpace()) {
-			// end of page, need to swap
-			var nextPage = currentPage.next;
-			if (nextPage == null) {
-				throw new Exception("pop() was called on empty PagedDeque");
-			}
-			if (lastPage.next == null) {
-				// reuse current page as next last page
-				lastPage.next = currentPage;
-				currentPage.reset();
-			}
-			currentPage = nextPage;
-			currentIndex = 1;
-			return getPageDataAt(currentPage, 0);
-		} else if (currentIndex == currentPage.freeSpace() - 1 && currentPage.next == null) {
-			// deque is empty, reset to reuse current page
-			resetCurrent();
-			return getPageDataAt(currentPage, currentPage.freeSpace() - 1);
-		} else {
-			return getPageDataAt(currentPage, currentIndex++);
+		if (isEmpty()) {
+			throw new Exception("pop() was called on empty PagedDeque");
 		}
+		final value = currentPage.take(currentIndex++);
+		// Recycle the page right away if this emptied it.
+		isEmpty();
+		return value;
 	}
 
 	/**
-		Removes `element` from `page`, which should be the page returned by the `push` call that added it. Returns `true` if it was found.
+		Removes `element` from `page`, which should be the page returned by the `push` call that
+		added it. Returns `true` if it was found, and `false` if it is no longer in the queue,
+		e.g. because it was popped already.
 	**/
 	public function remove(page:Page<T>, element:T) {
-		final wasRemoved = if (page == currentPage) {
-			page.removeFrom(element, currentIndex);
-		} else {
-			page.removeFrom(element, 0);
-		}
+		// Only search the live part of the page. Popped slots are cleared, but this also keeps
+		// the search short on the first and last page.
+		final startIndex = page == currentPage ? currentIndex : 0;
+		final endIndex = page == lastPage ? lastIndex - page.numDeleted : page.freeSpace();
+		final wasRemoved = page.removeFrom(element, startIndex, endIndex);
 		if (wasRemoved && page == lastPage) {
 			--lastIndex;
 			--page.numDeleted;
@@ -286,34 +298,12 @@ class PagedDeque<T> {
 		If the queue is not empty, removes the item at the front, stores it in `out` and
 		returns `true`. Otherwise, returns `false`.
 	**/
-	@:nullSafety(Off)
 	public function tryPop(out:Out<T>) {
 		if (isEmpty()) {
-			// TODO: could probably integrate this better in the branches below
 			return false;
 		}
-		if (currentIndex == vectorSize) {
-			// end of page, need to swap
-			var nextPage = currentPage.next;
-			if (lastPage.next == null) {
-				// reuse current page as next last page
-				lastPage.next = currentPage;
-				currentPage.reset();
-			}
-			currentPage = nextPage;
-			currentIndex = 1;
-			out.set(currentPage.data[0]);
-			return true;
-		} else if (currentIndex == vectorSize - 1 && currentPage.next == null) {
-			// deque is empty, reset to reuse current page
-			currentIndex = 0;
-			lastIndex = 0;
-			out.set(currentPage.data[vectorSize - 1]);
-			return true;
-		} else {
-			out.set(currentPage.data[currentIndex++]);
-			return true;
-		}
+		out.set(pop());
+		return true;
 	}
 
 	/**
@@ -333,14 +323,21 @@ class PagedDeque<T> {
 	/**
 		Returns `true` if the queue contains no items.
 	**/
+	@:nullSafety(Off)
 	public function isEmpty() {
+		// Skip pages that were consumed, recycling them as the spare page after `lastPage`.
 		while (currentIndex == currentPage.freeSpace()) {
-			if (currentPage.next == null || currentPage == lastPage) {
+			if (currentPage == lastPage) {
 				resetCurrent();
 				return true;
 			}
-			currentPage = currentPage.next;
+			final consumed = currentPage;
+			currentPage = consumed.next;
 			currentIndex = 0;
+			if (lastPage.next == null) {
+				consumed.reset();
+				lastPage.next = consumed;
+			}
 		}
 
 		return currentPage == lastPage && currentIndex == lastIndex - currentPage.numDeleted;

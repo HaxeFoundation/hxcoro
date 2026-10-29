@@ -474,4 +474,37 @@ class TestBoundedReader extends atest.Test {
 		Assert.isFalse(task.isActive());
 		Assert.same([ 10 ], actual);
 	}
+
+	/**
+		Cancelling a waiter whose wake-up is still pending calls `remove` on the waiter queue
+		for an element that was already popped. That must not find the stale entry: in the
+		paged queue this once set the end index to -1, so the next waiter crashed the channel.
+	**/
+	function test_cancelling_popped_reader_does_not_corrupt_channel() {
+		final task = VirtualRun.run(node -> {
+			final ch = hxcoro.ds.channels.Channel.createBounded({size: 1});
+			final out = new Out();
+			// Seven readers that are woken normally fill the first page's slots.
+			for (i in 0...7) {
+				final r = node.async(_ -> ch.waitForRead());
+				yield();
+				ch.tryWrite(i);
+				r.await();
+				ch.tryRead(out);
+			}
+			// The eighth uses the last slot, is popped, and is cancelled before it runs.
+			final r8 = node.async(_ -> ch.waitForRead());
+			yield();
+			ch.tryWrite(7);
+			r8.cancel();
+			ch.tryRead(out);
+			// A new reader must still work normally.
+			final r9 = node.async(_ -> ch.waitForRead());
+			yield();
+			ch.tryWrite(8);
+			r9.await();
+		});
+		Assert.isFalse(task.isActive(), "the last reader was never woken up");
+		Assert.isNull(task.getError(), 'the channel failed with ${task.getError()}');
+	}
 }

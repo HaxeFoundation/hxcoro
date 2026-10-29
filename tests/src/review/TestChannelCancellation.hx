@@ -58,40 +58,6 @@ class TestChannelCancellation extends atest.Test {
 	}
 
 	/**
-		The waiter queue keeps popped entries in its slots. When the waiter in the last slot of a
-		page is popped, the page is reset to empty but still holds it. Cancelling that waiter
-		before its wake-up runs makes `remove` find the stale entry and decrement the end index
-		to -1. The next waiter is then written to index -1.
-	**/
-	function testCancellingPoppedReaderDoesNotCorruptChannel() {
-		final task = VirtualRun.run(node -> {
-			final ch = Channel.createBounded({size: 1});
-			final out = new Out();
-			// Seven readers that are woken normally fill the first page's slots.
-			for (i in 0...7) {
-				final r = node.async(_ -> ch.waitForRead());
-				yield();
-				ch.tryWrite(i);
-				r.await();
-				ch.tryRead(out);
-			}
-			// The eighth uses the last slot, is popped, and is cancelled before it runs.
-			final r8 = node.async(_ -> ch.waitForRead());
-			yield();
-			ch.tryWrite(7);
-			r8.cancel();
-			ch.tryRead(out);
-			// A new reader must still work normally.
-			final r9 = node.async(_ -> ch.waitForRead());
-			yield();
-			ch.tryWrite(8);
-			r9.await();
-		});
-		Assert.isFalse(task.isActive(), "the last reader was never woken up");
-		Assert.isNull(task.getError(), 'the channel failed with ${task.getError()}');
-	}
-
-	/**
 		Exactly one waiting writer is popped per free slot. If that writer is cancelled before
 		its wake-up runs, the wake-up is dropped instead of being handed to the next writer, so
 		the next writer sleeps although there is space.
