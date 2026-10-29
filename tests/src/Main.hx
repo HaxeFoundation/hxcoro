@@ -18,6 +18,12 @@ function main() {
 
 	final runner = new atest.Runner();
 
+	#if hxcoro_known_failures
+	// Tests for known bugs from the 1.0 review. They are expected to fail, so they only run
+	// with `-D hxcoro-known-failures`, in a CI job that doesn't fail the workflow. Once a bug
+	// is fixed, its test moves to the matching package.
+	atest.Macros.addCases(runner, "review");
+	#else
 	runner.addCase(new TestBasic());
 	runner.addCase(new TestTricky());
 	runner.addCase(new TestControlFlow());
@@ -40,6 +46,7 @@ function main() {
 	atest.Macros.addCases(runner, "run");
 	atest.Macros.addCases(runner, "schedulers");
 	atest.Macros.addCases(runner, "structured");
+	#end
 
 	final passed = runner.run();
 	#if sys

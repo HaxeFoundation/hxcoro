@@ -66,15 +66,22 @@ jobs:
         run: |
           TARGET="${{ matrix.target }}"
 
+          # Keep going after a failing variant so that every variant reports its results,
+          # then fail the step at the end.
+          failed=0
+          check() {
+            "$@" || failed=1
+          }
+
           run_release() {
-            haxe --cwd tests build-$TARGET.hxml --hxb bin/test.hxb
+            check haxe --cwd tests build-$TARGET.hxml --hxb bin/test.hxb
           }
 
           # Run with the default dispatcher for this target
           run_default() {
-            haxe --cwd tests -debug -D coro.stack-traces build-$TARGET.hxml
+            check haxe --cwd tests -debug -D coro.stack-traces build-$TARGET.hxml
             run_release
-            haxe --cwd tests build-$TARGET.hxml --hxb-lib bin/test.hxb
+            check haxe --cwd tests build-$TARGET.hxml --hxb-lib bin/test.hxb
           }
 
           # Run again with an alternative dispatcher (env var read at runtime by Main.hx)
@@ -82,7 +89,7 @@ jobs:
           # existing binary with the new HXCORO_DISPATCHER value inherited from the environment.
           # For other targets: a quick recompile and re-run.
           run_extra() {
-            HXCORO_DISPATCHER=$1 haxe --cwd tests build-$TARGET.hxml
+            check env HXCORO_DISPATCHER=$1 haxe --cwd tests build-$TARGET.hxml
           }
 
           case "$TARGET" in
@@ -90,6 +97,9 @@ jobs:
               run_default
               run_extra trampoline
               run_extra threadpool
+              # All builds use the paged PagedDeque implementation that users get. Eval is
+              # fast, so it also covers the alternative VecDeque-based one while it exists.
+              check haxe --cwd tests build-$TARGET.hxml -D use-vec-deque
               ;;
             cpp)
               run_release
@@ -109,5 +119,51 @@ jobs:
               ;;
           esac
 
+          exit $failed
+
       - name: Run callstack tests
+        # Also run when the main tests failed, they are independent.
+        if: success() || failure()
         run: haxe --cwd callstack-tests build-${{ matrix.target }}.hxml
+
+  known-failures:
+    # Runs the tests in tests/src/review, which demonstrate known bugs and are expected to
+    # fail. The step is allowed to fail, so this job never fails the workflow. The list of
+    # failing tests is shown in the job summary.
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: kLabz/setup-haxe@neko-latest
+        with:
+          haxe-version: "latest"
+
+      - name: Setup haxelib
+        run: |
+          haxelib newrepo
+          haxelib dev hxcoro .
+
+      - name: Run known failures
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -o pipefail
+          haxe --cwd tests build-eval.hxml -D hxcoro-known-failures 2>&1 | tee known-failures.log
+
+      - name: Summarize known failures
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo "## Known failures"
+            echo
+            echo "These tests in \`tests/src/review\` demonstrate known bugs. Failures here don't fail the workflow."
+            echo
+            echo '```'
+            if grep -q '^Failures:' known-failures.log; then
+              sed -n '/^Failures:/,$p' known-failures.log
+            else
+              tail -n 20 known-failures.log
+            fi
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
