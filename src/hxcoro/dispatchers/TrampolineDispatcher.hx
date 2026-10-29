@@ -1,5 +1,6 @@
 package hxcoro.dispatchers;
 
+import haxe.Exception;
 import haxe.coro.dispatchers.Dispatcher;
 import haxe.coro.dispatchers.IDispatchObject;
 import haxe.coro.schedulers.IScheduler;
@@ -37,6 +38,10 @@ private class Trampoline {
 	dispatched while another one is running on the same thread are queued and run after it returns,
 	which avoids deep recursion.
 
+	If a dispatched object throws, the exception propagates to the caller of `dispatch` right away.
+	Objects that are still queued at that point stay queued and run first on the next `dispatch` on
+	the same thread.
+
 	If no `scheduler` is passed to the constructor, a `hxcoro.schedulers.RealTimeScheduler` is used.
 **/
 final class TrampolineDispatcher extends Dispatcher {
@@ -59,28 +64,35 @@ final class TrampolineDispatcher extends Dispatcher {
 
 		final trampoline = Trampoline.get(trampolineTls);
 
-		if (false == trampoline.running) {
-			trampoline.running = true;
-
-			obj.onDispatch();
-
-			if (null == trampoline.queue) {
-				trampoline.running = false;
-
-				return;
-			}
-
-			var next = null;
-			while (null != (next = trampoline.queue.shift())) {
-				next.onDispatch();
-			}
-
-			trampoline.running = false;
-			trampoline.queue   = null;
-
-		} else {
+		if (trampoline.running) {
 			trampoline.queue ??= [];
 			trampoline.queue.push(obj);
+			return;
 		}
+
+		trampoline.running = true;
+		try {
+			final leftovers = trampoline.queue;
+			if (leftovers != null && leftovers.length > 0) {
+				// A previous dispatch threw and left these behind, they go first.
+				leftovers.push(obj);
+			} else {
+				obj.onDispatch();
+			}
+			final queue = trampoline.queue;
+			if (queue != null) {
+				var next = null;
+				while (null != (next = queue.shift())) {
+					next.onDispatch();
+				}
+			}
+		} catch (e:Exception) {
+			// Leave the trampoline usable. Whatever is still queued runs on the next dispatch.
+			trampoline.running = false;
+			throw e;
+		}
+
+		trampoline.running = false;
+		trampoline.queue   = null;
 	}
 }
