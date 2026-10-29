@@ -1,3 +1,4 @@
+import haxe.Exception;
 import hxcoro.dispatchers.TrampolineDispatcher;
 import hxcoro.schedulers.VirtualTimeScheduler;
 import hxcoro.task.ICoroTask;
@@ -15,15 +16,33 @@ using hxcoro.run.ContextRun;
 
 	This never blocks. If the task is still active after `maxTime` virtual milliseconds,
 	it is returned in that state, so tests can assert on it instead of hanging.
+
+	Exceptions that escape the dispatcher are thrown out of `run`, unless `onError` is
+	given. Then they are passed to `onError` and the run continues.
 **/
 class VirtualRun {
-	static public function run<T>(lambda:NodeLambda<T>, maxTime = 1000):ICoroTask<T> {
+	static public function run<T>(lambda:NodeLambda<T>, maxTime = 1000, ?onError:(error:Exception) -> Void):ICoroTask<T> {
 		final scheduler = new VirtualTimeScheduler();
-		final task = CoroRun.with(new TrampolineDispatcher(scheduler)).createTask(lambda);
-		task.start();
+		final dispatcher = new TrampolineDispatcher(scheduler);
+		final task = CoroRun.with(dispatcher).createTask(lambda);
+		function guard(f:() -> Void) {
+			if (onError == null) {
+				f();
+				return;
+			}
+			try {
+				f();
+			} catch (e:Exception) {
+				onError(e);
+				// The trampoline keeps the objects that were queued behind the throwing one until
+				// the next dispatch on this thread, so dispatch something to run them.
+				guard(() -> dispatcher.dispatchFunction(() -> {}));
+			}
+		}
+		guard(() -> task.start());
 		var time = 0;
 		while (task.isActive() && time < maxTime) {
-			scheduler.advanceBy(1);
+			guard(() -> scheduler.advanceBy(1));
 			time++;
 		}
 		return task;

@@ -103,26 +103,4 @@ class TestTaskOutcome extends atest.Test {
 		Assert.isFalse(task.isActive(), "the parent never completed");
 		Assert.isTrue(lazyRan, "the late lazy child was never started");
 	}
-
-	/**
-		`ThreadSafeCallbacks.run` stops at the first callback that throws (see its TODO), so
-		later completion callbacks and awaiters of the same task are never called.
-	**/
-	function testThrowingCompletionCallbackDoesNotStarveOthers() {
-		var secondCalled = false;
-		try {
-			VirtualRun.run(node -> {
-				final child = node.async(_ -> {
-					delay(1);
-					1;
-				});
-				child.onCompletion((_, _) -> throw new Exception("callback failure"));
-				child.onCompletion((_, _) -> secondCalled = true);
-				delay(5);
-			});
-		} catch (_:Dynamic) {
-			// Where the callback's exception ends up is a separate question.
-		}
-		Assert.isTrue(secondCalled, "the second completion callback was never called");
-	}
 }

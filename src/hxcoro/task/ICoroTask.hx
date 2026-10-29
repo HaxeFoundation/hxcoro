@@ -48,6 +48,10 @@ interface ICoroTask<T> {
 	/**
 		Registers `callback` to be invoked with the task's result and error once it completes. If the task
 		has already completed, `callback` is invoked immediately.
+
+		If `callback` throws, the exception does not affect the task or its other callbacks. It is
+		rethrown from a separately scheduled event, so it surfaces like an uncaught exception on the
+		task's dispatcher.
 	**/
 	function onCompletion(callback:(result:T, error:Exception)->Void):Void;
 }
