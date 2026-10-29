@@ -4,6 +4,7 @@ import cases.BenchContendedMutex;
 import cases.BenchCancellation;
 import cases.BenchFanOut;
 import cases.BenchGenerator;
+import cases.BenchScheduler;
 
 /**
  * hxcoro benchmark suite entry point.
@@ -42,6 +43,7 @@ function main() {
 	for (r in BenchCancellation.run())    results.push(r);
 	for (r in BenchFanOut.run())          results.push(r);
 	for (r in BenchGenerator.run())       results.push(r);
+	for (r in BenchScheduler.run())       results.push(r);
 
 	// Print combined results table (with Change column when a baseline exists).
 	#if sys
