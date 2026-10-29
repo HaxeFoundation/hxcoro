@@ -85,9 +85,10 @@ class Setup {
 		final scheduler = new hxcoro.schedulers.LuvScheduler(loop);
 		final dispatcher = createDispatcher(loop, scheduler);
 		function finalize() {
-			scheduler.shutDown();
+			// The dispatcher goes first: work that is still running might use the scheduler.
 			shutDownDispatcher(dispatcher);
-			cpp.luv.Luv.stopLoop(loop);
+			scheduler.shutDown();
+			cpp.luv.Luv.shutdownLoop(loop);
 			cpp.luv.Luv.freeLoop(loop);
 		}
 		return new LoopSetup(scheduler, dispatcher, finalize);
@@ -111,7 +112,7 @@ class Setup {
 		final pool = new hxcoro.thread.FixedThreadPool(10);
 		return createLuvGen(
 			(uvLoop, loop) -> new hxcoro.dispatchers.ThreadPoolDispatcher(loop, pool),
-			dispatcher -> pool.shutDown()
+			dispatcher -> pool.shutDown(true)
 		);
 	}
 
@@ -153,13 +154,15 @@ class Setup {
 	#end
 
 	/**
-		Creates the default setup for the current target, as used by `CoroRun.runWith`: a
-		thread pool of 10 threads on JVM, C++ and eval (combined with libuv on C++ with
-		`hxcpp_luv_io`), and `createTrampoline` otherwise.
+		Creates the default setup for the current target, as used by `CoroRun.runWith`:
+
+		- C++ with `hxcpp_luv_io`: `createLuv()`
+		- JVM, C++ without `hxcpp_luv_io` and eval: `createThreadPool(10)`
+		- Other targets: `createTrampoline()`
 	**/
 	static public function createDefault() {
 		#if (cpp && hxcpp_luv_io)
-		return createLuvThreadPool();
+		return createLuv();
 		#elseif (jvm || cpp || interp)
 		return createThreadPool(10);
 		#else
