@@ -1,5 +1,6 @@
 package hxcoro.schedulers;
 
+import haxe.atomic.AtomicInt;
 import sys.thread.ThreadCallback;
 import haxe.Int64;
 import haxe.Timer;
@@ -25,15 +26,22 @@ private class CircularQueueData {
 	}
 }
 
+/**
+	A queue with one producer, the thread that owns it, and one consumer, the loop thread.
+
+	`read` and `write` are atomic: storing `write` after writing the slot publishes the slot and,
+	after a resize, the new `storage` to the consumer, which loads `write` before reading them.
+	With plain fields, the consumer could see the new `write` before the slot, and lose the event.
+**/
 private class CircularQueue {
-	var read:Int;
-	var write:Int;
+	final read:AtomicInt;
+	final write:AtomicInt;
 	var storage:CircularVector<ScheduledEvent>;
 
 	public function new(size:Int) {
 		storage = CircularVector.create(size);
-		read = 0;
-		write = 0;
+		read = new AtomicInt(0);
+		write = new AtomicInt(0);
 	}
 
 	function resize(from:Int, to:Int) {
@@ -45,27 +53,28 @@ private class CircularQueue {
 	}
 
 	public function add(value:ScheduledEvent) {
-		final w = write;
-		final r = read;
-		final sizeNeeded = w - r;
-		if (sizeNeeded >= storage.length) {
+		final w = write.load();
+		final r = read.load();
+		if (w - r >= storage.length) {
 			resize(r, w);
 		}
 		storage[w] = value;
-		++write;
+		write.store(w + 1);
 	}
 
 	public function pop() {
-		final r = read;
-		final w = write;
+		final r = read.load();
+		final w = write.load();
 		if (w - r <= 0) {
 			return null;
 		}
-		return storage[read++];
+		final value = storage[r];
+		read.store(r + 1);
+		return value;
 	}
 
 	public function toString() {
-		return 'CircularQueue(r $read, w $write, l ${storage.length})';
+		return 'CircularQueue(r ${read.load()}, w ${write.load()}, l ${storage.length})';
 	}
 }
 
@@ -267,8 +276,8 @@ class ThreadAwareScheduler implements IScheduler implements ILoop {
 		var current = firstQueue;
 		var totalWrites = 0;
 		@:privateAccess while (current != null) {
-			Sys.println('\tqueue: (r ${current.queue.read}, w ${current.queue.write}, l: ${current.queue.storage.length})');
-			totalWrites += current.queue.write;
+			Sys.println('\tqueue: (r ${current.queue.read.load()}, w ${current.queue.write.load()}, l: ${current.queue.storage.length})');
+			totalWrites += current.queue.write.load();
 			current = current.next;
 		}
 		Sys.println('\ttotal writes: $totalWrites');
