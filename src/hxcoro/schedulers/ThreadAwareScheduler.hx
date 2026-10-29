@@ -104,7 +104,6 @@ class ThreadAwareScheduler implements IScheduler implements ILoop {
 	final heap:MinimumHeap;
 	final queueTls:Tls<TlsQueue>;
 	final queueDeque:Deque<ThreadQueueEvent>;
-	final rootEvent:ScheduledEvent;
 	final semaphore:Semaphore;
 	var firstQueue:Null<ThreadQueue>;
 
@@ -112,7 +111,6 @@ class ThreadAwareScheduler implements IScheduler implements ILoop {
 		heap = new MinimumHeap();
 		queueTls = new Tls();
 		queueDeque = new Deque();
-		rootEvent = new ScheduledEvent(null, 0);
 		semaphore = new Semaphore(0);
 	}
 
@@ -186,53 +184,33 @@ class ThreadAwareScheduler implements IScheduler implements ILoop {
 		// First we consume the coordination deque so we know all queues.
 		consumeQueueDeque();
 
-		var currentEvent = rootEvent;
-
-		// Next we dispatch all expired and current events in the heap.
-		while (true) {
-			var minimum = heap.minimum();
-			if (minimum == null || minimum.runTime > currentTime) {
-				break;
-			}
-
-			heap.extract();
-			currentEvent.next = minimum;
-			currentEvent = minimum;
-		}
-
-		// Now we loop over all queues from the threads.
+		// Move the events from the threads' queues into the heap, so that all events are
+		// dispatched from one place, in order of due time.
 		var current = firstQueue;
 		while (current != null) {
-			// Copy current slice data to our outQueue and iterate it.
-			var event:Null<ScheduledEvent>;
+			final queue = current.queue;
 			while (true) {
-				final queue = current.queue;
-				event = queue.pop();
+				final event = queue.pop();
 				if (event == null) {
 					break;
 				}
-				if (event.runTime > currentTime) {
-					// Future events are added to the heap.
-					heap.insert(event);
-				} else {
-					// Other events are dispatched immediately.
-					currentEvent.next = event;
-					currentEvent = event;
-				}
+				heap.insert(event);
 			}
 			current = current.next;
 		}
-		currentEvent.next = null;
-		var event:Null<ScheduledEvent> = rootEvent;
+
+		// Dispatch the due events one at a time, so that the ones after an event whose dispatch
+		// throws stay in the heap. Only this thread touches the heap, and events scheduled while
+		// dispatching go to a thread queue, so this loop ends.
 		var didSomething = false;
 		while (true) {
-			event = event.next;
-			if (event == null) {
-				rootEvent.next = null;
+			final minimum = heap.minimum();
+			if (minimum == null || minimum.runTime > currentTime) {
 				return didSomething;
 			}
+			heap.extract();
 			didSomething = true;
-			event.dispatch();
+			minimum.dispatch();
 		}
 	}
 
