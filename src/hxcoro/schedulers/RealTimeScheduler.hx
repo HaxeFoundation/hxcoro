@@ -22,17 +22,11 @@ class RealTimeScheduler extends HeapScheduler implements ILoop {
 			futureMutex.release();
 
 			didSomething = true;
-			minimum.dispatch(requeue);
+			minimum.dispatch();
 		}
 
 		futureMutex.release();
 		return didSomething;
-	}
-
-	function requeue(event:ScheduledEvent) {
-		futureMutex.acquire();
-		heap.insert(event);
-		futureMutex.release();
 	}
 
 	/**

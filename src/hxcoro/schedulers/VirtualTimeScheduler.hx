@@ -67,7 +67,7 @@ class VirtualTimeScheduler extends HeapScheduler implements ILoop {
 
 			heap.extract();
 			currentTime = minimum.runTime;
-			minimum.dispatch(event -> heap.insert(event));
+			minimum.dispatch();
 		}
 
 		currentTime = endTime;
