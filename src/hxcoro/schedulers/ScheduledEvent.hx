@@ -1,5 +1,6 @@
 package hxcoro.schedulers;
 
+import haxe.Exception;
 import haxe.coro.dispatchers.Dispatcher;
 import haxe.coro.IContinuation;
 import haxe.coro.dispatchers.IDispatchObject;
@@ -39,18 +40,33 @@ class ScheduledEvent implements ISchedulerHandle implements IDispatchObject {
 
 	/**
 		Dispatches the continuation of this event unless it was closed, then dispatches all child events.
+
+		Dispatching can throw, e.g. with a `TrampolineDispatcher`, which runs the continuation right
+		away. The exception then propagates immediately, and the child events that were not
+		dispatched yet are passed to `requeue` so that the scheduler can dispatch them later
+		instead of losing them.
 	**/
-	public function dispatch() {
-		final cont = cont;
-		if (cont != null) {
-			cont.context.dispatchOrCall(this);
-		}
-		if (childEvents != null) {
-			final childEvents = childEvents;
-			this.childEvents = null;
-			for (childEvent in childEvents) {
-				childEvent.dispatch();
+	public function dispatch(requeue:ScheduledEvent -> Void) {
+		final childEvents = childEvents;
+		this.childEvents = null;
+		var nextChild = 0;
+		try {
+			final cont = cont;
+			if (cont != null) {
+				cont.context.dispatchOrCall(this);
 			}
+			if (childEvents != null) {
+				while (nextChild < childEvents.length) {
+					childEvents[nextChild++].dispatch(requeue);
+				}
+			}
+		} catch (e:Exception) {
+			if (childEvents != null) {
+				for (i in nextChild...childEvents.length) {
+					requeue(childEvents[i]);
+				}
+			}
+			throw e;
 		}
 	}
 

@@ -223,7 +223,20 @@ class ThreadAwareScheduler implements IScheduler implements ILoop {
 				return didSomething;
 			}
 			didSomething = true;
-			event.dispatch();
+			try {
+				event.dispatch(heap.insert);
+			} catch (e:haxe.Exception) {
+				// Put the rest of the due events back into the heap so the next loop dispatches them.
+				var rest = event.next;
+				rootEvent.next = null;
+				while (rest != null) {
+					final next = rest.next;
+					rest.next = null;
+					heap.insert(rest);
+					rest = next;
+				}
+				throw e;
+			}
 		}
 	}
 
