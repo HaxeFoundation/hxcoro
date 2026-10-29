@@ -12,10 +12,8 @@ import hxcoro.ds.channels.bounded.AtomicChannelState;
 using hxcoro.util.Convenience;
 using hxcoro.util.MutexExtensions;
 
-private final class WaitContinuation<T> implements IContinuation<Bool> {
+private final class WaitContinuation implements IContinuation<Bool> {
 	final cont : IContinuation<Bool>;
-
-	final buffer : CircularBuffer<T>;
 
 	final state : AtomicChannelState;
 
@@ -25,26 +23,25 @@ private final class WaitContinuation<T> implements IContinuation<Bool> {
 		return cont.context;
 	}
 
-	public function new(cont, buffer, state) {
-		this.cont   = cont;
-		this.buffer = buffer;
-		this.state  = state;
+	public function new(cont, state) {
+		this.cont  = cont;
+		this.state = state;
 	}
 
 	public function resume(result:Null<Bool>, error:Null<Exception>) {
 		final result = if (false == result) {
 			// The channel was closed, but there might still be data left to read.
+			// `close` decides between draining and closed before releasing the lock,
+			// and in draining mode there is always data in the buffer.
 			switch state.lock() {
 				case Closed:
 					false;
-				case Locked:
+				case Draining:
+					state.store(Draining);
+
+					true;
+				case Open, Locked:
 					throw new InvalidChannelStateException();
-				case previous:
-					final hasData = buffer.wasEmpty() == false;
-
-					state.store(previous);
-
-					hasData;
 			}
 		} else {
 			true;
@@ -160,7 +157,7 @@ final class BoundedReader<T> implements IChannelReader<T> {
 				}
 
 				return suspendCancellable(cont -> {
-					final obj       = new WaitContinuation(cont, buffer, state);
+					final obj       = new WaitContinuation(cont, state);
 					final hostPage  = readWaiters.push(obj);
 
 					state.store(Open);
