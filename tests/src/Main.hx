@@ -37,6 +37,8 @@ function main() {
 	#if !hl // TODO: ping Yuxiao about this
 	atest.Macros.addCases(runner, "generators");
 	#end
+	// Known failures from the 1.0 review. Move these to the matching packages once fixed.
+	atest.Macros.addCases(runner, "review");
 	atest.Macros.addCases(runner, "run");
 	atest.Macros.addCases(runner, "schedulers");
 	atest.Macros.addCases(runner, "structured");

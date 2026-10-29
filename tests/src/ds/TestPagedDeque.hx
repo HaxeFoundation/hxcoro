@@ -6,9 +6,9 @@ import hxcoro.ds.PagedDeque;
 class TestPagedDeque extends atest.Test {
 	#if !use_vec_deque
 	public function test() {
-		function expect<T>(expected:Array<T>, d:Page<Any>, ?pos:haxe.PosInfos) {
-			final actual = [for (x in d.data) x];
-			Assert.same(expected, actual, true, null, null, pos);
+		function expect(expected:Array<Any>, d:Page<Any>, ?pos:haxe.PosInfos) {
+			final actual:Array<Any> = [for (x in d.data) x];
+			Assert.same(expected, actual, null, pos);
 		}
 
 		var d:PagedDeque<Any> = new PagedDeque(9);

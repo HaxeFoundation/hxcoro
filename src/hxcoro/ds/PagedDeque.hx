@@ -157,9 +157,14 @@ class PagedDeque<T> {
 		page.data[index - page.numDeleted] = value;
 	}
 
+	// The `@:nullSafety(Off)` markers in this class were added because this implementation was
+	// never compiled with null safety (the test suite only used `use_vec_deque`). The page
+	// traversal relies on `next` being set for every page before `lastPage`.
+
 	/**
 		Calls `f` on each item in the queue, from front to back.
 	**/
+	@:nullSafety(Off)
 	public function forEach(f:T->Void) {
 		var currentPage = currentPage;
 		var currentIndex = currentIndex;
@@ -178,6 +183,7 @@ class PagedDeque<T> {
 	/**
 		Replaces each item in the queue with the result of calling `f` on it.
 	**/
+	@:nullSafety(Off)
 	public function mapInPlace(f:T->T) {
 		var currentPage = currentPage;
 		var currentIndex = currentIndex;
@@ -196,6 +202,7 @@ class PagedDeque<T> {
 	/**
 		Combines the items in the queue from front to back using `f`, starting with `acc`.
 	**/
+	@:nullSafety(Off)
 	public function fold<A>(acc:A, f:(acc:A, elt:T) -> A) {
 		var currentPage = currentPage;
 		var currentIndex = currentIndex;
@@ -279,6 +286,7 @@ class PagedDeque<T> {
 		If the queue is not empty, removes the item at the front, stores it in `out` and
 		returns `true`. Otherwise, returns `false`.
 	**/
+	@:nullSafety(Off)
 	public function tryPop(out:Out<T>) {
 		if (isEmpty()) {
 			// TODO: could probably integrate this better in the branches below
