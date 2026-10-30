@@ -3,6 +3,7 @@ package hxcoro.concurrent;
 import haxe.coro.IContinuation;
 import haxe.coro.cancellation.CancellationToken;
 import haxe.exceptions.ArgumentException;
+import haxe.exceptions.CancellationException;
 import haxe.exceptions.CoroutineException;
 import hxcoro.Coro.*;
 import haxe.atomic.AtomicInt;
@@ -69,12 +70,7 @@ class CoroLatchImpl {
 		switch (decreaseCounter(0)) {
 			case 0:
 			case target:
-				suspendCancellable(cont -> {
-					deque ??= new PagedDeque();
-					deque.push(cont);
-					counter.store(target);
-					null;
-				});
+				suspendCancellable(cont -> addWaiter(cont, target));
 		}
 	}
 
@@ -92,12 +88,48 @@ class CoroLatchImpl {
 		switch (decreaseCounter(n)) {
 			case 0:
 			case target:
-				suspendCancellable(cont -> {
-					deque ??= new PagedDeque();
-					deque.push(cont);
-					counter.store(target);
-					null;
-				});
+				suspendCancellable(cont -> addWaiter(cont, target));
+		}
+	}
+
+	/**
+		Must be called with counter == -1. Adds `cont` to the waiters, unlocks the counter by
+		setting it to `target` and returns the cancellation callback that removes `cont` again.
+	**/
+	function addWaiter(cont:IContinuation<Any>, target:Int) {
+		var deque = this.deque;
+		if (deque == null) {
+			deque = new PagedDeque();
+			this.deque = deque;
+		}
+		final page = deque.push(cont);
+		counter.store(target);
+		return (_:CancellationException) -> removeWaiter(deque, page, cont);
+	}
+
+	/**
+		Removes a cancelled waiter, so that it isn't kept alive until the counter reaches 0.
+	**/
+	function removeWaiter(deque:PagedDeque<IContinuation<Any>>, page, cont:IContinuation<Any>) {
+		while (true) {
+			switch (counter.load()) {
+				case -1:
+					// Locked, let's wait.
+				case 0:
+					// The latch is open, so its waiters are being resumed already.
+					return;
+				case old:
+					if (counter.compareExchange(old, -1) == old) {
+						// If the deque was replaced, the phase completed and `complete` is resuming
+						// the waiters of the old deque, which we must not modify.
+						if (this.deque == deque) {
+							deque.remove(page, cont);
+						}
+						counter.store(old);
+						return;
+					}
+			}
+			BackOff.backOff();
 		}
 	}
 

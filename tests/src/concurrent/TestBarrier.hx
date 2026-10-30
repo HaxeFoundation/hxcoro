@@ -85,6 +85,49 @@ class TestBarrier extends atest.Test {
 		Assert.isTrue(resumed);
 	}
 
+	function testCancelledWaiterIsRemoved() {
+		var waitersLeft = true;
+		var completed = false;
+		final task = VirtualRun.run(node -> {
+			final barrier = new CoroBarrier(2);
+			final waiter = node.async(_ -> barrier.arriveAndWait());
+			yield(); // the waiter suspends in arriveAndWait
+			waiter.cancel();
+			delay(1);
+			final impl:hxcoro.concurrent.CoroLatch.CoroLatchImpl = cast barrier;
+			final deque = @:privateAccess impl.deque;
+			waitersLeft = deque != null && !deque.isEmpty();
+			// The cancelled waiter's arrival still counts, so this completes the phase.
+			barrier.arriveAndWait();
+			completed = true;
+		});
+		Assert.isFalse(task.isActive());
+		Assert.isFalse(waitersLeft, "the cancelled waiter was kept in the barrier");
+		Assert.isTrue(completed);
+	}
+
+	function testCancelWaitersWhileCompleting() {
+		final numTasks = 1000;
+		run(node -> {
+			final barrier = new CoroBarrier(numTasks + 1);
+			final waiters = [
+				for (_ in 0...numTasks) {
+					node.async(_ -> barrier.arriveAndWait());
+				}
+			];
+			delay(10); // let the waiters suspend in arriveAndWait
+			node.async(_ -> barrier.arrive(1));
+			// Races with the barrier completing the phase and resuming its waiters
+			for (i in 0...numTasks) {
+				if (i & 1 == 1) {
+					waiters[i].cancel();
+				}
+			}
+		});
+		// termination is test result
+		Assert.pass();
+	}
+
 	function testArriveAndDrop() {
 		final numTasks = 10;
 		final actual = [];
