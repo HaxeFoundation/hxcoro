@@ -48,6 +48,43 @@ class TestBarrier extends atest.Test {
 		], actual);
 	}
 
+	function testUsableAfterCallbackThrows() {
+		var shouldThrow = true;
+		final barrier = new CoroBarrier(1, () -> {
+			if (shouldThrow) {
+				shouldThrow = false;
+				throw new haxe.Exception("callback failure");
+			}
+		});
+		Assert.raises(() -> barrier.arrive(1), haxe.Exception);
+		// Check the counter directly because calling `arrive` on a locked barrier spins forever.
+		final impl:hxcoro.concurrent.CoroLatch.CoroLatchImpl = cast barrier;
+		Assert.equals(1, @:privateAccess impl.counter.load());
+		barrier.arrive(1);
+		Assert.pass();
+	}
+
+	function testWaitersResumedWhenCallbackThrows() {
+		var resumed = false;
+		var raised = false;
+		final task = VirtualRun.run(node -> {
+			final barrier = new CoroBarrier(2, () -> throw new haxe.Exception("callback failure"));
+			node.async(_ -> {
+				barrier.arriveAndWait();
+				resumed = true;
+			});
+			yield(); // the waiter suspends in arriveAndWait
+			try {
+				barrier.arrive(1);
+			} catch (e:haxe.Exception) {
+				raised = true;
+			}
+		});
+		Assert.isFalse(task.isActive());
+		Assert.isTrue(raised);
+		Assert.isTrue(resumed);
+	}
+
 	function testArriveAndDrop() {
 		final numTasks = 10;
 		final actual = [];
