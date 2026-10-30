@@ -14,6 +14,8 @@ import hxcoro.schedulers.LuvScheduler;
 /**
 	A dispatcher that runs dispatched objects on the libuv thread pool of `loop`.
 
+	If a dispatched object throws, the exception is printed, and the worker thread carries on.
+
 	If no `scheduler` is passed to the constructor, a `hxcoro.schedulers.LuvScheduler` for `loop`
 	is created and owned by this dispatcher.
 **/
@@ -67,7 +69,13 @@ class LuvDispatcher extends Dispatcher
 	function loopWork() {
 		consumeDeque(workQueue, obj -> {
 			Work.queue(loop, () -> {
-				obj.onDispatch();
+				try {
+					obj.onDispatch();
+				} catch (e:Exception) {
+					// An exception escaping into libuv terminates the process, so report it the way
+					// an uncaught exception on a Haxe thread is reported.
+					Sys.println("THREAD ABORTED : " + e.message + haxe.CallStack.toString(e.stack));
+				}
 				numPending.sub(1);
 			});
 		});

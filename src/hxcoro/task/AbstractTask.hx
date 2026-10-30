@@ -317,6 +317,14 @@ abstract class AbstractTask implements ICancellationToken {
 
 	abstract function childrenCompleted():Void;
 
+	/**
+		Reports `error`, which a callback registered with this task threw, without unwinding
+		through the task machinery.
+	**/
+	@:allow(hxcoro.task.TaskCancellationManager)
+	@:allow(hxcoro.task.TaskContinuationManager)
+	abstract function reportCallbackError(error:Exception):Void;
+
 	abstract function childSucceeds(child:AbstractTask):Void;
 
 	abstract function childErrors(child:AbstractTask, cause:Exception):Void;

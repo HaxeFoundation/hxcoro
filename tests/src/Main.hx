@@ -37,6 +37,7 @@ function main() {
 
 	atest.Macros.addCases(runner, "issues");
 	atest.Macros.addCases(runner, "concurrent");
+	atest.Macros.addCases(runner, "dispatchers");
 	atest.Macros.addCases(runner, "ds");
 	atest.Macros.addCases(runner, "elements");
 	atest.Macros.addCases(runner, "features");

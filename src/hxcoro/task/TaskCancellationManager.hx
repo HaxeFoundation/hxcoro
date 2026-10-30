@@ -48,7 +48,7 @@ class CancellationHandle implements ICancellationHandle {
 **/
 class TaskCancellationManager extends ThreadSafeCallbacks<ICancellationCallback, CancellationHandle, ICancellationHandle> {
 	public function new(task:AbstractTask) {
-		super(handle -> handle.run(task));
+		super(handle -> handle.run(task), error -> task.reportCallbackError(error));
 	}
 
 	function createHandle(element:ICancellationCallback) {

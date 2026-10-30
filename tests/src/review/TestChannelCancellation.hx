@@ -15,10 +15,12 @@ import hxcoro.task.ICoroTask;
 class TestChannelCancellation extends atest.Test {
 	/**
 		`close` pops every waiter and stores `Closed`. The cancellation callback of a reader whose
-		wake-up is still pending then throws `InvalidChannelStateException` out of `cancel()`.
+		wake-up is still pending then throws `InvalidChannelStateException`. That exception is
+		reported as an uncaught exception on the dispatcher.
 	**/
 	function testCancelReaderAfterClose() {
 		var cancelError:Dynamic = null;
+		final errors:Array<haxe.Exception> = [];
 		final task = VirtualRun.run(node -> {
 			final ch = Channel.createBounded({size: 1});
 			final reader = node.async(_ -> ch.waitForRead());
@@ -29,8 +31,9 @@ class TestChannelCancellation extends atest.Test {
 			} catch (e:Dynamic) {
 				cancelError = e;
 			}
-		});
+		}, 1000, errors.push);
 		Assert.isNull(cancelError, 'reader.cancel() threw $cancelError');
+		Assert.same([], [for (e in errors) e.message], "the cancellation callback threw");
 		Assert.isFalse(task.isActive());
 	}
 
@@ -40,6 +43,7 @@ class TestChannelCancellation extends atest.Test {
 	**/
 	function testCancelWriterAfterClose() {
 		var cancelError:Dynamic = null;
+		final errors:Array<haxe.Exception> = [];
 		final task = VirtualRun.run(node -> {
 			final ch = Channel.createBounded({size: 1});
 			ch.write(0);
@@ -52,8 +56,9 @@ class TestChannelCancellation extends atest.Test {
 			} catch (e:Dynamic) {
 				cancelError = e;
 			}
-		});
+		}, 1000, errors.push);
 		Assert.isNull(cancelError, 'writer.cancel() threw $cancelError');
+		Assert.same([], [for (e in errors) e.message], "the cancellation callback threw");
 		Assert.isFalse(task.isActive());
 	}
 

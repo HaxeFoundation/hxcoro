@@ -22,7 +22,7 @@ import hxcoro.task.node.INodeStrategy;
 **/
 class TaskContinuationManager extends ThreadSafeCallbacks<IContinuation<Any>, IContinuation<Any>, IContinuation<Any>> {
 	public function new(task:CoroBaseTask<Any>) {
-		super(handle -> handle.resume(task.get(), task.getError()));
+		super(handle -> handle.resume(task.get(), task.getError()), error -> task.reportCallbackError(error));
 	}
 
 	function createHandle(element:IContinuation<Any>) {
@@ -227,6 +227,18 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 
 	function handleAwaitingContinuations() {
 		awaitingContinuations.run();
+	}
+
+	/**
+		Rethrows `error` from a separately scheduled event. This keeps it from unwinding through the
+		task machinery, which could leave other tasks waiting forever. A scheduler never runs an
+		event synchronously, so this also holds when called outside of any dispatch.
+
+		The exception then surfaces like any other uncaught exception on this task's dispatcher:
+		a loop such as `CoroRun.run` throws it, and a thread pool reports it on its worker thread.
+	**/
+	function reportCallbackError(error:Exception) {
+		context.scheduleFunction(0, () -> throw error);
 	}
 
 	function childrenCompleted() {
