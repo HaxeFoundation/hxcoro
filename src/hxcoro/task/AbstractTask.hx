@@ -144,6 +144,8 @@ abstract class AbstractTask implements ICancellationToken {
 		Returns the task's error value if it has completed with one, or `null` otherwise.
 	**/
 	public function getError() {
+		// The state is the authority: `error` can be set on a task that completes successfully
+		// anyway, or is still cancelling, and in neither case is it the task's outcome.
 		return state.load() == Cancelled ? error.load() : null;
 	}
 
@@ -170,21 +172,13 @@ abstract class AbstractTask implements ICancellationToken {
 	function doCancel(error:Exception) {
 		this.error.compareExchange(null, error);
 		while (true) {
-			switch (state.load()) {
-				case Created:
-					// The task's own work never starts.
-					if (state.compareExchange(Created, Cancelling) == Created) {
-						beginCancellation(true);
-						break;
-					}
-				case Running:
-					if (state.compareExchange(Running, CancellationRequested) == Running) {
-						beginCancellation(true);
-						break;
-					}
-				case Completing:
-					if (state.compareExchange(Completing, Cancelling) == Completing) {
-						beginCancellation(true);
+			final current = state.load();
+			switch (current) {
+				case Created | Running | Completing:
+					// A running task has to finish its own work first. A created task never starts it.
+					final next = current == Running ? CancellationRequested : Cancelling;
+					if (state.compareExchange(current, next) == current) {
+						beginCancellation();
 						break;
 					}
 				case CancellationRequested | Cancelling | Completed | Cancelled:
@@ -196,14 +190,12 @@ abstract class AbstractTask implements ICancellationToken {
 	}
 
 	/**
-		Called by the thread that moved this task to a cancelling state. Runs the cancellation callbacks if
-		this is the first such transition, and cancels all current children.
+		Called by the thread that moved this task to a cancelling state. Runs the cancellation callbacks,
+		which has no effect after the first time, and cancels all current children.
 	**/
-	function beginCancellation(runCallbacks:Bool) {
+	function beginCancellation() {
 		@:nullSafety(Off) final error:Exception = error.load();
-		if (runCallbacks) {
-			cancellationManager.run();
-		}
+		cancellationManager.run();
 		final cause = new CancellationException();
 		#if !js
 		cause.stack = error.stack;
@@ -227,7 +219,7 @@ abstract class AbstractTask implements ICancellationToken {
 				case CancellationRequested:
 					if (state.compareExchange(CancellationRequested, Cancelling) == CancellationRequested) {
 						// Cancel children that were created after the cancellation request.
-						beginCancellation(false);
+						beginCancellation();
 						return false;
 					}
 				case Created | Completing | Cancelling | Completed | Cancelled:
@@ -245,15 +237,11 @@ abstract class AbstractTask implements ICancellationToken {
 	final function ownWorkFails(error:Exception) {
 		this.error.compareExchange(null, error);
 		while (true) {
-			switch (state.load()) {
-				case Running:
-					if (state.compareExchange(Running, Cancelling) == Running) {
-						beginCancellation(true);
-						return;
-					}
-				case CancellationRequested:
-					if (state.compareExchange(CancellationRequested, Cancelling) == CancellationRequested) {
-						beginCancellation(false);
+			final current = state.load();
+			switch (current) {
+				case Running | CancellationRequested:
+					if (state.compareExchange(current, Cancelling) == current) {
+						beginCancellation();
 						return;
 					}
 				case Created | Completing | Cancelling | Completed | Cancelled:
