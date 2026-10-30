@@ -15,4 +15,6 @@ final gen = HaxeGenerator.create(yield -> {
 trace([for (v in gen) v]); // [1, 2, 3]
 ```
 
+PHP has a built-in `Generator` class, so on PHP these classes must not end up in the root namespace. Either put them in a package or compile with `-D php-prefix=<namespace>`, as [build-php.hxml](build-php.hxml) does.
+
 See [test/TestGenerator.hx](test/TestGenerator.hx) and [test/TestAsyncGenerator.hx](test/TestAsyncGenerator.hx) for more examples.
