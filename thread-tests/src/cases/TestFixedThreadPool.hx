@@ -20,37 +20,44 @@ private class Increment implements IDispatchObject {
 
 class TestFixedThreadPool extends atest.Test {
 	/**
-		Threads outside the pool share the main queue, which supports only one producer. This
-		includes the thread that constructed the pool: it used to have the main queue installed
-		as its own queue, so it added to it without the mutex and raced with other threads.
+		The thread that constructed the pool adds to a queue of its own without locking. All
+		other non-pool threads share a queue, which supports only one producer, so they have to
+		take the mutex. The constructing thread used to have the shared queue itself installed
+		as its own queue, so it added to it without the mutex and raced with the other threads.
 
 		This is a stress test. On eval a single round used to lose dispatches most of the time,
 		so the test runs up to five rounds and stops at the first loss.
 	**/
-	function testMainQueueAcceptsDispatchesFromTwoForeignThreads() {
+	function testSharedQueueAcceptsDispatchesFromForeignThreads() {
 		final n = 50000;
+		final otherThreads = 2;
+		final total = (otherThreads + 1) * n;
 		for (round in 0...5) {
 			final pool = new FixedThreadPool(4);
 			final counter = new AtomicInt(0);
 			final otherDone = new Lock();
-			Thread.create(() -> {
-				for (_ in 0...n) {
-					pool.run(new Increment(counter));
-				}
-				otherDone.release();
-			});
+			for (_ in 0...otherThreads) {
+				Thread.create(() -> {
+					for (_ in 0...n) {
+						pool.run(new Increment(counter));
+					}
+					otherDone.release();
+				});
+			}
 			for (_ in 0...n) {
 				pool.run(new Increment(counter));
 			}
-			otherDone.wait(10.0);
+			for (_ in 0...otherThreads) {
+				otherDone.wait(10.0);
+			}
 			final deadline = Sys.time() + 2.0;
-			while (counter.load() < 2 * n && Sys.time() < deadline) {
+			while (counter.load() < total && Sys.time() < deadline) {
 				Sys.sleep(0.01);
 			}
 			pool.shutDown(true);
 			final executed = counter.load();
-			if (executed != 2 * n) {
-				Assert.fail('round $round: only $executed of ${2 * n} dispatches were executed');
+			if (executed != total) {
+				Assert.fail('round $round: only $executed of $total dispatches were executed');
 				return;
 			}
 		}
