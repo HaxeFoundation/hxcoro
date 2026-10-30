@@ -63,8 +63,7 @@ interface IStartableCoroTask<T> extends ICoroTask<T> {
 	/**
 		Starts executing the task. Has no effect if the task has already been started or has completed.
 
-		The start is dispatched on the dispatcher of the task's context, so the task may not have run
-		yet when this function returns.
+		The task might not have started running yet when this function returns.
 
 		When called from inside a task lambda, pass `node` as `caller` to include the calling task
 		in exception stack traces.

@@ -291,14 +291,11 @@ abstract class AbstractTask implements ICancellationToken {
 	}
 
 	/**
-		Arranges for `activate` to be called where this task is supposed to run. By default, that's
-		right away. Subclasses that run their work on a dispatcher override this.
+		Arranges for `activate` to be called where this task is supposed to run.
 
 		Calling this more than once is harmless, because `activate` only starts a created task.
 	**/
-	function dispatchStart() {
-		activate();
-	}
+	abstract function dispatchStart():Void;
 
 	function lockChildren() {
 		while (true) {

@@ -45,6 +45,8 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 	public var context(get, null):Context;
 
 	#if coro.stack_traces
+	// Set once a start has been requested, after which `start` no longer changes the call frame.
+	// The state can't tell this, because a task whose start was dispatched is still `Created`.
 	var callFrameLocked:Bool;
 	var startPos:Null<haxe.PosInfos>;
 	var callerTask:Null<IStackFrame>;
@@ -118,11 +120,7 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 	/**
 		Called once when the task starts running. Subclasses override this to begin their work.
 	**/
-	public function doStart() {
-		#if coro.stack_traces
-		callFrameLocked = true;
-		#end
-	}
+	public function doStart() {}
 
 	/**
 		Creates a lazy child task to execute `lambda`. The child task does not execute until its `start`
@@ -182,8 +180,7 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 	/**
 		Starts executing this task. Has no effect if the task has already been started or has completed.
 
-		The start is dispatched on the dispatcher of the task's context, so the task may not have run
-		yet when this function returns.
+		The task might not have started running yet when this function returns.
 
 		When called from inside a task lambda, pass `node` as `caller` to include the calling task
 		in exception stack traces (e.g. `task1.start(node)`).
@@ -198,7 +195,9 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 			this.startPos = startPos;
 		}
 		#end
-		// Only saves a dispatch, starting twice would be harmless.
+		// A task that is no longer `Created` has started already. A task whose start was dispatched
+		// but hasn't run yet is still `Created` and gets dispatched again, but `activate` only starts
+		// it once.
 		if (state.load() == Created) {
 			dispatchStart();
 		}

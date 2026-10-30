@@ -46,6 +46,17 @@ class CoroTask<T> extends CoroBaseTask<T> implements IContinuation<T> {
 	}
 
 	/**
+		The creator of this task does its work, so there is nothing to dispatch and the task starts
+		right away.
+	**/
+	function dispatchStart() {
+		#if coro.stack_traces
+		callFrameLocked = true;
+		#end
+		activate();
+	}
+
+	/**
 		Resumes the task with the provided `result` and `error`.
 	**/
 	public function resume(result:T, error:Exception) {
@@ -103,13 +114,14 @@ class CoroTaskWithLambda<T> extends CoroTask<T> implements IDispatchObject imple
 	}
 
 	/**
-		Starts this task right away on the calling thread, keeping the creation site as its call frame.
+		Starts this task right away on the calling thread instead of through its context's dispatcher,
+		keeping the creation site as its call frame.
 
 		This is only correct if the caller already runs on the dispatcher of this task's context, as
 		`Coro.scope` does, which creates the task with the caller's own context.
 	**/
 	@:allow(hxcoro)
-	function startHere() {
+	function startUndispatched() {
 		#if coro.stack_traces
 		callFrameLocked = true;
 		#end
