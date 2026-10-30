@@ -250,17 +250,6 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 		}
 	}
 
-	final function beginCompleting(result:T) {
-		if (ownWorkSucceeds()) {
-			this.result = result;
-			startChildren();
-		}
-	}
-
-	final function beginCancelling(error:Exception) {
-		ownWorkFails(error);
-	}
-
 	// strategy dispatcher
 
 	function complete() {
