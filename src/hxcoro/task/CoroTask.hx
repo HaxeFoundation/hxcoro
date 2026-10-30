@@ -46,12 +46,14 @@ class CoroTask<T> extends CoroBaseTask<T> implements IContinuation<T> {
 	**/
 	public function resume(result:T, error:Exception) {
 		if (error == null) {
-			beginCompleting(result);
-			checkCompletion();
+			if (ownWorkSucceeds()) {
+				this.result = result;
+				startChildren();
+			}
 		} else {
-			beginCancelling(error);
-			checkCompletion();
+			ownWorkFails(error);
 		}
+		checkCompletion();
 	}
 
 	#if sys

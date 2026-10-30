@@ -32,8 +32,7 @@ class CancellationHandle implements ICancellationHandle {
 			return;
 		}
 
-		final error = task.getError();
-		callback.onCancellation(error.orCancellationException());
+		callback.onCancellation(task.cancellationException.orCancellationException());
 	}
 
 	public function close() {
