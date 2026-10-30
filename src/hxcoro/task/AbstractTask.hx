@@ -270,7 +270,8 @@ abstract class AbstractTask implements ICancellationToken {
 	}
 
 	/**
-		Starts executing this task. Has no effect if the task has already been started or has completed.
+		Moves this task from `Created` to `Running` and runs its own work, on the calling thread. Has no
+		effect if the task has already been started or has completed.
 	**/
 	function activate() {
 		if (state.compareExchange(Created, Running) == Created) {
@@ -282,7 +283,7 @@ abstract class AbstractTask implements ICancellationToken {
 			}
 			// Only start if the task wasn't successfully cancelled
 			if (state.load() == Running) {
-				doStart();
+				runOwnWork();
 			} else if (state.compareExchange(CancellationRequested, Cancelling) == CancellationRequested) {
 				// The task's own work never starts.
 				checkCompletion();
@@ -291,11 +292,11 @@ abstract class AbstractTask implements ICancellationToken {
 	}
 
 	/**
-		Arranges for `activate` to be called where this task is supposed to run.
+		Arranges for `activate` to be called where this task is supposed to run, which may be right away.
 
 		Calling this more than once is harmless, because `activate` only starts a created task.
 	**/
-	abstract function dispatchStart():Void;
+	abstract function requestActivation():Void;
 
 	function lockChildren() {
 		while (true) {
@@ -343,7 +344,7 @@ abstract class AbstractTask implements ICancellationToken {
 				final children = getCurrentChildren();
 				numActiveChildren.store(activeChildren);
 				for (child in children) {
-					child.dispatchStart();
+					child.requestActivation();
 				}
 		}
 	}
@@ -389,7 +390,10 @@ abstract class AbstractTask implements ICancellationToken {
 		cancel();
 	}
 
-	abstract function doStart():Void;
+	/**
+		Runs this task's own work. Called by `activate` once the task is `Running`.
+	**/
+	abstract function runOwnWork():Void;
 
 	abstract function complete():Void;
 

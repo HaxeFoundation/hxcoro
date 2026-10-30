@@ -84,8 +84,8 @@ class Coro {
 		return suspend(cont -> {
 			final context = cont.context;
 			final scope = new CoroTaskWithLambda(context, lambda, CoroTask.CoroScopeStrategy#if coro.stack_traces, startPos#end);
-			// The scope has our context, so it runs on our dispatcher and can start without dispatching.
-			scope.startUndispatched();
+			// The scope has our context, so we already run on its dispatcher and can activate it ourselves.
+			scope.onDispatch();
 			scope.awaitContinuation(cont#if coro.stack_traces, startPos#end);
 		});
 	}
@@ -102,7 +102,7 @@ class Coro {
 		return suspend(cont -> {
 			final context = cont.context;
 			final scope = new CoroTaskWithLambda(context, lambda, CoroTask.CoroSupervisorStrategy#if coro.stack_traces, startPos#end);
-			scope.startUndispatched();
+			scope.onDispatch();
 			scope.awaitContinuation(cont#if coro.stack_traces, startPos#end);
 		});
 	}
@@ -126,7 +126,7 @@ class Coro {
 		return suspend(cont -> {
 			final context = cont.context;
 			final scope = new CoroTaskWithLambda(context, lambda, CoroTask.CoroScopeStrategy#if coro.stack_traces, startPos#end);
-			scope.startUndispatched();
+			scope.onDispatch();
 			final handle = context.scheduleFunction(ms, () -> {
 				#if coro.stack_traces
 				context.setExceptionStack(cast cont, exception);

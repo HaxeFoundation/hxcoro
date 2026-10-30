@@ -31,8 +31,8 @@ function entryImplicit() {
 	Same as entryImplicit, but a sibling async task also calls `task.await()`
 	after the lazy task has been started implicitly (sibling's delay fires at 5ms,
 	lazy task throws at 10ms, so the sibling's awaitContinuation runs first).
-	The `doStart()` hook sets `callFrameLocked = true` so the sibling's
-	`awaitContinuation` call cannot overwrite the lazy() call-site startPos.
+	Starting the children via `requestActivation()` sets `callFrameLocked = true`, so the
+	sibling's `awaitContinuation` call cannot overwrite the lazy() call-site startPos.
 **/
 function entryImplicitThenAwaited() {
 	Setup.createVirtualTrampoline().createContext().runTask(node -> {

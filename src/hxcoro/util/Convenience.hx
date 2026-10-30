@@ -169,7 +169,7 @@ class ContextConvenience {
 	**/
 	static public function async<T>(context:Context, lambda:NodeLambda<T>):ICoroTask<T> {
 		final task = new CoroTaskWithLambda<T>(context, lambda, CoroTask.CoroChildStrategy);
-		task.dispatchStart();
+		task.requestActivation();
 		return task;
 	}
 

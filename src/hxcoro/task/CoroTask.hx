@@ -46,15 +46,20 @@ class CoroTask<T> extends CoroBaseTask<T> implements IContinuation<T> {
 	}
 
 	/**
-		The creator of this task does its work, so there is nothing to dispatch and the task starts
-		right away.
+		The creator of this task does its work, so there is nothing to dispatch and the task is
+		activated right away.
 	**/
-	function dispatchStart() {
+	function requestActivation() {
 		#if coro.stack_traces
 		callFrameLocked = true;
 		#end
 		activate();
 	}
+
+	/**
+		The creator of this task does its work, so there is nothing to run here.
+	**/
+	function runOwnWork() {}
 
 	/**
 		Resumes the task with the provided `result` and `error`.
@@ -94,7 +99,7 @@ class CoroTaskWithLambda<T> extends CoroTask<T> implements IDispatchObject imple
 
 	/**
 		Creates a new task using the provided `context` in order to execute `lambda`. The task doesn't
-		run until it is started, usually with `dispatchStart`.
+		run until it is started.
 	**/
 	public function new(context:Context, lambda:NodeLambda<T>, nodeStrategy:INodeStrategy#if coro.stack_traces, ?startPos:haxe.PosInfos#end) {
 		this.lambda = lambda;
@@ -102,11 +107,11 @@ class CoroTaskWithLambda<T> extends CoroTask<T> implements IDispatchObject imple
 	}
 
 	/**
-		Starts this task through its context's dispatcher. Unless `start` set a caller before, this
-		keeps the creation site as the task's call frame.
+		Dispatches this task on its context's dispatcher, which then calls `onDispatch`. Unless `start`
+		set a caller before, this keeps the creation site as the task's call frame.
 	**/
 	@:allow(hxcoro)
-	override function dispatchStart() {
+	override function requestActivation() {
 		#if coro.stack_traces
 		callFrameLocked = true;
 		#end
@@ -114,29 +119,18 @@ class CoroTaskWithLambda<T> extends CoroTask<T> implements IDispatchObject imple
 	}
 
 	/**
-		Starts this task right away on the calling thread instead of through its context's dispatcher,
-		keeping the creation site as its call frame.
-
-		This is only correct if the caller already runs on the dispatcher of this task's context, as
-		`Coro.scope` does, which creates the task with the caller's own context.
+		Activates this task on the calling thread. The dispatcher calls this, and so do functions
+		like `Coro.scope`, which create the task with the caller's own context and therefore already
+		run on its dispatcher.
 	**/
-	@:allow(hxcoro)
-	function startUndispatched() {
-		#if coro.stack_traces
-		callFrameLocked = true;
-		#end
-		activate();
-	}
-
 	public function onDispatch() {
 		activate();
 	}
 
 	/**
-		Starts executing this task's `lambda`. Has no effect if the task has already been started or has completed.
+		Runs this task's `lambda`.
 	**/
-	override public function doStart() {
-		super.doStart();
+	override function runOwnWork() {
 		lambda(this, this);
 	}
 }

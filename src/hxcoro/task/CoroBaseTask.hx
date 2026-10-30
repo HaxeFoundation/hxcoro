@@ -118,11 +118,6 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 	}
 
 	/**
-		Called once when the task starts running. Subclasses override this to begin their work.
-	**/
-	public function doStart() {}
-
-	/**
 		Creates a lazy child task to execute `lambda`. The child task does not execute until its `start`
 		method is called. This occurs automatically once this task has finished execution, or right away if
 		it already has.
@@ -135,7 +130,7 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 			case Completing | Cancelling:
 				// This task has already started or cancelled its children, so start the child like `async`
 				// does. If this task is cancelling, activate cancels it.
-				task.dispatchStart();
+				task.requestActivation();
 			case Created | Running | CancellationRequested | Completed | Cancelled:
 		}
 		return task;
@@ -146,7 +141,7 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 	**/
 	public function async<T>(lambda:NodeLambda<T>#if coro.stack_traces, ?startPos:haxe.PosInfos#end):ICoroTask<T> {
 		final task = new CoroTaskWithLambda<T>(context, lambda, CoroTask.CoroChildStrategy#if coro.stack_traces, startPos#end);
-		task.dispatchStart();
+		task.requestActivation();
 		return task;
 	}
 
@@ -199,7 +194,7 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 		// but hasn't run yet is still `Created` and gets dispatched again, but `activate` only starts
 		// it once.
 		if (state.load() == Created) {
-			dispatchStart();
+			requestActivation();
 		}
 	}
 

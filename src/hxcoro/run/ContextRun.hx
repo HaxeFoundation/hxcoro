@@ -28,7 +28,7 @@ class ContextRun {
 			new CoroTaskWithLambda(context, lambda, strategy, callPos);
 		}
 		if (start) {
-			task.dispatchStart();
+			task.requestActivation();
 		}
 		return task;
 	}
@@ -38,7 +38,7 @@ class ContextRun {
 	static function createEntryTask<T>(context:Context, lambda:NodeLambda<T>, strategy:CoroScopeStrategy, start:Bool) {
 		final task = new CoroTaskWithLambda(context, lambda, strategy);
 		if (start) {
-			task.dispatchStart();
+			task.requestActivation();
 		}
 		return task;
 	}
