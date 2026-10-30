@@ -42,12 +42,8 @@ class Coro {
 	**/
 	@:coroutine(transformed)
 	public static function suspendCancellable<T>(completion:IContinuation<T>, func:SuspendCancellableFunc<T>):SuspensionResult<T> {
-		var safe = new CancellingContinuation(completion);
-		final onCancellationRequested = func(safe);
-		if (onCancellationRequested != null) {
-			safe.onCancellationRequested = onCancellationRequested;
-		}
-		return safe.resolve();
+		final safe = new CancellingContinuation(completion);
+		return safe.resolve(func(safe));
 	}
 
 	static function delayImpl<T>(ms:Int, cont:IContinuation<T>) {
