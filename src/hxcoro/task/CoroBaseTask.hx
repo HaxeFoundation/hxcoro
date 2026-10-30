@@ -126,10 +126,21 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 
 	/**
 		Creates a lazy child task to execute `lambda`. The child task does not execute until its `start`
-		method is called. This occurs automatically once this task has finished execution.
+		method is called. This occurs automatically once this task has finished execution, or right away if
+		it already has.
 	**/
 	public function lazy<T>(lambda:NodeLambda<T>#if coro.stack_traces, ?startPos:haxe.PosInfos#end):IStartableCoroTask<T> {
-		return new CoroTaskWithLambda(context, lambda, CoroTask.CoroChildStrategy, Created#if coro.stack_traces, startPos#end);
+		final task = new CoroTaskWithLambda(context, lambda, CoroTask.CoroChildStrategy, Created#if coro.stack_traces, startPos#end);
+		// The task is already registered as a child here, so if this task's own work finishes after this
+		// check, startChildren or cancelChildren still sees it.
+		switch (state.load()) {
+			case Completing | Cancelling:
+				// This task has already started or cancelled its children, so start the child like `async`
+				// does. If this task is cancelling, activate cancels it.
+				task.dispatchStart();
+			case Created | Running | CancellationRequested | Completed | Cancelled:
+		}
+		return task;
 	}
 
 	/**

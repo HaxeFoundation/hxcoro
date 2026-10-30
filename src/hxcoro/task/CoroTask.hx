@@ -84,11 +84,19 @@ class CoroTaskWithLambda<T> extends CoroTask<T> implements IDispatchObject imple
 		this.lambda = lambda;
 		super(context, nodeStrategy, Created#if coro.stack_traces,startPos#end);
 		if (initialState == Running) {
-			#if coro.stack_traces
-			callFrameLocked = true;
-			#end
-			context.dispatchOrCall(this);
+			dispatchStart();
 		}
+	}
+
+	/**
+		Starts this task through its context's dispatcher, keeping its creation site as its call frame.
+	**/
+	@:allow(hxcoro.task.CoroBaseTask)
+	function dispatchStart() {
+		#if coro.stack_traces
+		callFrameLocked = true;
+		#end
+		context.dispatchOrCall(this);
 	}
 
 	public function onDispatch() {
