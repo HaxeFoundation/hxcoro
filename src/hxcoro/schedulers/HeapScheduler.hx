@@ -1,7 +1,5 @@
 package hxcoro.schedulers;
 
-import hxcoro.concurrent.BackOff;
-import hxcoro.schedulers.ILoop;
 import haxe.coro.IContinuation;
 import haxe.Timer;
 import haxe.Int64;
@@ -10,6 +8,9 @@ import haxe.exceptions.ArgumentException;
 import haxe.coro.schedulers.IScheduler;
 import haxe.coro.schedulers.ISchedulerHandle;
 
+/**
+	Base class for schedulers that keep scheduled events in a `MinimumHeap` ordered by due time.
+**/
 class HeapScheduler implements IScheduler {
 	final futureMutex : Mutex;
 	final heap : MinimumHeap;
@@ -35,48 +36,14 @@ class HeapScheduler implements IScheduler {
 		return event;
     }
 
-	public function now() {
+	public function now():Int64 {
+		#if lua_vanilla
+		// Timer.stamp() calls Sys.time() which is not available in -D lua-vanilla.
+		// Use lua.Os.clock() (CPU time, seconds) as a substitute.
+		return haxe.Int64.ofInt(Std.int(lua.Os.clock() * 1000));
+		#else
 		return Timer.milliseconds();
+		#end
 	}
 
-}
-
-class EventLoopScheduler extends HeapScheduler implements ILoop {
-	function loopOnce() {
-		final currentTime = now();
-		var didSomething = false;
-		while (true) {
-			futureMutex.acquire();
-			var minimum = heap.minimum();
-			if (minimum == null || minimum.runTime > currentTime) {
-				break;
-			}
-
-			heap.extract();
-			futureMutex.release();
-
-			didSomething = true;
-			minimum.dispatch();
-		}
-
-		futureMutex.release();
-		return didSomething;
-	}
-
-	public function loop(runMode:RunMode) {
-		switch (runMode) {
-			case NoWait:
-				loopOnce();
-			case Once:
-				while (!loopOnce()) {
-					BackOff.backOff();
-				}
-		}
-	}
-
-	public function wakeUp() {}
-
-	public function toString() {
-		return '[EventLoopScheduler]';
-	}
 }

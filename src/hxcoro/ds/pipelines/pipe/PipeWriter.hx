@@ -4,6 +4,9 @@ import haxe.Exception;
 import haxe.io.ArrayBufferView;
 import haxe.exceptions.ArgumentException;
 
+/**
+	The writer of a `Pipe`.
+**/
 class PipeWriter implements IPipeWriter {
 	final state : State;
 

@@ -2,7 +2,7 @@
   "name": "hxcoro",
   "version": "0.0.1",
   "url": "https://github.com/HaxeFoundation/hxcoro/",
-  "license": "GPL",
+  "license": "MIT",
   "tags": [],
   "classPath": "src",
   "contributors": [

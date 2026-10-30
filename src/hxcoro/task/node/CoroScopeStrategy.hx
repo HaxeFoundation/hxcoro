@@ -3,6 +3,10 @@ package hxcoro.task.node;
 import haxe.Exception;
 import haxe.exceptions.CancellationException;
 
+/**
+	Strategy for scope tasks such as `Coro.scope`, which are cancelled when one of their children fails
+	but not when a child is cancelled, and do not report their outcome to their parent.
+**/
 @:access(hxcoro.task.AbstractTask)
 @:access(hxcoro.task.CoroTask)
 class CoroScopeStrategy implements INodeStrategy {
@@ -20,7 +24,7 @@ class CoroScopeStrategy implements INodeStrategy {
 			case Created | Running | Completing:
 				// inherit child error
 				task.doCancel(cause);
-			case Cancelling | Completed | Cancelled:
+			case CancellationRequested | Cancelling | Completed | Cancelled:
 		}
 	}
 

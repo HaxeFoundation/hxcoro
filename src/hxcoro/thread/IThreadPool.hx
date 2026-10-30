@@ -29,6 +29,13 @@ interface IThreadPool {
 		have shut down.
 
 		Multiple calls to this method have no effect.
+
+		The pool must outlive every coroutine task that dispatches to it. Shutting it
+		down while such a task is still active leaves the task stranded: continuations
+		that are dispatched after the shutdown completed are rejected with an exception,
+		and a loop that waits for the task (e.g. via `hxcoro.run.LoopRun`) may block
+		forever if nothing else wakes it up. Wait for the task to complete before
+		shutting down the pool.
 	**/
 	function shutDown(block:Bool = false):Void;
 }

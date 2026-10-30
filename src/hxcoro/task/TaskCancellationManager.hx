@@ -10,6 +10,9 @@ private enum abstract HandleState(Int) to Int {
 	final Closed;
 }
 
+/**
+	A cancellation callback registered with a task via `TaskCancellationManager`.
+**/
 class CancellationHandle implements ICancellationHandle {
 	final callback:ICancellationCallback;
 	final manager:TaskCancellationManager;
@@ -21,13 +24,15 @@ class CancellationHandle implements ICancellationHandle {
 		closed = new AtomicState(Open);
 	}
 
+	/**
+		Invokes the callback with `task`'s cancellation cause, unless this handle has already run or been closed.
+	**/
 	public function run(task:AbstractTask) {
 		if (closed.compareExchange(Open, Closed) != Open) {
 			return;
 		}
 
-		final error = task.getError();
-		callback.onCancellation(error.orCancellationException());
+		callback.onCancellation(task.cancellationException.orCancellationException());
 	}
 
 	public function close() {
@@ -37,9 +42,12 @@ class CancellationHandle implements ICancellationHandle {
 	}
 }
 
+/**
+	Holds the cancellation callbacks registered with a task and runs them once the task is cancelled.
+**/
 class TaskCancellationManager extends ThreadSafeCallbacks<ICancellationCallback, CancellationHandle, ICancellationHandle> {
 	public function new(task:AbstractTask) {
-		super(handle -> handle.run(task));
+		super(handle -> handle.run(task), error -> task.reportCallbackError(error));
 	}
 
 	function createHandle(element:ICancellationCallback) {

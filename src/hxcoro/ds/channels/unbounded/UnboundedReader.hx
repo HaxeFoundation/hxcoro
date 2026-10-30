@@ -14,8 +14,6 @@ private final class WaitContinuation<T> implements IContinuation<Bool> {
 
 	final buffer : PagedDeque<T>;
 
-	final closed : Out<Bool>;
-
 	final lock : Mutex;
 
 	public var context (get, never) : Context;
@@ -24,19 +22,17 @@ private final class WaitContinuation<T> implements IContinuation<Bool> {
 		return cont.context;
 	}
 
-	public function new(cont, buffer, closed, lock) {
+	public function new(cont, buffer, lock) {
 		this.cont   = cont;
 		this.buffer = buffer;
-		this.closed = closed;
 		this.lock   = lock;
 	}
 
 	public function resume(result:Null<Bool>, error:Null<Exception>) {
 		final result = lock.with(() -> {
 			return if (false == result) {
-				closed.set(false);
-
-				buffer.isEmpty();
+				// The channel was closed, but there might still be data left to read.
+				buffer.isEmpty() == false;
 			} else {
 				true;
 			}
@@ -46,6 +42,9 @@ private final class WaitContinuation<T> implements IContinuation<Bool> {
 	}
 }
 
+/**
+	The reader of a channel created by `Channel.createUnbounded`.
+**/
 final class UnboundedReader<T> implements IChannelReader<T> {
 	final buffer : PagedDeque<T>;
 
@@ -101,7 +100,7 @@ final class UnboundedReader<T> implements IChannelReader<T> {
 		}
 
 		return suspendCancellable(cont -> {
-			final obj       = new WaitContinuation(cont, buffer, closed, lock);
+			final obj       = new WaitContinuation(cont, buffer, lock);
 			final hostPage  = readWaiters.push(obj);
 
 			lock.release();

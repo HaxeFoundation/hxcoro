@@ -10,13 +10,45 @@ import haxe.atomic.AtomicObject;
 import hxcoro.concurrent.AtomicState;
 import hxcoro.concurrent.BackOff;
 
+/**
+	The lifecycle state of a task.
+**/
 @:using(AbstractTask.TaskStateTools)
 enum abstract TaskState(Int) to Int {
+	/**
+		The task has been created but not started.
+	**/
 	final Created;
+
+	/**
+		The task has been started and its own work has not finished yet.
+	**/
 	final Running;
+
+	/**
+		Cancellation of the task has been requested, but its own work has not finished yet.
+	**/
+	final CancellationRequested;
+
+	/**
+		The task's own work has finished with a result and it is waiting for its children to complete.
+	**/
 	final Completing;
+
+	/**
+		The task and all its children have completed successfully. This is a final state.
+	**/
 	final Completed;
+
+	/**
+		The task's own work has failed, been cancelled or never started, and it is waiting for its
+		children to complete.
+	**/
 	final Cancelling;
+
+	/**
+		The task has completed with an error, which `getError` returns. This is a final state.
+	**/
 	final Cancelled;
 }
 
@@ -25,6 +57,7 @@ private class TaskStateTools {
 		return switch (state) {
 			case Created: "Created";
 			case Running: "Running";
+			case CancellationRequested: "CancellationRequested";
 			case Completing: "Completing";
 			case Completed: "Completed";
 			case Cancelling: "Cancelling";
@@ -33,6 +66,9 @@ private class TaskStateTools {
 	};
 }
 
+/**
+	Raised as a task's error when the task detects an invalid internal state.
+**/
 class TaskException extends Exception {}
 
 /**
@@ -51,7 +87,14 @@ abstract class AbstractTask implements ICancellationToken {
 	final error:AtomicObject<Null<Exception>>;
 	final state:AtomicState<TaskState>;
 
+	/**
+		The task's unique id, assigned on creation.
+	**/
 	public var id(get, null):Int;
+
+	/**
+		`null` if the task is not cancelling, otherwise its error as a `CancellationException`.
+	**/
 	public var cancellationException(get, never):Null<CancellationException>;
 
 	// children
@@ -62,6 +105,9 @@ abstract class AbstractTask implements ICancellationToken {
 	var previousSibling:Null<AbstractTask>;
 
 	function get_cancellationException() {
+		if (!isCancelling()) {
+			return null;
+		}
 		return switch (error.load()) {
 			case null: null;
 			case error: error.orCancellationException();
@@ -95,10 +141,12 @@ abstract class AbstractTask implements ICancellationToken {
 	}
 
 	/**
-		Returns the task's error value, if any/
+		Returns the task's error value if it has completed with one, or `null` otherwise.
 	**/
 	public function getError() {
-		return error.load();
+		// The state is the authority: `error` can be set on a task that completes successfully
+		// anyway, or is still cancelling, and in neither case is it the task's outcome.
+		return state.load() == Cancelled ? error.load() : null;
 	}
 
 	/**
@@ -114,24 +162,92 @@ abstract class AbstractTask implements ICancellationToken {
 		doCancel(cause);
 	}
 
+	/**
+		Requests cancellation of this task with `error` as its cause.
+
+		The state is the authority on whether the task is cancelling. `error` is only meaningful once the
+		state says so, which is why it is set before any transition to a cancelling state, and why the
+		first error wins.
+	**/
 	function doCancel(error:Exception) {
-		if (this.error.compareExchange(null, error) != null) {
-			// Already done
-			checkCompletion();
-			return;
+		this.error.compareExchange(null, error);
+		while (true) {
+			final current = state.load();
+			switch (current) {
+				case Created | Running | Completing:
+					// A running task has to finish its own work first. A created task never starts it.
+					final next = current == Running ? CancellationRequested : Cancelling;
+					if (state.compareExchange(current, next) == current) {
+						beginCancellation();
+						break;
+					}
+				case CancellationRequested | Cancelling | Completed | Cancelled:
+					// Already cancelling, or the outcome is final.
+					break;
+			}
 		}
-		final cause = error.orCancellationException();
-		cancellationManager.run();
-		final cause = new CancellationException();
-		#if !js
-		cause.stack = error.stack;
-		#end
-		cancelChildren(cause);
 		checkCompletion();
 	}
 
 	/**
-		Returns `true` if the task is still active. Note that an task that was created but not started yet
+		Called by the thread that moved this task to a cancelling state. Runs the cancellation callbacks,
+		which has no effect after the first time, and cancels all current children.
+	**/
+	function beginCancellation() {
+		@:nullSafety(Off) final error:Exception = error.load();
+		cancellationManager.run();
+		cancelChildren(error.orCancellationException());
+	}
+
+	/**
+		Called when the task's own work has finished successfully. Returns `true` if the task is now
+		completing with a result, or `false` if cancellation was requested before.
+
+		The caller is responsible for calling `checkCompletion` afterwards.
+	**/
+	final function ownWorkSucceeds() {
+		while (true) {
+			switch (state.load()) {
+				case Running:
+					if (state.compareExchange(Running, Completing) == Running) {
+						return true;
+					}
+				case CancellationRequested:
+					if (state.compareExchange(CancellationRequested, Cancelling) == CancellationRequested) {
+						// Cancel children that were created after the cancellation request.
+						beginCancellation();
+						return false;
+					}
+				case Created | Completing | Cancelling | Completed | Cancelled:
+					return false;
+			}
+		}
+	}
+
+	/**
+		Called when the task's own work has failed with `error`. Unlike `doCancel`, this cannot be
+		prevented, but if cancellation was requested before, the error of that request is kept.
+
+		The caller is responsible for calling `checkCompletion` afterwards.
+	**/
+	final function ownWorkFails(error:Exception) {
+		this.error.compareExchange(null, error);
+		while (true) {
+			final current = state.load();
+			switch (current) {
+				case Running | CancellationRequested:
+					if (state.compareExchange(current, Cancelling) == current) {
+						beginCancellation();
+						return;
+					}
+				case Created | Completing | Cancelling | Completed | Cancelled:
+					return;
+			}
+		}
+	}
+
+	/**
+		Returns `true` if the task is still active. Note that a task that was created but not started yet
 		is considered to be active.
 	**/
 	public function isActive() {
@@ -143,8 +259,17 @@ abstract class AbstractTask implements ICancellationToken {
 		}
 	}
 
+	/**
+		Returns `true` if cancellation has been requested or the task has failed. This remains `true`
+		after the task has completed.
+	**/
 	public function isCancelling() {
-		return error.load() != null;
+		return switch (state.load()) {
+			case CancellationRequested | Cancelling | Cancelled:
+				true;
+			case Created | Running | Completing | Completed:
+				false;
+		}
 	}
 
 	public function onCancellationRequested(callback:ICancellationCallback):Null<ICancellationHandle> {
@@ -152,21 +277,21 @@ abstract class AbstractTask implements ICancellationToken {
 	}
 
 	/**
-		Starts executing this task. Has no effect if the task is already active or has completed.
+		Starts executing this task. Has no effect if the task has already been started or has completed.
 	**/
 	function activate() {
 		if (state.compareExchange(Created, Running) == Created) {
 			// Check if parent is cancelling and attempt to cancel this task before starting.
 			// If the task has NonCancellable context, doCancel() will return early and
-			// isCancelling() will still be false, allowing the task to start.
+			// the task stays Running, allowing it to start.
 			if (parent != null && parent.isCancelling()) {
 				cancel();
 			}
 			// Only start if the task wasn't successfully cancelled
-			if (!isCancelling()) {
+			if (state.load() == Running) {
 				doStart();
-			} else if (state.compareExchange(Running, Cancelling) == Running) {
-				// If the task started but was already cancelling, transition to Cancelling state.
+			} else if (state.compareExchange(CancellationRequested, Cancelling) == CancellationRequested) {
+				// The task's own work never starts.
 				checkCompletion();
 			}
 		}
@@ -244,17 +369,10 @@ abstract class AbstractTask implements ICancellationToken {
 		}
 
 		switch (state.load()) {
-			case Created:
-				if (state.compareExchange(Created, Cancelled) == Created) {
-					complete();
-				}
-			case Running:
-				// Definitely not yet completed.
-			case Completing if (isCancelling()):
-				if (state.compareExchange(Completing, Cancelled) == Completing) {
-					complete();
-				}
+			case Created | Running | CancellationRequested:
+				// The task's own work has not finished yet.
 			case Completing:
+				// If this fails, the task was cancelled concurrently and whoever did that checks again.
 				if (state.compareExchange(Completing, Completed) == Completing) {
 					complete();
 				}
@@ -276,6 +394,14 @@ abstract class AbstractTask implements ICancellationToken {
 	abstract function complete():Void;
 
 	abstract function childrenCompleted():Void;
+
+	/**
+		Reports `error`, which a callback registered with this task threw, without unwinding
+		through the task machinery.
+	**/
+	@:allow(hxcoro.task.TaskCancellationManager)
+	@:allow(hxcoro.task.TaskContinuationManager)
+	abstract function reportCallbackError(error:Exception):Void;
 
 	abstract function childSucceeds(child:AbstractTask):Void;
 

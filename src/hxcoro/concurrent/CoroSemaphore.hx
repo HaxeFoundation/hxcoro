@@ -6,11 +6,24 @@ import hxcoro.concurrent.exceptions.SemaphoreFullException;
 import hxcoro.ds.PagedDeque;
 import haxe.atomic.AtomicInt;
 
+/**
+	A counting semaphore for coroutines that limits concurrent access to a resource
+	to a number of permits. Coroutines waiting in `acquire` are resumed in the order
+	in which they started waiting.
+**/
 class CoroSemaphore {
 	@:nullSafety(Off) final maxFree:Int;
 	var deque:PagedDeque<IContinuation<Any>>;
 	var free:AtomicInt;
 
+	/**
+		Creates a new `CoroSemaphore` instance with `free` initially available permits.
+
+		`maxFree` is the maximum number of permits and defaults to `free`, so it has to be
+		set if the semaphore starts without any free permits. An `ArgumentException` is
+		thrown if `free` is negative, if `maxFree` is less than 1, or if `free` exceeds
+		`maxFree`.
+	**/
 	@:nullSafety(Off)
 	public function new(free:Int, ?maxFree:Int) {
 		if (free < 0) {
@@ -33,6 +46,9 @@ class CoroSemaphore {
 		deque = new PagedDeque();
 	}
 
+	/**
+		Acquires a permit, suspending until one becomes available if necessary.
+	**/
 	@:coroutine public function acquire() {
 		// CAS loop until we update the free atomic or it reports full.
 		while (true) {
@@ -54,13 +70,69 @@ class CoroSemaphore {
 		}
 		// If we get here, free is == -1
 		suspendCancellable(cont -> {
-			deque.push(cont);
+			final page = deque.push(cont);
 			// Unlock
 			free.store(0);
-			null;
+			_ -> onWaiterCancelled(page, cont);
 		});
 	}
 
+	/**
+		Called if cancellation wins over the resumption of a waiter, so its `acquire` throws and
+		the waiter never receives a permit. If the waiter is still in the deque, it is removed.
+		Otherwise, `release` has already set a permit aside for it, which is passed on.
+	**/
+	function onWaiterCancelled(page, cont:IContinuation<Any>) {
+		while (true) {
+			final old = free.load();
+			if (old < 0) {
+				// Someone has the "mutex", let's wait
+				BackOff.backOff();
+				continue;
+			}
+			if (old > 0) {
+				// The deque is empty while permits are free, so `release` set a permit aside for
+				// the waiter that it will never receive.
+				release();
+				return;
+			}
+			if (free.compareExchange(0, -1) == 0) {
+				break;
+			}
+			BackOff.backOff();
+		}
+		// If we get here, free == -1.
+		if (deque.remove(page, cont)) {
+			free.store(0);
+		} else {
+			handOff();
+		}
+	}
+
+	/**
+		Must be called with free == -1. Hands a permit to the first waiter, or makes it
+		available if there are none.
+	**/
+	function handOff() {
+		if (deque.isEmpty()) {
+			// Empty deque also means there's room for 1.
+			free.store(1);
+			return;
+		}
+		@:nullSafety(Off) final cont:IContinuation<Any> = deque.pop();
+		// There's a continuation to execute, so free is 0 again.
+		free.store(0);
+		// Resume directly instead of dispatching, so that the hand-off is decided right away. If
+		// cancellation wins over it, the waiter never receives the permit set aside for it, and
+		// its cancellation callback passes the permit on.
+		// The waiter's coroutine is still dispatched.
+		cont.resume(null, null);
+	}
+
+	/**
+		If a permit is available, acquires it and returns `true`. Otherwise, returns `false`
+		without suspending.
+	**/
 	public function tryAcquire() {
 		while (true) {
 			var free = free.load();
@@ -73,6 +145,13 @@ class CoroSemaphore {
 		}
 	}
 
+	/**
+		Releases a permit. If coroutines are waiting in `acquire`, the permit is handed
+		to the first one, which is then resumed.
+
+		Throws a `SemaphoreFullException` if the number of available permits is already
+		at its maximum.
+	**/
 	public function release() {
 		var old = free.load();
 		while (true) {
@@ -108,20 +187,6 @@ class CoroSemaphore {
 			}
 		}
 		// If we get here, free == -1.
-		while (true) {
-			if (deque.isEmpty()) {
-				// Empty deque also means there's room for 1.
-				free.store(1);
-				return;
-			}
-			@:nullSafety(Off) final cont:IContinuation<Any> = deque.pop();
-			if (cont.context.isCancellationRequested()) {
-				continue;
-			}
-			// There's a continuation to execute, so free is 0 again.
-			free.store(0);
-			cont.callAsync();
-			break;
-		}
+		handOff();
 	}
 }

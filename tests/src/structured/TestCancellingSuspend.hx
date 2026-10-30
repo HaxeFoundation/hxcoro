@@ -102,4 +102,28 @@ class TestCancellingSuspend extends atest.Test {
 		Assert.isFalse(task.isActive());
 		Assert.isOfType(task.getError(), CancellationException);
 	}
+
+	/**
+		The cleanup callback must not run if the continuation was resumed normally before the
+		task was cancelled, even if the callback is only installed after the cancellation.
+	**/
+	function test_cleanup_not_called_after_normal_resume() {
+		var cleanupCalled = false;
+		var result = 0;
+		final task = VirtualRun.run(node -> {
+			final child = node.async(child -> {
+				result = suspendCancellable(cont -> {
+					cont.resume(1, null);
+					child.cancel();
+					_ -> cleanupCalled = true;
+				});
+			});
+			try {
+				child.await();
+			} catch (_:Dynamic) {}
+		});
+		Assert.isFalse(task.isActive());
+		Assert.equals(1, result);
+		Assert.isFalse(cleanupCalled, "cleanup ran for a continuation that was resumed normally");
+	}
 }

@@ -52,7 +52,7 @@ class VecDeque<T> {
 	}
 
 	public function get(idx:Int):T {
-		if (idx > length || idx < 0) {
+		if (idx >= length || idx < 0) {
 			throw "out of bounds";
 		}
 
@@ -60,7 +60,7 @@ class VecDeque<T> {
 	}
 
 	public function set(idx:Int, value:T):T {
-		if (idx > length || idx < 0) {
+		if (idx >= length || idx < 0) {
 			throw "out of bounds";
 		}
 
@@ -144,7 +144,7 @@ class VecDeque<T> {
 	}
 
 	public function removeAt(idx:Int):Null<T> {
-		if (length <= idx) {
+		if (idx < 0 || idx >= length) {
 			return null;
 		} else {
 			var storage_idx = computeIndex(idx);
@@ -152,7 +152,8 @@ class VecDeque<T> {
 			if (storage_idx >= head) {
 				Vector.blit(storage, head, storage, head + 1, storage_idx - head);
 				storage[head] = null;
-				head++;
+				// head can be the last slot of the storage, so this has to wrap around.
+				head = computeIndex(1);
 				length--;
 			} else { // storage_idx < head
 				Vector.blit(storage, storage_idx + 1, storage, storage_idx, length - idx - 1);

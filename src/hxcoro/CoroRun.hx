@@ -9,21 +9,40 @@ import hxcoro.task.NodeLambda;
 using hxcoro.run.ContextRun;
 using hxcoro.run.LoopRun;
 
+/**
+	Entry points for running coroutines from non-coroutine code.
+**/
 class CoroRun {
+	/**
+		Returns a copy of `Setup.defaultContext` with `elements` added, e.g. for use with
+		`runWith`.
+	**/
 	public static function with(...elements:IElement<Any>):Context {
 		return Setup.defaultContext.with(...elements);
 	}
 
-	static public inline function run<T>(lambda:NodeLambda<T>#if debug, ?callPos:haxe.PosInfos#end):T {
-		return runWith(Setup.defaultContext, lambda#if debug, callPos#end);
+	/**
+		Executes `lambda` in `Setup.defaultContext`, blocking until it returns or throws.
+		See `runWith` for details.
+	**/
+	static public inline function run<T>(lambda:NodeLambda<T>#if coro.stack_traces, ?callPos:haxe.PosInfos#end):T {
+		return runWith(Setup.defaultContext, lambda#if coro.stack_traces, callPos#end);
 	}
 
 	#if js
 
+	/**
+		Starts executing coroutine `f` in a new task and returns a `js.lib.Promise` that is
+		resolved with its result or rejected with its exception.
+	**/
 	overload extern static public inline function promise<T>(f:Coroutine<() -> T>):js.lib.Promise<T> {
 		return promiseImpl(_ -> f());
 	}
 
+	/**
+		Starts executing `lambda` in a new task and returns a `js.lib.Promise` that is
+		resolved with its result or rejected with its exception.
+	**/
 	overload extern static public inline function promise<T>(lambda:NodeLambda<T>):js.lib.Promise<T> {
 		return promiseImpl(lambda);
 	}
@@ -45,6 +64,10 @@ class CoroRun {
 		});
 	}
 
+	/**
+		Suspends the current coroutine until `p` settles, then returns its value or throws
+		its rejection reason.
+	**/
 	@:coroutine
 	static public function await<T>(p:js.lib.Promise<T>) {
 		return suspend(cont -> {
@@ -68,10 +91,10 @@ class CoroRun {
 		Each invocation creates its own independent `Setup` (scheduler + dispatcher),
 		so separate calls from different threads do not interfere with each other.
 	**/
-	static public function runWith<T>(context:Context, lambda:NodeLambda<T>#if debug, ?callPos:haxe.PosInfos#end):T {
+	static public function runWith<T>(context:Context, lambda:NodeLambda<T>#if coro.stack_traces, ?callPos:haxe.PosInfos#end):T {
 		final setup = Setup.createDefault();
 		final context = setup.adaptContext(context);
-		final task = setup.loop.runTask(context, lambda#if debug, callPos#end);
+		final task = setup.loop.runTask(context, lambda#if coro.stack_traces, callPos#end);
 		setup.close();
 		return @:privateAccess ContextRun.resolveTask(task);
 	}

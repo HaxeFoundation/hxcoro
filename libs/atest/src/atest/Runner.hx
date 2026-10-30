@@ -67,9 +67,9 @@ class Runner {
 		final cases = this.cases;
 		final runnerCtx = this.runnerContextElements;
 
-		// Use a single-threaded event loop for the runner itself.
+		// Use a single-threaded trampoline loop for the runner itself.
 		// Tests that need a thread pool create their own via run().
-		final setup = hxcoro.run.Setup.createEventLoopTrampoline();
+		final setup = hxcoro.run.Setup.createTrampoline();
 		final context = setup.createContext();
 		hxcoro.run.LoopRun.runTask(setup.loop, context, function(node) {
 			for (c in cases) {

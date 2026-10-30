@@ -9,6 +9,11 @@ import hxcoro.Coro.*;
 import haxe.coro.dispatchers.SelfDispatcher;
 import haxe.coro.schedulers.ImmediateScheduler;
 
+/**
+	The synchronous generator underlying `HaxeGenerator`, `CsGenerator` and
+	`Es6Generator`. The generator function is executed on the calling thread, driven
+	by calls to `hasNext` and `next`.
+**/
 class Generator<T, R> extends SuspensionResult<Iterator<T>> implements IContinuation<Iterable<T>> implements YieldingGenerator<T, R>{
 	public var context(get, null):Context;
 
@@ -16,6 +21,12 @@ class Generator<T, R> extends SuspensionResult<Iterator<T>> implements IContinua
 	var nextValue:Null<T>;
 	var nextStep:Null<IContinuation<R>>;
 
+	/**
+		Creates a new `Generator` instance that runs `f` to obtain values.
+
+		`f` starts executing on the first call to `hasNext`. If it returns a non-null
+		iterable, its elements are offered as the final values of this generator.
+	**/
 	public function new(f:Coroutine<Generator<T, R> -> Iterable<T>>) {
 		super(Pending);
 		static final generatorContext = Context.create(new SelfDispatcher(new ImmediateScheduler()));
@@ -27,6 +38,11 @@ class Generator<T, R> extends SuspensionResult<Iterator<T>> implements IContinua
 		return context;
 	}
 
+	/**
+		Returns `true` if more elements exist, `false` otherwise. If the generator
+		function threw an exception, this returns `true` and the next call to `next`
+		rethrows it.
+	**/
 	public function hasNext() {
 		return switch (state) {
 			case Pending if (nextStep == null):
@@ -42,10 +58,18 @@ class Generator<T, R> extends SuspensionResult<Iterator<T>> implements IContinua
 		}
 	}
 
+	/**
+		Returns the next element. This method must only be called after a prior call to
+		`hasNext` returned `true`. It is equivalent to `nextWith(null)`.
+	**/
 	public function next() {
 		return nextWith(null);
 	}
 
+	/**
+		Like `next`, but additionally resumes the generator function with `value` as
+		the result of the `yield` call that offered the returned element.
+	**/
 	@:nullSafety(Off)
 	public function nextWith(value:Null<R>):T {
 		return switch (state) {
@@ -76,6 +100,10 @@ class Generator<T, R> extends SuspensionResult<Iterator<T>> implements IContinua
 		}
 	}
 
+	/**
+		Offers `value` as the next element and suspends until the consumer retrieves it.
+		Returns the value passed to `nextWith`, or `null` if `next` was called.
+	**/
 	@:coroutine public function yield(value:T) {
 		nextValue = value;
 		return suspend(cont -> {
@@ -83,6 +111,9 @@ class Generator<T, R> extends SuspensionResult<Iterator<T>> implements IContinua
 		});
 	}
 
+	/**
+		Returns this generator, which allows using it as an `Iterable`.
+	**/
 	public function iterator() {
 		return this;
 	}
