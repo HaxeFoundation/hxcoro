@@ -78,9 +78,9 @@ class CoroSemaphore {
 	}
 
 	/**
-		Called if cancellation wins over the resumption of a waiter. If the waiter is still in the
-		deque, it is removed. Otherwise, `release` has already handed the permit to it, so it is
-		passed on.
+		Called if cancellation wins over the resumption of a waiter, so its `acquire` throws and
+		the waiter never receives a permit. If the waiter is still in the deque, it is removed.
+		Otherwise, `release` has already set a permit aside for it, which is passed on.
 	**/
 	function onWaiterCancelled(page, cont:IContinuation<Any>) {
 		while (true) {
@@ -91,7 +91,8 @@ class CoroSemaphore {
 				continue;
 			}
 			if (old > 0) {
-				// The deque is empty while permits are free, so the waiter was handed a permit.
+				// The deque is empty while permits are free, so `release` set a permit aside for
+				// the waiter that it will never receive.
 				release();
 				return;
 			}
@@ -122,7 +123,8 @@ class CoroSemaphore {
 		// There's a continuation to execute, so free is 0 again.
 		free.store(0);
 		// Resume directly instead of dispatching, so that the hand-off is decided right away. If
-		// cancellation wins over it, the waiter's cancellation callback passes the permit on.
+		// cancellation wins over it, the waiter never receives the permit set aside for it, and
+		// its cancellation callback passes the permit on.
 		// The waiter's coroutine is still dispatched.
 		cont.resume(null, null);
 	}
