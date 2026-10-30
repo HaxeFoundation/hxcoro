@@ -1,8 +1,5 @@
-package hxcoro.generators;
-
 import haxe.Unit;
 import haxe.coro.Coroutine;
-import hxcoro.generators.Generator;
 
 /**
 	The yield API passed to `HaxeGenerator.create` functions, supporting only

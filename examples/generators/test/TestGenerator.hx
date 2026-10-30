@@ -1,10 +1,3 @@
-package generators;
-
-import hxcoro.generators.AsyncGenerator;
-import hxcoro.generators.Yield;
-import hxcoro.generators.HaxeGenerator;
-import hxcoro.generators.Es6Generator;
-import hxcoro.generators.CsGenerator;
 import haxe.Unit;
 
 using Lambda;
@@ -226,8 +219,11 @@ class TestGenerator extends atest.Test {
 	}
 }
 
-private typedef Tree<T> = {
-	var leaf:T;
-	var ?left:Tree<T>;
-	var ?right:Tree<T>;
+// A class instead of a typedef because recursive typedefs crash the HL generator
+// (https://github.com/HaxeFoundation/haxe/issues/12256).
+@:structInit
+private class Tree<T> {
+	public final leaf:T;
+	public final left:Null<Tree<T>> = null;
+	public final right:Null<Tree<T>> = null;
 }

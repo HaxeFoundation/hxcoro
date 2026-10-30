@@ -1,0 +1,5 @@
+--class-path src
+--class-path test
+--class-path ../../libs/atest/src
+--library hxcoro
+--main Main

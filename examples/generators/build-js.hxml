@@ -1,0 +1,3 @@
+build-base.hxml
+--js bin/generators.js
+--cmd node bin/generators.js

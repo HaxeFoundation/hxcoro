@@ -1,5 +1,3 @@
-package hxcoro.generators;
-
 import haxe.Exception;
 import haxe.Unit;
 import haxe.coro.Coroutine;
@@ -8,6 +6,9 @@ import haxe.coro.SuspensionResult;
 import haxe.coro.context.Context;
 import hxcoro.concurrent.AtomicState;
 import hxcoro.concurrent.BackOff;
+import hxcoro.Coro.*;
+
+using hxcoro.util.Convenience;
 
 /**
 	The internal state of an `AsyncGenerator`.

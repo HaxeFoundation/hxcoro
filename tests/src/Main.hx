@@ -41,9 +41,6 @@ function main() {
 	atest.Macros.addCases(runner, "ds");
 	atest.Macros.addCases(runner, "elements");
 	atest.Macros.addCases(runner, "features");
-	#if !hl // TODO: ping Yuxiao about this
-	atest.Macros.addCases(runner, "generators");
-	#end
 	atest.Macros.addCases(runner, "run");
 	atest.Macros.addCases(runner, "schedulers");
 	atest.Macros.addCases(runner, "structured");

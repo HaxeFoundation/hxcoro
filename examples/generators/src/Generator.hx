@@ -1,5 +1,3 @@
-package hxcoro.generators;
-
 import haxe.Exception;
 import haxe.coro.Coroutine;
 import haxe.coro.IContinuation;
@@ -29,8 +27,9 @@ class Generator<T, R> extends SuspensionResult<Iterator<T>> implements IContinua
 	**/
 	public function new(f:Coroutine<Generator<T, R> -> Iterable<T>>) {
 		super(Pending);
-		static final generatorContext = Context.create(new SelfDispatcher(new ImmediateScheduler()));
-		this.context = generatorContext;
+		// Created lazily because a static initializer could run before the ones of haxe.coro.
+		static var generatorContext:Null<Context> = null;
+		this.context = generatorContext ??= Context.create(new SelfDispatcher(new ImmediateScheduler()));
 		this.f = f;
 	}
 

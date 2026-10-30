@@ -1,0 +1,3 @@
+build-base.hxml
+--neko bin/generators.n
+--cmd neko bin/generators.n

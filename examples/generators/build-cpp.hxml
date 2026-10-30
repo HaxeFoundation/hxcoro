@@ -1,0 +1,4 @@
+build-base.hxml
+-D HXCPP_CPP17
+--cpp bin/cpp
+--macro Macro.autoRunCpp()

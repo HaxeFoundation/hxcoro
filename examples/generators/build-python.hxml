@@ -1,0 +1,3 @@
+build-base.hxml
+--python bin/generators.py
+--cmd python bin/generators.py

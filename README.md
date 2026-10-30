@@ -1,6 +1,6 @@
 # hxcoro
 
-A coroutine library for [Haxe](https://haxe.org/), providing asynchronous calls, generators, structured concurrency, and more — across all major Haxe targets.
+A coroutine library for [Haxe](https://haxe.org/), providing asynchronous calls, structured concurrency, and more — across all major Haxe targets.
 
 ## Hello World
 
@@ -25,7 +25,6 @@ class Main {
 
 - **Asynchronous calls** — write asynchronous code in a straightforward sequential style using `@:coroutine` methods.
 - **Structured concurrency** — manage lightweight groups of child tasks with well-defined lifetimes and cancellation semantics.
-- **Generators** — produce lazy sequences with `HaxeGenerator`, `Es6Generator`, `CsGenerator`, and the async variant `AsyncGenerator`.
 - **Cancellation** — first-class `CancellationException` support throughout, with `suspendCancellable` for registering cleanup callbacks.
 - **Dispatchers & schedulers** — pluggable execution model; ships with `TrampolineDispatcher`, `ThreadPoolDispatcher`, and (on C++) `LuvDispatcher`.
 - **Cross-target** — works on JS, HL, C++, JVM, Python, PHP, Neko, and Eval.
@@ -45,3 +44,7 @@ haxe --cwd tests build-python.hxml  # Python
 haxe --cwd tests build-php.hxml     # PHP
 haxe --cwd tests build-neko.hxml    # Neko
 ```
+
+## Examples
+
+The [`examples/`](examples/) directory contains code that builds on hxcoro but isn't part of its API, such as [generators](examples/generators/). Copy and adapt it as needed.
