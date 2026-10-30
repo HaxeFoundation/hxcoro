@@ -196,11 +196,7 @@ abstract class AbstractTask implements ICancellationToken {
 	function beginCancellation() {
 		@:nullSafety(Off) final error:Exception = error.load();
 		cancellationManager.run();
-		final cause = new CancellationException();
-		#if !js
-		cause.stack = error.stack;
-		#end
-		cancelChildren(cause);
+		cancelChildren(error.orCancellationException());
 	}
 
 	/**
