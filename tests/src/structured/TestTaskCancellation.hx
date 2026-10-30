@@ -66,4 +66,25 @@ class TestTaskCancellation extends atest.Test {
 		Assert.isFalse(task.isActive());
 		Assert.same([], result);
 	}
+
+	public function testCancelAfterCompletionKeepsResult() {
+		var secondResult:Null<Int> = null;
+		var secondError:Dynamic = null;
+		var childError:Dynamic = null;
+		final task = VirtualRun.run(node -> {
+			final child = node.async(_ -> 42);
+			child.await();
+			child.cancel();
+			childError = child.getError();
+			try {
+				secondResult = child.await();
+			} catch (e:Dynamic) {
+				secondError = e;
+			}
+		});
+		Assert.isFalse(task.isActive());
+		Assert.isNull(childError, "cancel() changed the error of a completed task");
+		Assert.isNull(secondError, "awaiting a completed task threw after cancel()");
+		Assert.equals(42, secondResult);
+	}
 }

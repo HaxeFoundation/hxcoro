@@ -151,9 +151,19 @@ abstract class AbstractTask implements ICancellationToken {
 	}
 
 	function doCancel(error:Exception) {
+		if (!isActive()) {
+			// The outcome of a completed task is final.
+			return;
+		}
 		if (this.error.compareExchange(null, error) != null) {
 			// Already done
 			checkCompletion();
+			return;
+		}
+		if (state.load() == Completed) {
+			// The task completed successfully while we set the error, so it has already decided
+			// on its outcome without it. Undo the error to keep that outcome intact.
+			this.error.compareExchange(error, null);
 			return;
 		}
 		final cause = error.orCancellationException();

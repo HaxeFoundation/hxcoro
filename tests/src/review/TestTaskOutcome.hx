@@ -60,30 +60,6 @@ class TestTaskOutcome extends atest.Test {
 	}
 
 	/**
-		`doCancel` has no state check, so cancelling a completed task overwrites its outcome.
-	**/
-	function testCancelAfterCompletionKeepsResult() {
-		var secondResult:Null<Int> = null;
-		var secondError:Dynamic = null;
-		var childError:Dynamic = null;
-		final task = VirtualRun.run(node -> {
-			final child = node.async(_ -> 42);
-			child.await();
-			child.cancel();
-			childError = child.getError();
-			try {
-				secondResult = child.await();
-			} catch (e:Dynamic) {
-				secondError = e;
-			}
-		});
-		Assert.isFalse(task.isActive());
-		Assert.isNull(childError, "cancel() changed the error of a completed task");
-		Assert.isNull(secondError, "awaiting a completed task threw after cancel()");
-		Assert.equals(42, secondResult);
-	}
-
-	/**
 		A lazy child that is added after the parent's lambda returned is never started, because
 		`startChildren` already ran. The parent then waits for it forever.
 	**/
