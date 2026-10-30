@@ -180,6 +180,10 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 	/**
 		Starts executing this task. Has no effect if the task has already been started or has completed.
 
+		The task runs on the dispatcher of its context. If `caller` is a task on the same dispatcher,
+		the task starts right away. Otherwise, its start is dispatched, so it may not have run yet
+		when this function returns.
+
 		When called from inside a task lambda, pass `node` as `caller` to include the calling task
 		in exception stack traces (e.g. `task1.start(node)`).
 	**/
@@ -193,7 +197,7 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 			this.startPos = startPos;
 		}
 		#end
-		activate();
+		scheduleStart(caller is AbstractTask ? cast caller : null);
 	}
 
 	override function doCancel(error:Exception) {

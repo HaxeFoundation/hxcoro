@@ -1,6 +1,7 @@
 package hxcoro.task;
 
 import haxe.Exception;
+import haxe.atomic.AtomicInt;
 import haxe.coro.IContinuation;
 import haxe.coro.context.Context;
 import haxe.coro.dispatchers.Dispatcher;
@@ -76,12 +77,15 @@ class CoroTask<T> extends CoroBaseTask<T> implements IContinuation<T> {
 **/
 class CoroTaskWithLambda<T> extends CoroTask<T> implements IDispatchObject implements IStartableCoroTask<T> {
 	final lambda:NodeLambda<T>;
+	// 1 once the start has been handed to the dispatcher
+	final startScheduled:AtomicInt;
 
 	/**
 		Creates a new task using the provided `context` in order to execute `lambda`.
 	**/
 	public function new(context:Context, lambda:NodeLambda<T>, nodeStrategy:INodeStrategy, initialState:TaskState = Running#if coro.stack_traces, ?startPos:haxe.PosInfos#end) {
 		this.lambda = lambda;
+		startScheduled = new AtomicInt(0);
 		super(context, nodeStrategy, Created#if coro.stack_traces,startPos#end);
 		if (initialState == Running) {
 			dispatchStart();
@@ -96,7 +100,25 @@ class CoroTaskWithLambda<T> extends CoroTask<T> implements IDispatchObject imple
 		#if coro.stack_traces
 		callFrameLocked = true;
 		#end
-		context.dispatchOrCall(this);
+		scheduleStart(null);
+	}
+
+	/**
+		Starts this task, at most once. If `starter` is a task on the same dispatcher, it is already
+		running there, so this task starts right away. Otherwise, the start is handed to this task's
+		dispatcher. A start that has been handed over already is left to the dispatcher, so that a
+		task that is awaited from another dispatcher still runs where its context says.
+	**/
+	override function scheduleStart(starter:Null<AbstractTask>) {
+		if (startScheduled.compareExchange(0, 1) != 0) {
+			return;
+		}
+		final starterTask:Null<CoroBaseTask<Any>> = Std.downcast(starter, CoroBaseTask);
+		if (starterTask != null && starterTask.context.get(Dispatcher) == context.get(Dispatcher)) {
+			activate();
+		} else {
+			context.dispatchOrCall(this);
+		}
 	}
 
 	public function onDispatch() {

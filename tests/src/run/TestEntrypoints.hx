@@ -99,10 +99,10 @@ class TestEntrypoints extends atest.Test {
 
 		assertNoCurrentMessage();
 
-		// This will make it say hello but not goodbye because the loop isn't active
+		// This will make it say hello on the thread pool, but not goodbye because the loop isn't active
 		createdTask2.start();
 
-		assertLastMessage("Created Task 2 says hello");
+		assertAwaitLastMessage("Created Task 2 says hello");
 
 		// But with this we finally get it.
 		loop.loop(Once);
