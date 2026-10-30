@@ -22,7 +22,7 @@ import hxcoro.task.node.INodeStrategy;
 **/
 class TaskContinuationManager extends ThreadSafeCallbacks<IContinuation<Any>, IContinuation<Any>, IContinuation<Any>> {
 	public function new(task:CoroBaseTask<Any>) {
-		super(handle -> handle.resume(task.get(), task.getError()), error -> @:privateAccess task.reportCallbackError(error));
+		super(handle -> handle.resume(task.get(), task.getError()), error -> task.reportCallbackError(error));
 	}
 
 	function createHandle(element:IContinuation<Any>) {
