@@ -273,7 +273,7 @@ abstract class AbstractTask implements ICancellationToken {
 		Moves this task from `Created` to `Running` and runs its own work, on the calling thread. Has no
 		effect if the task has already been started or has completed.
 	**/
-	function activate() {
+	final function activate() {
 		if (state.compareExchange(Created, Running) == Created) {
 			// Check if parent is cancelling and attempt to cancel this task before starting.
 			// If the task has NonCancellable context, doCancel() will return early and
