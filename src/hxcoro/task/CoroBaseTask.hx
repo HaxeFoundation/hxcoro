@@ -137,7 +137,7 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 			case Completing | Cancelling:
 				// This task has already started or cancelled its children, so start the child like `async`
 				// does. If this task is cancelling, activate cancels it.
-				task.context.dispatchOrCall(task);
+				task.dispatchStart();
 			case Created | Running | CancellationRequested | Completed | Cancelled:
 		}
 		return task;
