@@ -17,24 +17,6 @@ import sys.thread.Tls;
 **/
 typedef DispatchQueue = WorkStealingQueue<IDispatchObject>;
 
-private class WorkerActivity {
-	public var activeWorkers:Int;
-	public var availableWorkers:Int;
-
-	/**
-		Conversely, this is set when the mutex could be acquired and deals with a special case
-		where we signal the condition variable before the worker thread waits on it. In particular,
-		this can happen with a thread pool of size 1.
-	**/
-	public var hadEvent:Bool;
-
-	public function new(activeWorkers:Int) {
-		this.activeWorkers = activeWorkers;
-		this.availableWorkers = activeWorkers;
-		hadEvent = false;
-	}
-}
-
 private enum abstract ShutdownState(Int) to Int {
 	final Active;
 	final ShuttingDown;
