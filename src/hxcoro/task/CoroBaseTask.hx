@@ -56,19 +56,19 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 	var result:Null<T>;
 
 	/**
-		Creates a new task using the provided `context`.
+		Creates a new task using the provided `context`. The task doesn't run until it is started.
 	**/
 	@:nullSafety(Off)
-	public function new(context:Context, nodeStrategy:INodeStrategy, initialState:TaskState#if coro.stack_traces, ?startPos:haxe.PosInfos#end) {
+	public function new(context:Context, nodeStrategy:INodeStrategy#if coro.stack_traces, ?startPos:haxe.PosInfos#end) {
 		final parent = context.get(CoroBaseTask);
 		this.nodeStrategy = nodeStrategy;
 		awaitingContinuations = new TaskContinuationManager(this);
 		#if coro.stack_traces
 		this.startPos = startPos;
-		callFrameLocked = initialState == Running;
+		callFrameLocked = false;
 		#end
 		this.context = context.clone().with(this).set(CancellationToken, this);
-		super(parent, initialState);
+		super(parent);
 	}
 
 	inline function get_context() {
@@ -130,7 +130,7 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 		it already has.
 	**/
 	public function lazy<T>(lambda:NodeLambda<T>#if coro.stack_traces, ?startPos:haxe.PosInfos#end):IStartableCoroTask<T> {
-		final task = new CoroTaskWithLambda(context, lambda, CoroTask.CoroChildStrategy, Created#if coro.stack_traces, startPos#end);
+		final task = new CoroTaskWithLambda(context, lambda, CoroTask.CoroChildStrategy#if coro.stack_traces, startPos#end);
 		// The task is already registered as a child here, so if this task's own work finishes after this
 		// check, startChildren or cancelChildren still sees it.
 		switch (state.load()) {
@@ -147,7 +147,7 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 		Creates a child task to execute `lambda` and starts it automatically.
 	**/
 	public function async<T>(lambda:NodeLambda<T>#if coro.stack_traces, ?startPos:haxe.PosInfos#end):ICoroTask<T> {
-		final task = new CoroTaskWithLambda<T>(context, lambda, CoroTask.CoroChildStrategy, Created#if coro.stack_traces, startPos#end);
+		final task = new CoroTaskWithLambda<T>(context, lambda, CoroTask.CoroChildStrategy#if coro.stack_traces, startPos#end);
 		task.dispatchStart();
 		return task;
 	}

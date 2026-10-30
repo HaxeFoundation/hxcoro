@@ -4,7 +4,6 @@ import haxe.coro.context.Context;
 import haxe.coro.context.ExceptionHandler;
 import haxe.coro.dispatchers.Dispatcher;
 import hxcoro.schedulers.ILoop;
-import hxcoro.task.AbstractTask;
 import hxcoro.task.CoroTask;
 import hxcoro.task.ICoroTask;
 import hxcoro.task.NodeLambda;
@@ -22,11 +21,11 @@ class ContextRun {
 		final exceptionHandler = context.get(ExceptionHandler);
 		final task = if (exceptionHandler != null) {
 			@:nullSafety(Off) final run = exceptionHandler.startSynchronousRun(context, callPos);
-			final task = new CoroTaskWithLambda(run.context, lambda, strategy, Created, callPos);
+			final task = new CoroTaskWithLambda(run.context, lambda, strategy, callPos);
 			task.onCompletion((_, _) -> run.complete());
 			task;
 		} else {
-			new CoroTaskWithLambda(context, lambda, strategy, Created, callPos);
+			new CoroTaskWithLambda(context, lambda, strategy, callPos);
 		}
 		if (start) {
 			task.dispatchStart();
@@ -37,7 +36,7 @@ class ContextRun {
 	#else
 
 	static function createEntryTask<T>(context:Context, lambda:NodeLambda<T>, strategy:CoroScopeStrategy, start:Bool) {
-		final task = new CoroTaskWithLambda(context, lambda, strategy, Created);
+		final task = new CoroTaskWithLambda(context, lambda, strategy);
 		if (start) {
 			task.dispatchStart();
 		}

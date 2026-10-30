@@ -37,8 +37,12 @@ class CoroTask<T> extends CoroBaseTask<T> implements IContinuation<T> {
 	static public final CoroScopeStrategy = new CoroScopeStrategy();
 	static public final CoroSupervisorStrategy = new CoroSupervisorStrategy();
 
-	public function new(context:Context, nodeStrategy:INodeStrategy, initialState:TaskState = Running#if coro.stack_traces, ?startPos:haxe.PosInfos#end) {
-		super(context, nodeStrategy, initialState#if coro.stack_traces, startPos#end);
+	/**
+		Creates a new task using the provided `context`. The creator of the task does its work and
+		completes it by calling `resume`, after starting it with `start`.
+	**/
+	public function new(context:Context, nodeStrategy:INodeStrategy#if coro.stack_traces, ?startPos:haxe.PosInfos#end) {
+		super(context, nodeStrategy#if coro.stack_traces, startPos#end);
 	}
 
 	/**
@@ -78,15 +82,12 @@ class CoroTaskWithLambda<T> extends CoroTask<T> implements IDispatchObject imple
 	final lambda:NodeLambda<T>;
 
 	/**
-		Creates a new task using the provided `context` in order to execute `lambda`.
-
-		With `initialState` set to `Running`, `lambda` starts right away on the calling thread. That
-		is only correct if the caller already runs on the dispatcher of `context`, as is the case for
-		`Coro.scope`. Otherwise, create the task as `Created` and call `dispatchStart`.
+		Creates a new task using the provided `context` in order to execute `lambda`. The task doesn't
+		run until it is started, usually with `dispatchStart`.
 	**/
-	public function new(context:Context, lambda:NodeLambda<T>, nodeStrategy:INodeStrategy, initialState:TaskState#if coro.stack_traces, ?startPos:haxe.PosInfos#end) {
+	public function new(context:Context, lambda:NodeLambda<T>, nodeStrategy:INodeStrategy#if coro.stack_traces, ?startPos:haxe.PosInfos#end) {
 		this.lambda = lambda;
-		super(context, nodeStrategy, initialState#if coro.stack_traces,startPos#end);
+		super(context, nodeStrategy#if coro.stack_traces,startPos#end);
 	}
 
 	/**
@@ -99,6 +100,20 @@ class CoroTaskWithLambda<T> extends CoroTask<T> implements IDispatchObject imple
 		callFrameLocked = true;
 		#end
 		context.dispatchOrCall(this);
+	}
+
+	/**
+		Starts this task right away on the calling thread, keeping the creation site as its call frame.
+
+		This is only correct if the caller already runs on the dispatcher of this task's context, as
+		`Coro.scope` does, which creates the task with the caller's own context.
+	**/
+	@:allow(hxcoro)
+	function startHere() {
+		#if coro.stack_traces
+		callFrameLocked = true;
+		#end
+		activate();
 	}
 
 	public function onDispatch() {
