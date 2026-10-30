@@ -1,6 +1,6 @@
-# SDL
+# SDL3 (C++)
 
-Runs hxcoro coroutines on SDL's main thread, based on Aidan's [SDL_Hxcoro](https://github.com/Aidan63/SDL_Hxcoro) sample from #53. C++ only.
+Runs hxcoro coroutines on SDL's main thread, based on Aidan's [SDL_Hxcoro](https://github.com/Aidan63/SDL_Hxcoro) sample from #53. It uses SDL3 through hxcpp's marshalling externs, so it only works on the C++ target.
 
 - `SdlDispatcher` pushes each dispatched object as an SDL user event, so coroutines resume on the thread that polls SDL's event queue. The object is kept alive with `cpp.marshal.RootHandle` while only SDL references it.
 - The main loop drives a `RealTimeScheduler` once per frame, polls events and draws.
@@ -14,7 +14,7 @@ Runs hxcoro coroutines on SDL's main thread, based on Aidan's [SDL_Hxcoro](https
 Download the SDL3 development package (`SDL3-devel-<version>-VC.zip` on Windows), then build with:
 
 ```bash
-haxe --cwd examples/sdl build.hxml -D SDL_DIST_DIR=<path to the extracted package>
+haxe --cwd examples/sdl3-cpp build.hxml -D SDL_DIST_DIR=<path to the extracted package>
 ```
 
 This needs an hxcpp version that has `cpp.marshal.RootHandle`. Only tested on Windows with SDL 3.4.0.
