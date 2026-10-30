@@ -1,5 +1,3 @@
-package hxcoro.generators;
-
 /**
 	The common interface of generators that values can be yielded to.
 **/

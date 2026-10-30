@@ -41,9 +41,7 @@ interface IChannelReader<T> {
 /**
 	A lightweight coroutine-compatible iterator over a channel reader.
 
-	Unlike the `AsyncGenerator`-based iterator, this implementation avoids the
-	per-item coroutine state-machine overhead. Buffered items are served by a
-	direct `tryRead()` call with no suspension. `waitForRead()` is only called
+	Buffered items are served by a direct `tryRead()` call with no suspension. `waitForRead()` is only called
 	when the buffer is found to be empty, so the cost of a coroutine
 	suspend/resume is amortised over an entire burst of buffered items rather
 	than paid once per item.

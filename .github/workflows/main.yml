@@ -131,6 +131,19 @@ jobs:
         if: (success() || failure()) && contains(fromJSON('["eval", "hl", "cpp", "jvm", "python", "neko"]'), matrix.target)
         run: haxe --cwd thread-tests build-${{ matrix.target }}.hxml
 
+      - name: Run example tests
+        if: success() || failure()
+        shell: bash
+        run: |
+          failed=0
+          for hxml in examples/*/build-${{ matrix.target }}.hxml; do
+            [ -e "$hxml" ] || continue
+            echo "::group::$hxml"
+            haxe --cwd "$(dirname "$hxml")" "$(basename "$hxml")" || failed=1
+            echo "::endgroup::"
+          done
+          exit $failed
+
   known-failures:
     # Runs the tests in tests/src/review, which demonstrate known bugs and are expected to
     # fail. The step is allowed to fail, so this job never fails the workflow. The list of

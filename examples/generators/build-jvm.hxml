@@ -1,0 +1,3 @@
+build-base.hxml
+--jvm bin/generators.jar
+--cmd java -jar bin/generators.jar

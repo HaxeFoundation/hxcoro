@@ -14,7 +14,6 @@ import hxcoro.ds.channels.bounded.SingleBoundedReader;
 import hxcoro.ds.channels.bounded.SingleBoundedWriter;
 import hxcoro.ds.channels.unbounded.UnboundedReader;
 import hxcoro.ds.channels.unbounded.UnboundedWriter;
-import hxcoro.generators.AsyncGenerator;
 
 /**
 	A callback which receives an item that was dropped by a full channel.

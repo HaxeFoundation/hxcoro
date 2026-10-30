@@ -1,5 +1,3 @@
-package hxcoro.generators;
-
 /**
 	The basic yield API for generators, supporting only `yield(value)`.
 **/

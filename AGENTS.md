@@ -4,7 +4,7 @@ Guidance for coding agents working in the hxcoro repository.
 
 ## Repository Overview
 
-hxcoro is a coroutine library for Haxe. It provides asynchronous calls, structured concurrency (scopes, supervisors, tasks, cancellation, timeouts), generators, channels, pipelines and concurrency primitives. It is built on the compiler's `haxe.coro` support, so it requires a **nightly Haxe** build.
+hxcoro is a coroutine library for Haxe. It provides asynchronous calls, structured concurrency (scopes, supervisors, tasks, cancellation, timeouts), channels, pipelines and concurrency primitives. It is built on the compiler's `haxe.coro` support, so it requires a **nightly Haxe** build.
 
 - **Language:** Haxe (nightly)
 - **License:** MIT (see `haxelib.json`)
@@ -36,13 +36,14 @@ GitHub Copilot's environment is prepared by `.github/workflows/copilot-setup-ste
 
 ## Running Tests
 
-There are four test-like suites, each with one `build-<target>.hxml` per target. Always run them from the repository root with `--cwd`:
+There are four test-like suites, each with one `build-<target>.hxml` per target, plus the tests of each example. Always run them from the repository root with `--cwd`:
 
 ```bash
 haxe --cwd tests build-<target>.hxml             # main test suite
 haxe --cwd callstack-tests build-<target>.hxml   # exception call-stack shape tests
 haxe --cwd thread-tests build-<target>.hxml      # tests that use real threads (threaded targets only)
 haxe --cwd benchmarks build-<target>.hxml        # benchmarks (not run in CI)
+haxe --cwd examples/<name> build-<target>.hxml   # tests of one example
 ```
 
 `eval` is the easiest target to test and needs no external tools, so start there. C++ builds are slow, especially the first one.
@@ -70,7 +71,7 @@ HXCORO_DISPATCHER=threadpool haxe --cwd tests build-eval.hxml
 
 ### CI Pipeline
 
-`.github/workflows/main.yml` runs on push and pull request, on Ubuntu, macOS and Windows, for every target listed above. It excludes PHP on macOS and Lua on Windows. For each target it runs the main tests (debug, release+HXB and HXB-lib builds, plus extra dispatcher runs on eval, cpp, hl, jvm and python), then the callstack tests and, on threaded targets, the thread tests. `.github/workflows/wiki.yml` runs the wiki examples on push, pull request and wiki edits.
+`.github/workflows/main.yml` runs on push and pull request, on Ubuntu, macOS and Windows, for every target listed above. It excludes PHP on macOS and Lua on Windows. For each target it runs the main tests (debug, release+HXB and HXB-lib builds, plus extra dispatcher runs on eval, cpp, hl, jvm and python), then the callstack tests, on threaded targets the thread tests, and every `examples/*/build-<target>.hxml`. `.github/workflows/wiki.yml` runs the wiki examples on push, pull request and wiki edits.
 
 ## Project Layout
 
@@ -87,7 +88,6 @@ src/
     ├── continuations/     # Cancelling, racing, timeout, stack-frame continuations
     ├── concurrent/        # CoroMutex, CoroSemaphore, CoroLatch, CoroBarrier, AtomicState, BackOff
     ├── ds/                # Data structures, channels/ and pipelines/
-    ├── generators/        # Generator, AsyncGenerator, and the Es6/Cs/Haxe API-style variants
     ├── elements/          # Context elements (CoroName, NonCancellable, DefaultExceptionHandler)
     ├── thread/            # Thread pool and work-stealing queue
     ├── exceptions/        # TimeoutException, etc.
@@ -99,6 +99,7 @@ callstack-tests/           # Asserts exception stack shapes; see callstack-tests
 thread-tests/              # Tests that create threads or pools directly, for eval, hl, cpp, jvm, python and neko
 wiki-tests/                # Compiles and runs the wiki's code examples; see wiki-tests/README.md
 benchmarks/                # Benchmark suite; results go to benchmarks/results/ (git-ignored)
+examples/                  # Usage examples that aren't API, e.g. generators; see examples/README.md
 libs/atest/                # In-repo test framework used by tests/
 ```
 
@@ -109,7 +110,6 @@ Files with a target suffix such as `Foo.cpp.hx` or `Foo.eval.hx` are only used o
 1. **Coroutines** are functions marked with `@:coroutine`. They can call other coroutines and suspend functions from `hxcoro.Coro`.
 2. **Structured concurrency:** coroutines run inside a task tree. `CoroRun.run(node -> ...)` starts a root task. `node.async(...)` and `node.lazy(...)` create child tasks. `scope`, `supervisor` and `timeout` create nested scopes with defined lifetimes. Cancellation propagates through the tree as `CancellationException`.
 3. **Dispatchers and schedulers** decide where and when continuations resume. `hxcoro.run.Setup` contains factory helpers such as `createTrampoline` and `createThreadPool`.
-4. **Generators** are a coroutine use case for yielding values. `Generator<T, R>` uses Kotlin-style restricted suspension, and `AsyncGenerator<T>` allows arbitrary suspension. Both extend `SuspensionResult` and implement `IContinuation`.
 
 ## Code Style and Conventions
 
@@ -122,7 +122,7 @@ Files with a target suffix such as `Foo.cpp.hx` or `Foo.eval.hx` are only used o
 
 ### Writing Tests
 
-- Test classes extend `atest.Test` (or `BaseCase` for generator helpers). Test methods are named `testXxx`, and assertions use `Assert`.
+- Test classes extend `atest.Test`. Test methods are named `testXxx`, and assertions use `Assert`.
 - Use `run(node -> { ... })` to execute coroutine code inside a test. It is imported for all tests by `tests/src/import.hx`, comes from `tests/src/TestRun.hx`, and honours the `HXCORO_DISPATCHER` selection.
 - Classes in the `tests/src/` subdirectories (`concurrent`, `ds`, `structured`, ...) are discovered automatically through `atest.Macros.addCases`. Top-level test classes must be registered by hand in `tests/src/Main.hx`.
 - Tests that create threads, thread pools or thread-aware schedulers themselves go to `thread-tests/src/cases/`, where they are discovered automatically. Give every wait a deadline, so that a bug fails the test instead of hanging the run.
@@ -132,4 +132,5 @@ Files with a target suffix such as `Foo.cpp.hx` or `Foo.eval.hx` are only used o
 
 - When you change coroutine machinery, think about suspension and resumption, cancellation propagation, exceptions crossing async boundaries, context handling and thread safety on threaded targets.
 - Targets differ in subtle ways, especially in threading, stack traces and timers. Run eval first, then at least one threaded target (cpp, jvm or hl) and js for anything concurrency-related.
+- Code that shows how to use hxcoro but shouldn't become API belongs in `examples/`, not `src/`.
 - Don't commit build output: `bin/`, `dump/`, `.hxb` files, `.haxelib/` and `benchmarks/results/`.

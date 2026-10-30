@@ -1,8 +1,6 @@
-package hxcoro.generators;
-
 import haxe.Unit;
 import haxe.coro.Coroutine;
-import hxcoro.generators.Generator;
+import hxcoro.Coro.*;
 
 /**
 	The C#-style yield API passed to `CsGenerator.create` functions.

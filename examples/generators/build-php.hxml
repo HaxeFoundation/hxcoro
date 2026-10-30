@@ -1,0 +1,5 @@
+build-base.hxml
+# PHP has a built-in Generator class, so generate our classes in a namespace.
+-D php-prefix=generators
+--php bin/php
+--cmd php bin/php/index.php

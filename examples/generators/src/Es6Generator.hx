@@ -1,7 +1,4 @@
-package hxcoro.generators;
-
 import haxe.coro.Coroutine;
-import hxcoro.generators.Generator;
 
 /**
 	The JavaScript-style yield API passed to `Es6Generator.create` functions.
