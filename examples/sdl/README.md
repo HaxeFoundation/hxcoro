@@ -21,7 +21,6 @@ This needs an hxcpp version that has `cpp.marshal.RootHandle`. Only tested on Wi
 
 ## Status
 
-Work in progress. The background work of the Space key doesn't behave as intended yet, because of two hxcoro issues:
+Work in progress. The background work of the Space key needs the fix from the `task-start-dispatch` branch. Without it, `node.with(background).async(...).await()` can start the child on the awaiting thread, because `await` started the task inline if the pool hadn't picked it up yet. The main loop then freezes while counting.
 
-1. `node.with(background).async(...).await()` can run the child on the awaiting thread, because `await` starts the task inline if the pool hasn't picked it up yet. The main loop then freezes while counting.
-2. The code after `await()` continues on the thread that completed the child, not on the awaiting coroutine's dispatcher, so the title is set from a pool thread.
+The code after `await()` already continues on the main thread, because `await` suspends through `Coro.suspend`, which resumes on the awaiting coroutine's dispatcher.
