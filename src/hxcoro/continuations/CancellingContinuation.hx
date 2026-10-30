@@ -26,39 +26,18 @@ private enum abstract State(Int) to Int {
 class CancellingContinuation<T> extends StackFrameContinuation<T> implements ICancellationCallback implements IDispatchObject {
 	final resumeState : AtomicInt;
 
-	final handle : Null<ICancellationHandle>;
-
-	final cancellationToken : Null<ICancellationToken>;
+	var handle : Null<ICancellationHandle>;
 
 	/**
-		Callback that is invoked if cancellation wins over a normal resumption. If
-		cancellation was already requested when it is set, it is invoked immediately.
-		Setting it a second time throws an exception.
+		Callback that is invoked if cancellation wins over a normal resumption. It is set
+		before this continuation registers with the cancellation token, so `onCancellation`
+		always sees it.
 	**/
-	public var onCancellationRequested (default, set) : Null<CancellationException->Void>;
-
-	function set_onCancellationRequested(f : CancellationException->Void) {
-		return switch (cancellationToken?.cancellationException) {
-			case null:
-				if (null != onCancellationRequested) {
-					throw new Exception("Callback already registered");
-				}
-
-				onCancellationRequested = f;
-			case exc:
-				f(exc);
-
-				f;
-		}
-	}
+	var onCancellationRequested : Null<CancellationException->Void>;
 
 	public function new(cont) {
 		super(cont);
-		this.resumeState  = new AtomicInt(Active);
-		cancellationToken = cont.context.get(CancellationToken);
-		if (cancellationToken != null) {
-			this.handle = cancellationToken.onCancellationRequested(this);
-		}
+		this.resumeState = new AtomicInt(Active);
 	}
 
 	function setState(result:Null<T>, error:Null<Exception>) {
@@ -108,19 +87,32 @@ class CancellingContinuation<T> extends StackFrameContinuation<T> implements ICa
 	**/
 	public function onCancellation(cause:CancellationException) {
 		if (updateState(null, cause)) {
-			if (null != onCancellationRequested) {
-				onCancellationRequested(cause);
+			final f = onCancellationRequested;
+			if (f != null) {
+				f(cause);
 			}
 			handle?.close();
 		}
 	}
 
 	/**
-		Must be called after the suspending function has run. Returns `SuspensionResult.suspended`
-		if this continuation was not resumed or cancelled yet, otherwise returns itself in
-		`Returned` or `Thrown` state.
+		Must be called after the suspending function has run. Sets `onCancellationRequested`
+		and only then registers with the cancellation token, so cancellation that happened
+		earlier is observed now. Returns `SuspensionResult.suspended` if this continuation was
+		not resumed or cancelled yet, otherwise returns itself in `Returned` or `Thrown` state.
 	**/
-	public function resolve():SuspensionResult<T> {
+	public function resolve(onCancellationRequested:Null<CancellationException->Void>):SuspensionResult<T> {
+		this.onCancellationRequested = onCancellationRequested;
+		final cancellationToken = context.get(CancellationToken);
+		if (cancellationToken != null && resumeState.load() == Active) {
+			// Calls onCancellation immediately if the token is already cancelled
+			final handle = cancellationToken.onCancellationRequested(this);
+			this.handle = handle;
+			// A resume on another thread may have missed the handle, so close it ourselves
+			if (handle != null && resumeState.load() != Active) {
+				handle.close();
+			}
+		}
 		if (resumeState.compareExchange(Active, Resolved) == Active) {
 			return cast SuspensionResult.suspended;
 		} else {
