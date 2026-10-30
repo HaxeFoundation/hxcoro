@@ -70,11 +70,61 @@ class CoroSemaphore {
 		}
 		// If we get here, free is == -1
 		suspendCancellable(cont -> {
-			deque.push(cont);
+			final page = deque.push(cont);
 			// Unlock
 			free.store(0);
-			null;
+			_ -> onWaiterCancelled(page, cont);
 		});
+	}
+
+	/**
+		Called if cancellation wins over the resumption of a waiter. If the waiter is still in the
+		deque, it is removed. Otherwise, `release` has already handed the permit to it, so it is
+		passed on.
+	**/
+	function onWaiterCancelled(page, cont:IContinuation<Any>) {
+		while (true) {
+			final old = free.load();
+			if (old < 0) {
+				// Someone has the "mutex", let's wait
+				BackOff.backOff();
+				continue;
+			}
+			if (old > 0) {
+				// The deque is empty while permits are free, so the waiter was handed a permit.
+				release();
+				return;
+			}
+			if (free.compareExchange(0, -1) == 0) {
+				break;
+			}
+			BackOff.backOff();
+		}
+		// If we get here, free == -1.
+		if (deque.remove(page, cont)) {
+			free.store(0);
+		} else {
+			handOff();
+		}
+	}
+
+	/**
+		Must be called with free == -1. Hands a permit to the first waiter, or makes it
+		available if there are none.
+	**/
+	function handOff() {
+		if (deque.isEmpty()) {
+			// Empty deque also means there's room for 1.
+			free.store(1);
+			return;
+		}
+		@:nullSafety(Off) final cont:IContinuation<Any> = deque.pop();
+		// There's a continuation to execute, so free is 0 again.
+		free.store(0);
+		// Resume directly instead of dispatching, so that the hand-off is decided right away. If
+		// cancellation wins over it, the waiter's cancellation callback passes the permit on.
+		// The waiter's coroutine is still dispatched.
+		cont.resume(null, null);
 	}
 
 	/**
@@ -135,20 +185,6 @@ class CoroSemaphore {
 			}
 		}
 		// If we get here, free == -1.
-		while (true) {
-			if (deque.isEmpty()) {
-				// Empty deque also means there's room for 1.
-				free.store(1);
-				return;
-			}
-			@:nullSafety(Off) final cont:IContinuation<Any> = deque.pop();
-			if (cont.context.isCancellationRequested()) {
-				continue;
-			}
-			// There's a continuation to execute, so free is 0 again.
-			free.store(0);
-			cont.callAsync();
-			break;
-		}
+		handOff();
 	}
 }

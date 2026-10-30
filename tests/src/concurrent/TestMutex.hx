@@ -271,6 +271,102 @@ class TestMutex extends atest.Test {
 		}
 	}
 
+	function testMutexPermitNotLostWhenWaiterIsCancelled() {
+		var unlocked = false;
+		final task = VirtualRun.run(node -> {
+			final m = new CoroMutex();
+			m.acquire();
+			final waiter = node.async(_ -> {
+				m.acquire();
+				m.release();
+			});
+			yield(); // the waiter suspends in acquire
+			m.release(); // hands the permit to the waiter
+			waiter.cancel(); // cancellation comes before the waiter's resumption runs
+			delay(1);
+			unlocked = m.tryAcquire();
+		});
+		Assert.isFalse(task.isActive());
+		Assert.isTrue(unlocked, "the mutex stayed locked after its only waiter was cancelled");
+	}
+
+	function testSemaphorePermitNotLostWhenWaiterIsCancelled() {
+		var permits = 0;
+		final task = VirtualRun.run(node -> {
+			final s = new CoroSemaphore(2);
+			s.acquire();
+			s.acquire();
+			final waiter = node.async(_ -> {
+				s.acquire();
+				s.release();
+			});
+			yield();
+			s.release();
+			waiter.cancel();
+			delay(1);
+			while (s.tryAcquire()) {
+				permits++;
+			}
+		});
+		Assert.isFalse(task.isActive());
+		Assert.equals(1, permits, "a permit was lost");
+	}
+
+	function testCancelledWaiterIsSkipped() {
+		final lines = [];
+		final task = VirtualRun.run(node -> {
+			final m = new CoroMutex();
+			m.acquire();
+			final waiter1 = node.async(_ -> {
+				m.acquire();
+				lines.push("1 acquired");
+				m.release();
+			});
+			node.async(_ -> {
+				m.acquire();
+				lines.push("2 acquired");
+				m.release();
+			});
+			yield(); // both waiters suspend in acquire
+			waiter1.cancel();
+			m.release();
+		});
+		Assert.isFalse(task.isActive());
+		Assert.same(["2 acquired"], lines);
+	}
+
+	function testPermitsNotLostWhenWaitersAreCancelledConcurrently() {
+		final numTasks = 1000;
+		final numPermits = 4;
+		final s = new CoroSemaphore(numPermits);
+		run(node -> {
+			for (_ in 0...numPermits) {
+				s.acquire();
+			}
+			final waiters = [
+				for (_ in 0...numTasks) {
+					node.async(_ -> {
+						s.acquire();
+						s.release();
+					});
+				}
+			];
+			delay(10); // let the waiters suspend in acquire
+			for (_ in 0...numPermits) {
+				s.release();
+			}
+			// Races with the hand-offs between the waiters
+			for (waiter in waiters) {
+				waiter.cancel();
+			}
+		});
+		var permits = 0;
+		while (s.tryAcquire()) {
+			permits++;
+		}
+		Assert.equals(numPermits, permits);
+	}
+
 	function testAcquireConcurrency() {
 		final numTasks = 1000;
 
