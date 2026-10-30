@@ -21,6 +21,6 @@ This needs an hxcpp version that has `cpp.marshal.RootHandle`. Only tested on Wi
 
 ## Status
 
-Work in progress. The background work of the Space key needs the fix from the `task-start-dispatch` branch. Without it, `node.with(background).async(...).await()` can start the child on the awaiting thread, because `await` started the task inline if the pool hadn't picked it up yet. The main loop then freezes while counting.
+Work in progress, based on #203. The background work of the Space key relies on tasks starting on their own dispatcher, which #203 ensures. Without it, `node.with(background).async(...).await()` could start the child on the awaiting thread, and the main loop froze while counting.
 
-The code after `await()` already continues on the main thread, because `await` suspends through `Coro.suspend`, which resumes on the awaiting coroutine's dispatcher.
+The code after `await()` continues on the main thread, because `await` suspends through `Coro.suspend`, which resumes on the awaiting coroutine's dispatcher.
