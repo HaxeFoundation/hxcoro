@@ -13,27 +13,9 @@ import sys.thread.Tls;
 
 
 /**
-	The queue type used by `FixedThreadPool` for its main queue and for each worker.
+	The queue type used by `FixedThreadPool` for each worker and for the threads outside the pool.
 **/
 typedef DispatchQueue = WorkStealingQueue<IDispatchObject>;
-
-private class WorkerActivity {
-	public var activeWorkers:Int;
-	public var availableWorkers:Int;
-
-	/**
-		Conversely, this is set when the mutex could be acquired and deals with a special case
-		where we signal the condition variable before the worker thread waits on it. In particular,
-		this can happen with a thread pool of size 1.
-	**/
-	public var hadEvent:Bool;
-
-	public function new(activeWorkers:Int) {
-		this.activeWorkers = activeWorkers;
-		this.availableWorkers = activeWorkers;
-		hadEvent = false;
-	}
-}
 
 private enum abstract ShutdownState(Int) to Int {
 	final Active;
@@ -62,8 +44,9 @@ class FixedThreadPool implements IThreadPool {
 	final semaphore:Semaphore;
 	final pool:Array<Worker>;
 	final queueTls:Tls<DispatchQueue>;
-	final mainQueueMutex:Mutex;
-	final mainQueue:DispatchQueue;
+	final sharedQueueMutex:Mutex;
+	final sharedQueue:DispatchQueue;
+	final ownerQueue:DispatchQueue;
 
 	/**
 		Create a new thread pool with `threadsCount` threads.
@@ -75,11 +58,15 @@ class FixedThreadPool implements IThreadPool {
 		shutdownState = new AtomicState(Active);
 		semaphore = new Semaphore(0);
 		queueTls = new Tls();
-		final queues = Vector.fromArrayCopy([for (_ in 0...threadsCount + 1) new WorkStealingQueue()]);
-		mainQueueMutex = new Mutex();
-		mainQueue = queues[0];
-		queueTls.value = mainQueue;
-		pool = [for(i in 0...threadsCount) new Worker(semaphore, queueTls, queues, i + 1)];
+		final queues = Vector.fromArrayCopy([for (_ in 0...threadsCount + 2) new WorkStealingQueue()]);
+		// The constructing thread, which usually runs the scheduler loop, gets a queue of its
+		// own so that it can add without locking. All other non-pool threads share a queue,
+		// which supports only one producer, so they add to it under the mutex.
+		ownerQueue = queues[0];
+		queueTls.value = ownerQueue;
+		sharedQueueMutex = new Mutex();
+		sharedQueue = queues[1];
+		pool = [for(i in 0...threadsCount) new Worker(semaphore, queueTls, queues, i + 2)];
 		for (worker in pool) {
 			worker.start();
 		}
@@ -99,9 +86,9 @@ class FixedThreadPool implements IThreadPool {
 		if (queue != null) {
 			queue.add(obj);
 		} else {
-			mainQueueMutex.acquire();
-			mainQueue.add(obj);
-			mainQueueMutex.release();
+			sharedQueueMutex.acquire();
+			sharedQueue.add(obj);
+			sharedQueueMutex.release();
 		}
 		semaphore.release();
 	}
@@ -147,8 +134,10 @@ class FixedThreadPool implements IThreadPool {
 		}
 		Sys.println('\ttotal worker loops: $totalLoops');
 		Sys.println('\ttotal worker dispatches: $totalDispatches');
-		Sys.print('\tqueue 0: ');
-		mainQueue.dump();
+		Sys.print('\towner queue: ');
+		ownerQueue.dump();
+		Sys.print('\tshared queue: ');
+		sharedQueue.dump();
 		for (worker in pool) {
 			final loopShare = worker.numLooped * 100 / totalLoops;
 			final dispatchShare = worker.numDispatched * 100 / totalDispatches;

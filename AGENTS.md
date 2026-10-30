@@ -36,11 +36,12 @@ GitHub Copilot's environment is prepared by `.github/workflows/copilot-setup-ste
 
 ## Running Tests
 
-There are three test-like suites, each with one `build-<target>.hxml` per target. Always run them from the repository root with `--cwd`:
+There are four test-like suites, each with one `build-<target>.hxml` per target. Always run them from the repository root with `--cwd`:
 
 ```bash
 haxe --cwd tests build-<target>.hxml             # main test suite
 haxe --cwd callstack-tests build-<target>.hxml   # exception call-stack shape tests
+haxe --cwd thread-tests build-<target>.hxml      # tests that use real threads (threaded targets only)
 haxe --cwd benchmarks build-<target>.hxml        # benchmarks (not run in CI)
 ```
 
@@ -69,7 +70,7 @@ HXCORO_DISPATCHER=threadpool haxe --cwd tests build-eval.hxml
 
 ### CI Pipeline
 
-`.github/workflows/main.yml` runs on push and pull request, on Ubuntu, macOS and Windows, for every target listed above. It excludes PHP on macOS and Lua on Windows. For each target it runs the main tests (debug, release+HXB and HXB-lib builds, plus extra dispatcher runs on eval, cpp, hl, jvm and python) and then the callstack tests. `.github/workflows/wiki.yml` runs the wiki examples on push, pull request and wiki edits.
+`.github/workflows/main.yml` runs on push and pull request, on Ubuntu, macOS and Windows, for every target listed above. It excludes PHP on macOS and Lua on Windows. For each target it runs the main tests (debug, release+HXB and HXB-lib builds, plus extra dispatcher runs on eval, cpp, hl, jvm and python), then the callstack tests and, on threaded targets, the thread tests. `.github/workflows/wiki.yml` runs the wiki examples on push, pull request and wiki edits.
 
 ## Project Layout
 
@@ -95,6 +96,7 @@ tests/                     # Main test suite (atest)
 ├── build-base.hxml        # Shared config; every build-<target>.hxml includes it
 └── src/                   # Main.hx registers cases; one subdirectory per area
 callstack-tests/           # Asserts exception stack shapes; see callstack-tests/README.md
+thread-tests/              # Tests that create threads or pools directly, for eval, hl, cpp, jvm, python and neko
 wiki-tests/                # Compiles and runs the wiki's code examples; see wiki-tests/README.md
 benchmarks/                # Benchmark suite; results go to benchmarks/results/ (git-ignored)
 libs/atest/                # In-repo test framework used by tests/
@@ -123,6 +125,7 @@ Files with a target suffix such as `Foo.cpp.hx` or `Foo.eval.hx` are only used o
 - Test classes extend `atest.Test` (or `BaseCase` for generator helpers). Test methods are named `testXxx`, and assertions use `Assert`.
 - Use `run(node -> { ... })` to execute coroutine code inside a test. It is imported for all tests by `tests/src/import.hx`, comes from `tests/src/TestRun.hx`, and honours the `HXCORO_DISPATCHER` selection.
 - Classes in the `tests/src/` subdirectories (`concurrent`, `ds`, `structured`, ...) are discovered automatically through `atest.Macros.addCases`. Top-level test classes must be registered by hand in `tests/src/Main.hx`.
+- Tests that create threads, thread pools or thread-aware schedulers themselves go to `thread-tests/src/cases/`, where they are discovered automatically. Give every wait a deadline, so that a bug fails the test instead of hanging the run.
 - For callstack tests, add `callstack-tests/cases/<name>/Test.hx`. It is discovered automatically. See `callstack-tests/README.md` for the per-target stack quirks.
 
 ## Notes for Agents
