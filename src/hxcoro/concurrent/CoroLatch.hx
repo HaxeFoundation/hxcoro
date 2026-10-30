@@ -154,24 +154,33 @@ class CoroLatchImpl {
 	function complete() {
 		final deque = deque;
 		this.deque = null;
-		var restore = if (barrierCallback != null) {
+		var callbackError:Null<haxe.Exception> = null;
+		if (barrierCallback != null) {
 			// In barrier mode we execute the callback and then set the counter back to maxCounter.
-			barrierCallback();
+			// If the callback throws, the phase still completes and the exception is rethrown
+			// afterwards, otherwise the counter would stay locked.
+			try {
+				barrierCallback();
+			} catch (e:haxe.Exception) {
+				callbackError = e;
+			}
 			counter.store(maxCounter);
 		} else {
 			// In latch mode we just store 0.
 			counter.store(0);
 		}
 
-		if (deque == null) {
-			return;
-		}
-		while (!deque.isEmpty()) {
-			@:nullSafety(Off) final cont:IContinuation<Any> = deque.pop();
-			if (cont.context.isCancellationRequested()) {
-				continue;
+		if (deque != null) {
+			while (!deque.isEmpty()) {
+				@:nullSafety(Off) final cont:IContinuation<Any> = deque.pop();
+				if (cont.context.isCancellationRequested()) {
+					continue;
+				}
+				cont.callAsync();
 			}
-			cont.callAsync();
+		}
+		if (callbackError != null) {
+			throw callbackError;
 		}
 	}
 }
