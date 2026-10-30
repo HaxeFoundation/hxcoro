@@ -24,7 +24,7 @@ class CoroChildStrategy implements INodeStrategy {
 			case Created | Running | Completing:
 				// inherit child error
 				task.doCancel(cause);
-			case Cancelling | Completed | Cancelled:
+			case CancellationRequested | Cancelling | Completed | Cancelled:
 		}
 	}
 
