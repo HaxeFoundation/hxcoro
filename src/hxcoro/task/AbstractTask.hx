@@ -298,11 +298,12 @@ abstract class AbstractTask implements ICancellationToken {
 	}
 
 	/**
-		Arranges for `activate` to be called. `starter` is the task on whose behalf this happens, if
-		any. Subclasses that run their work on a dispatcher override this, so that a task doesn't start
-		on whichever thread happens to start it.
+		Arranges for `activate` to be called where this task is supposed to run. By default, that's
+		right away. Subclasses that run their work on a dispatcher override this.
+
+		Calling this more than once is harmless, because `activate` only starts a created task.
 	**/
-	function scheduleStart(starter:Null<AbstractTask>) {
+	function dispatchStart() {
 		activate();
 	}
 
@@ -352,7 +353,7 @@ abstract class AbstractTask implements ICancellationToken {
 				final children = getCurrentChildren();
 				numActiveChildren.store(activeChildren);
 				for (child in children) {
-					child.scheduleStart(this);
+					child.dispatchStart();
 				}
 		}
 	}

@@ -1,7 +1,6 @@
 package hxcoro.task;
 
 import haxe.Exception;
-import haxe.atomic.AtomicInt;
 import haxe.coro.IContinuation;
 import haxe.coro.context.Context;
 import haxe.coro.dispatchers.Dispatcher;
@@ -77,48 +76,29 @@ class CoroTask<T> extends CoroBaseTask<T> implements IContinuation<T> {
 **/
 class CoroTaskWithLambda<T> extends CoroTask<T> implements IDispatchObject implements IStartableCoroTask<T> {
 	final lambda:NodeLambda<T>;
-	// 1 once the start has been handed to the dispatcher
-	final startScheduled:AtomicInt;
 
 	/**
 		Creates a new task using the provided `context` in order to execute `lambda`.
+
+		With `initialState` set to `Running`, `lambda` starts right away on the calling thread. That
+		is only correct if the caller already runs on the dispatcher of `context`, as is the case for
+		`Coro.scope`. Otherwise, create the task as `Created` and call `dispatchStart`.
 	**/
-	public function new(context:Context, lambda:NodeLambda<T>, nodeStrategy:INodeStrategy, initialState:TaskState = Running#if coro.stack_traces, ?startPos:haxe.PosInfos#end) {
+	public function new(context:Context, lambda:NodeLambda<T>, nodeStrategy:INodeStrategy, initialState:TaskState#if coro.stack_traces, ?startPos:haxe.PosInfos#end) {
 		this.lambda = lambda;
-		startScheduled = new AtomicInt(0);
-		super(context, nodeStrategy, Created#if coro.stack_traces,startPos#end);
-		if (initialState == Running) {
-			dispatchStart();
-		}
+		super(context, nodeStrategy, initialState#if coro.stack_traces,startPos#end);
 	}
 
 	/**
-		Starts this task through its context's dispatcher, keeping its creation site as its call frame.
+		Starts this task through its context's dispatcher. Unless `start` set a caller before, this
+		keeps the creation site as the task's call frame.
 	**/
-	@:allow(hxcoro.task.CoroBaseTask)
-	function dispatchStart() {
+	@:allow(hxcoro)
+	override function dispatchStart() {
 		#if coro.stack_traces
 		callFrameLocked = true;
 		#end
-		scheduleStart(null);
-	}
-
-	/**
-		Starts this task, at most once. If `starter` is a task on the same dispatcher, it is already
-		running there, so this task starts right away. Otherwise, the start is handed to this task's
-		dispatcher. A start that has been handed over already is left to the dispatcher, so that a
-		task that is awaited from another dispatcher still runs where its context says.
-	**/
-	override function scheduleStart(starter:Null<AbstractTask>) {
-		if (startScheduled.compareExchange(0, 1) != 0) {
-			return;
-		}
-		final starterTask:Null<CoroBaseTask<Any>> = Std.downcast(starter, CoroBaseTask);
-		if (starterTask != null && starterTask.context.get(Dispatcher) == context.get(Dispatcher)) {
-			activate();
-		} else {
-			context.dispatchOrCall(this);
-		}
+		context.dispatchOrCall(this);
 	}
 
 	public function onDispatch() {

@@ -168,7 +168,9 @@ class ContextConvenience {
 		the new task becomes its child.
 	**/
 	static public function async<T>(context:Context, lambda:NodeLambda<T>):ICoroTask<T> {
-		return new CoroTaskWithLambda<T>(context, lambda, CoroTask.CoroChildStrategy);
+		final task = new CoroTaskWithLambda<T>(context, lambda, CoroTask.CoroChildStrategy, Created);
+		task.dispatchStart();
+		return task;
 	}
 
 	/**
