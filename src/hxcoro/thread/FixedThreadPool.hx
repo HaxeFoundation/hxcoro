@@ -77,8 +77,9 @@ class FixedThreadPool implements IThreadPool {
 		queueTls = new Tls();
 		final queues = Vector.fromArrayCopy([for (_ in 0...threadsCount + 1) new WorkStealingQueue()]);
 		mainQueueMutex = new Mutex();
+		// The main queue is not installed as any thread's own queue: it supports only one
+		// producer, so all non-pool threads add to it under the mutex.
 		mainQueue = queues[0];
-		queueTls.value = mainQueue;
 		pool = [for(i in 0...threadsCount) new Worker(semaphore, queueTls, queues, i + 1)];
 		for (worker in pool) {
 			worker.start();

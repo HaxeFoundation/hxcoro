@@ -1,0 +1,4 @@
+build-base.hxml
+--python bin/test.py
+--macro nullSafety("hxcoro", Off)
+--cmd python bin/test.py

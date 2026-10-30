@@ -107,6 +107,9 @@ class ThreadAwareScheduler implements IScheduler implements ILoop {
 						first.prev = firstQueue;
 					}
 				case Remove(queue):
+					// The thread added its last events before it queued the removal, so move
+					// them into the heap before forgetting the queue.
+					drainQueue(queue.queue);
 					if (queue.next != null) {
 						queue.next.prev = queue.prev;
 					}
@@ -120,6 +123,17 @@ class ThreadAwareScheduler implements IScheduler implements ILoop {
 		}
 	}
 
+	function drainQueue(queue:TlsQueue) {
+		while (true) {
+			// This thread is the only consumer, so `steal` only returns null if the queue is empty.
+			final event = queue.steal();
+			if (event == null) {
+				return;
+			}
+			heap.insert(event);
+		}
+	}
+
 	function loopNoWait() {
 		final currentTime = now();
 
@@ -130,15 +144,7 @@ class ThreadAwareScheduler implements IScheduler implements ILoop {
 		// dispatched from one place, in order of due time.
 		var current = firstQueue;
 		while (current != null) {
-			final queue = current.queue;
-			while (true) {
-				// This thread is the only consumer, so `steal` only returns null if the queue is empty.
-				final event = queue.steal();
-				if (event == null) {
-					break;
-				}
-				heap.insert(event);
-			}
+			drainQueue(current.queue);
 			current = current.next;
 		}
 

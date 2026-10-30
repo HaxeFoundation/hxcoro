@@ -126,6 +126,11 @@ jobs:
         if: success() || failure()
         run: haxe --cwd callstack-tests build-${{ matrix.target }}.hxml
 
+      - name: Run thread tests
+        # Only threaded targets have a build file for this suite.
+        if: (success() || failure()) && contains(fromJSON('["eval", "hl", "cpp", "jvm", "python", "neko"]'), matrix.target)
+        run: haxe --cwd thread-tests build-${{ matrix.target }}.hxml
+
   known-failures:
     # Runs the tests in tests/src/review, which demonstrate known bugs and are expected to
     # fail. The step is allowed to fail, so this job never fails the workflow. The list of
