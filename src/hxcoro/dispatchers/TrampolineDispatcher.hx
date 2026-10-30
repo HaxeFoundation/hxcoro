@@ -10,11 +10,11 @@ import hxcoro.schedulers.RealTimeScheduler;
 
 private class Trampoline {
 	public var running : Bool;
-	public var queue : Null<Array<IDispatchObject>>;
+	public final queue : Array<IDispatchObject>;
 
 	public function new() {
 		running = false;
-		queue   = null;
+		queue   = [];
 	}
 
 	public static function get(tls:Tls<Trampoline>):Trampoline {
@@ -65,26 +65,22 @@ final class TrampolineDispatcher extends Dispatcher {
 		final trampoline = Trampoline.get(trampolineTls);
 
 		if (trampoline.running) {
-			trampoline.queue ??= [];
 			trampoline.queue.push(obj);
 			return;
 		}
 
 		trampoline.running = true;
 		try {
-			final leftovers = trampoline.queue;
-			if (leftovers != null && leftovers.length > 0) {
+			final queue = trampoline.queue;
+			if (queue.length > 0) {
 				// A previous dispatch threw and left these behind, they go first.
-				leftovers.push(obj);
+				queue.push(obj);
 			} else {
 				obj.onDispatch();
 			}
-			final queue = trampoline.queue;
-			if (queue != null) {
-				var next = null;
-				while (null != (next = queue.shift())) {
-					next.onDispatch();
-				}
+			var next = null;
+			while (null != (next = queue.shift())) {
+				next.onDispatch();
 			}
 		} catch (e:Exception) {
 			// Leave the trampoline usable. Whatever is still queued runs on the next dispatch.
@@ -93,6 +89,5 @@ final class TrampolineDispatcher extends Dispatcher {
 		}
 
 		trampoline.running = false;
-		trampoline.queue   = null;
 	}
 }
