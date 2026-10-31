@@ -7,6 +7,7 @@ The [wiki](https://github.com/HaxeFoundation/hxcoro/wiki) explains the API with 
 | Example | Description |
 | --- | --- |
 | [generators](generators/) | Synchronous generators in Haxe, ES6 and C# style, and an asynchronous generator |
+| [http-server](http-server/) | An HTTP server on libuv with a task per connection, request timeouts, graceful shutdown and request-scoped context (eval only) |
 
 ## Layout
 
