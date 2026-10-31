@@ -1,0 +1,3 @@
+build-base.hxml
+--js bin/json-parser.js
+--cmd node bin/json-parser.js
