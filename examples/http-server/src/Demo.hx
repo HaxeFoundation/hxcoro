@@ -1,9 +1,6 @@
 import Http;
 import RequestInfo.RequestLog;
-import eval.luv.Signal.SigNum;
-import haxe.exceptions.CancellationException;
 import hxcoro.Coro.*;
-import hxcoro.task.ICoroTask;
 
 using hxcoro.run.ContextRun;
 
@@ -11,7 +8,7 @@ using hxcoro.run.ContextRun;
 	Runs a server on port 8080 with a few routes that show what happens in different situations.
 **/
 function main() {
-	final setup = LoopDispatcher.createSetup();
+	final setup = SelectScheduler.createSetup();
 	setup.createContext().runTask(node -> {
 		var server:Null<HttpServer> = null;
 		server = HttpServer.bind("127.0.0.1", 8080, request -> {
@@ -43,37 +40,9 @@ function main() {
 					Response.text(404, "Not found\n");
 			}
 		}, 5000);
-		RequestLog.log('Listening on http://127.0.0.1:${server.port}/, press Ctrl+C to stop');
-		final serving = node.async(_ -> server.serve());
-		node.async(_ -> handleInterrupts(server, serving));
-		try {
-			serving.await();
-			RequestLog.log("Server stopped");
-		} catch (e:CancellationException) {
-			RequestLog.log("Server cancelled");
-		}
-		// The server can also stop because of /shutdown. Stop waiting for Ctrl+C then, or the
-		// program would never end.
-		node.cancelChildren();
+		RequestLog.log('Listening on http://127.0.0.1:${server.port}/');
+		server.serve();
+		RequestLog.log("Server stopped");
 	});
 	setup.close();
-}
-
-/**
-	Stops `server` gracefully on the first Ctrl+C, and cancels the requests it is still handling on
-	the second one.
-**/
-@:coroutine function handleInterrupts(server:HttpServer, serving:ICoroTask<Void>) {
-	final interrupts = SignalListener.listen(SIGINT);
-	try {
-		interrupts.next();
-		RequestLog.log("Stopping after the remaining requests, press Ctrl+C again to cancel them");
-		server.stop();
-		interrupts.next();
-		serving.cancel();
-	} catch (e:haxe.Exception) {
-		interrupts.close();
-		throw e;
-	}
-	interrupts.close();
 }

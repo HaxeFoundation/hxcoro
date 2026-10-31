@@ -1,6 +1,2 @@
---class-path src
---class-path test
---class-path ../../libs/atest/src
---library hxcoro
---main Main
+build-base.hxml
 --interp

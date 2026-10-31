@@ -21,18 +21,20 @@ final server = HttpServer.bind("127.0.0.1", 8080, request -> {
 server.serve();
 ```
 
-The server only works on eval, because it uses libuv through `eval.luv` for sockets:
+The server uses non-blocking `sys.net.Socket`s and runs on eval, HashLink, C++, Neko and Python. Everything runs on one thread:
 
-- [LoopDispatcher.hx](src/LoopDispatcher.hx) is a dispatcher that runs all coroutines on the libuv loop thread, like Node.js. hxcoro's `LuvDispatcher` runs coroutines on the libuv thread pool instead, but libuv handles may only be used from the loop thread.
-- [Tcp.hx](src/Tcp.hx) turns libuv's callback-based TCP API into coroutines using `suspendCancellable`. Cancelling an `accept` or `read` call stops waiting for it.
+- [SelectScheduler.hx](src/SelectScheduler.hx) is a scheduler that waits for timers and sockets at the same time, using `sys.net.Socket.select`. Combined with a `TrampolineDispatcher`, all coroutines run on the thread that drives the loop.
+- [Tcp.hx](src/Tcp.hx) suspends coroutines until their socket is ready using `suspendCancellable`. Cancelling an `accept` or `read` call stops waiting for it.
 - [Http.hx](src/Http.hx) is a minimal HTTP/1.1 parser. Every response closes the connection, so there is no keep-alive or chunked encoding.
+
+`Socket.select` isn't implemented on JVM, and Lua has no sockets without luasocket, so the example doesn't support these targets.
 
 ## Running
 
 Run the tests from the repository root with:
 
 ```bash
-haxe --cwd examples/http-server build-eval.hxml
+haxe --cwd examples/http-server build-<target>.hxml
 ```
 
 [demo.hxml](demo.hxml) runs [Demo.hx](src/Demo.hx), a server on port 8080 with these routes:
@@ -49,5 +51,3 @@ haxe --cwd examples/http-server build-eval.hxml
 haxe --cwd examples/http-server demo.hxml
 curl http://127.0.0.1:8080/lookup
 ```
-
-Press Ctrl+C once to stop the server after the remaining requests, and a second time to cancel them. The demo waits for Ctrl+C in a task next to the server, using [SignalListener.hx](src/SignalListener.hx). Once the server has stopped, for any reason, the demo cancels that task, because otherwise the program would wait for it forever.

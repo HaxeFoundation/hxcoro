@@ -20,10 +20,10 @@ class TestHttpServer extends atest.Test {
 	}
 
 	/**
-		Runs `lambda` on a `LoopDispatcher`, failing if it takes longer than 5 seconds.
+		Runs `lambda` on a `SelectScheduler`, failing if it takes longer than 5 seconds.
 	**/
 	static function runOnLoop<T>(lambda:NodeLambda<T>):T {
-		final setup = LoopDispatcher.createSetup();
+		final setup = SelectScheduler.createSetup();
 		final result = try {
 			setup.createContext().runTask(node -> timeout(5000, lambda));
 		} catch (e:haxe.Exception) {

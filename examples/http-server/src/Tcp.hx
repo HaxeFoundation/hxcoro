@@ -1,17 +1,14 @@
-import eval.luv.Buffer;
-import eval.luv.Loop;
-import eval.luv.LuvException;
-import eval.luv.SockAddr;
-import eval.luv.Tcp as UvTcp;
-import haxe.coro.IContinuation;
+import SelectScheduler;
 import haxe.io.Bytes;
-import hxcoro.Coro.*;
+import haxe.io.Eof;
+import haxe.io.Error;
+import sys.net.Host;
+import sys.net.Socket;
 
 /**
 	A TCP socket that listens for incoming connections.
 
-	Like everything that uses libuv handles, this may only be used from coroutines running on a
-	`LoopDispatcher`.
+	It can only be used from coroutines whose dispatcher uses a `SelectScheduler`.
 **/
 class TcpListener {
 	/**
@@ -19,48 +16,31 @@ class TcpListener {
 	**/
 	public final port:Int;
 
-	final loop:Loop;
-	final tcp:UvTcp;
-	final pending = new List<TcpConnection>();
-	var waiter:Null<IContinuation<Null<TcpConnection>>>;
+	final scheduler:SelectScheduler;
+	final socket:Socket;
 	var closed = false;
 
-	function new(loop:Loop, tcp:UvTcp) {
-		this.loop = loop;
-		this.tcp = tcp;
-		port = tcp.getSockName().resolve().port;
-		tcp.listen(onConnection);
+	function new(scheduler:SelectScheduler, socket:Socket) {
+		this.scheduler = scheduler;
+		this.socket = socket;
+		port = socket.host().port;
 	}
 
 	/**
 		Creates a listener bound to `host` and `port`.
 	**/
 	@:coroutine static public function bind(host:String, port:Int) {
-		final loop = LoopDispatcher.currentLoop();
-		final tcp = UvTcp.init(loop).resolve();
-		switch (tcp.bind(SockAddr.ipv4(host, port).resolve())) {
-			case Ok(_):
-				return new TcpListener(loop, tcp);
-			case Error(e):
-				tcp.close(() -> {});
-				throw new LuvException(e);
+		final scheduler = SelectScheduler.current();
+		final socket = new Socket();
+		try {
+			socket.bind(new Host(host), port);
+			socket.listen(128);
+			socket.setBlocking(false);
+		} catch (e:haxe.Exception) {
+			socket.close();
+			throw e;
 		}
-	}
-
-	function onConnection(result:eval.luv.Result<eval.luv.Result.NoData>) {
-		if (closed || !result.isOk()) {
-			return;
-		}
-		final client = UvTcp.init(loop).resolve();
-		tcp.accept(client).resolve();
-		final connection = new TcpConnection(client);
-		final waiter = waiter;
-		if (waiter != null) {
-			this.waiter = null;
-			waiter.resume(connection, null);
-		} else {
-			pending.add(connection);
-		}
+		return new TcpListener(scheduler, socket);
 	}
 
 	/**
@@ -68,37 +48,41 @@ class TcpListener {
 		listener has been closed.
 	**/
 	@:coroutine public function accept():Null<TcpConnection> {
-		if (!pending.isEmpty()) {
-			return pending.pop();
-		}
-		if (closed) {
-			return null;
-		}
-		return suspendCancellable(cont -> {
-			waiter = cont;
-			_ -> {
-				waiter = null;
+		while (!closed) {
+			if (!scheduler.wait(socket, Readable)) {
+				return null;
 			}
-		});
+			final client = tryAccept();
+			if (client != null) {
+				return new TcpConnection(scheduler, client);
+			}
+		}
+		return null;
+	}
+
+	function tryAccept() {
+		try {
+			final client = socket.accept();
+			client.setBlocking(false);
+			return client;
+		} catch (e:Error) {
+			switch (e) {
+				case Blocked:
+					return null;
+				case _:
+					throw e;
+			}
+		}
 	}
 
 	/**
 		Stops listening. A pending `accept` call returns `null`.
 	**/
 	public function close() {
-		if (closed) {
-			return;
-		}
-		closed = true;
-		tcp.close(() -> {});
-		for (connection in pending) {
-			connection.close();
-		}
-		pending.clear();
-		final waiter = waiter;
-		if (waiter != null) {
-			this.waiter = null;
-			waiter.resume(null, null);
+		if (!closed) {
+			closed = true;
+			scheduler.abort(socket);
+			socket.close();
 		}
 	}
 }
@@ -107,47 +91,43 @@ class TcpListener {
 	A connected TCP socket.
 **/
 class TcpConnection {
-	final tcp:UvTcp;
+	final scheduler:SelectScheduler;
+	final socket:Socket;
+	final buffer = Bytes.alloc(16384);
 	var eof = false;
 	var closed = false;
 
-	public function new(tcp:UvTcp) {
-		this.tcp = tcp;
+	public function new(scheduler:SelectScheduler, socket:Socket) {
+		this.scheduler = scheduler;
+		this.socket = socket;
 	}
 
 	/**
-		Connects to `host` and `port`.
+		Connects to `host` and `port`. Connecting blocks, which is fine for the loopback connections
+		of the tests.
 	**/
 	@:coroutine static public function connect(host:String, port:Int) {
-		final tcp = UvTcp.init(LoopDispatcher.currentLoop()).resolve();
-		final address = SockAddr.ipv4(host, port).resolve();
+		final scheduler = SelectScheduler.current();
+		final socket = new Socket();
 		try {
-			suspendCancellable(cont -> {
-				tcp.connect(address, result -> switch (result) {
-					case Ok(_):
-						cont.resume(true, null);
-					case Error(e):
-						cont.resume(false, new LuvException(e));
-				});
-				// Closing the handle aborts the connection attempt.
-				_ -> tcp.close(() -> {});
-			});
+			socket.connect(new Host(host), port);
+			socket.setBlocking(false);
 		} catch (e:haxe.Exception) {
-			if (!tcp.isClosing()) {
-				tcp.close(() -> {});
-			}
+			socket.close();
 			throw e;
 		}
-		return new TcpConnection(tcp);
+		return new TcpConnection(scheduler, socket);
 	}
 
 	/**
 		The address of the peer, such as `127.0.0.1:50123`.
 	**/
 	public function peerName() {
-		return switch (tcp.getPeerName()) {
-			case Ok(address): '$address:${address.port}';
-			case Error(_): "unknown";
+		try {
+			final peer = socket.peer();
+			return '${peer.host}:${peer.port}';
+		} catch (e:haxe.Exception) {
+			return "unknown";
 		}
 	}
 
@@ -156,49 +136,68 @@ class TcpConnection {
 		its side of the connection.
 	**/
 	@:coroutine public function read():Null<Bytes> {
-		if (eof || closed) {
-			return null;
-		}
-		return suspendCancellable(cont -> {
-			tcp.readStart(result -> switch (result) {
-				case Ok(buffer) if (buffer.size() == 0):
-					// Zero-length reads don't mean anything, keep reading.
-				case Ok(buffer):
-					tcp.readStop();
-					cont.resume(buffer.toBytes(), null);
-				case Error(UV_EOF):
-					tcp.readStop();
-					eof = true;
-					cont.resume(null, null);
-				case Error(e):
-					tcp.readStop();
-					cont.resume(null, new LuvException(e));
-			});
-			_ -> {
-				if (!closed) {
-					tcp.readStop();
-				}
+		while (!eof && !closed) {
+			if (!scheduler.wait(socket, Readable)) {
+				return null;
 			}
-		});
+			final data = tryRead();
+			if (data != null) {
+				return data;
+			}
+		}
+		return null;
+	}
+
+	function tryRead():Null<Bytes> {
+		try {
+			final length = socket.input.readBytes(buffer, 0, buffer.length);
+			if (length > 0) {
+				return buffer.sub(0, length);
+			}
+			// The socket was readable, so this is the end of the input.
+			eof = true;
+		} catch (e:Eof) {
+			eof = true;
+		} catch (e:Error) {
+			switch (e) {
+				case Blocked:
+				case _:
+					throw e;
+			}
+		}
+		return null;
 	}
 
 	/**
 		Suspends until `bytes` have been written.
 	**/
 	@:coroutine public function write(bytes:Bytes) {
-		if (closed) {
-			throw new LuvException(UV_EPIPE);
+		var pos = 0;
+		while (true) {
+			if (closed) {
+				throw new Eof();
+			}
+			pos += tryWrite(bytes, pos);
+			if (pos == bytes.length) {
+				return;
+			}
+			if (!scheduler.wait(socket, Writable)) {
+				throw new Eof();
+			}
 		}
-		suspend(cont -> {
-			// On eval, `write` returns `null` instead of a `Result`, but errors are passed to the callback
-			// as well.
-			tcp.write([Buffer.fromBytes(bytes)], (result, _) -> switch (result) {
-				case Ok(_):
-					cont.resume(true, null);
-				case Error(e):
-					cont.resume(false, new LuvException(e));
-			});
-		});
+	}
+
+	function tryWrite(bytes:Bytes, pos:Int) {
+		try {
+			return socket.output.writeBytes(bytes, pos, bytes.length - pos);
+		} catch (e:Error) {
+			switch (e) {
+				case Blocked:
+					return 0;
+				case _:
+					throw e;
+			}
+		}
 	}
 
 	/**
@@ -207,7 +206,8 @@ class TcpConnection {
 	public function close() {
 		if (!closed) {
 			closed = true;
-			tcp.close(() -> {});
+			scheduler.abort(socket);
+			socket.close();
 		}
 	}
 }
