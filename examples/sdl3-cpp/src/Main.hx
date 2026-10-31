@@ -210,4 +210,12 @@ function main() {
 	SDL.destroyRenderer(renderer);
 	SDL.destroyWindow(window);
 	SDL.quit();
+
+	// The loop above only waits for the task to finish, so check how it finished. Otherwise an
+	// exception in a coroutine would end the app silently. Closing the window cancels the task,
+	// which is the normal way out.
+	final error = task.getError();
+	if (error != null && !(error is CancellationException)) {
+		throw error;
+	}
 }

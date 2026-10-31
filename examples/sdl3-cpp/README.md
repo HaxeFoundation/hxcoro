@@ -7,7 +7,7 @@ Runs hxcoro coroutines on SDL's main thread, based on Aidan's [SDL_Hxcoro](https
 - Input reaches the coroutines through a `Channel`, filled from the event loop with `tryWrite`.
 - Each click starts a task that animates a box with `delay`, limited by `timeout`. Escape cancels all box tasks.
 - Space counts primes on a `ThreadPoolDispatcher` and shows the result in the window title.
-- Closing the window cancels the root task, and the main loop runs until all tasks have finished.
+- Closing the window cancels the root task, and the main loop runs until all tasks have finished. If the root task failed instead, its exception is rethrown afterwards, so that errors in coroutines don't end the app silently.
 
 ## Building
 
