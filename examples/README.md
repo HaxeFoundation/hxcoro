@@ -7,6 +7,7 @@ The [wiki](https://github.com/HaxeFoundation/hxcoro/wiki) explains the API with 
 | Example | Description |
 | --- | --- |
 | [generators](generators/) | Synchronous generators in Haxe, ES6 and C# style, and an asynchronous generator |
+| [sdl3-cpp](sdl3-cpp/) | Coroutines on SDL3's main thread, with background work on a thread pool (C++ only) |
 
 ## Layout
 
