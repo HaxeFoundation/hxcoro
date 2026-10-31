@@ -1,0 +1,4 @@
+--class-path src
+--library hxcoro
+--main Demo
+--interp
