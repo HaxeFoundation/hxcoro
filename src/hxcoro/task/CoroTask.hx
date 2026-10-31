@@ -37,9 +37,29 @@ class CoroTask<T> extends CoroBaseTask<T> implements IContinuation<T> {
 	static public final CoroScopeStrategy = new CoroScopeStrategy();
 	static public final CoroSupervisorStrategy = new CoroSupervisorStrategy();
 
-	public function new(context:Context, nodeStrategy:INodeStrategy, initialState:TaskState = Running#if coro.stack_traces, ?startPos:haxe.PosInfos#end) {
-		super(context, nodeStrategy, initialState#if coro.stack_traces, startPos#end);
+	/**
+		Creates a new task using the provided `context`. The creator of the task does its work and
+		completes it by calling `resume`, after starting it with `start`.
+	**/
+	public function new(context:Context, nodeStrategy:INodeStrategy#if coro.stack_traces, ?startPos:haxe.PosInfos#end) {
+		super(context, nodeStrategy#if coro.stack_traces, startPos#end);
 	}
+
+	/**
+		The creator of this task does its work, so there is nothing to dispatch and the task is
+		activated right away.
+	**/
+	function requestActivation() {
+		#if coro.stack_traces
+		callFrameLocked = true;
+		#end
+		activate();
+	}
+
+	/**
+		The creator of this task does its work, so there is nothing to run here.
+	**/
+	function runOwnWork() {}
 
 	/**
 		Resumes the task with the provided `result` and `error`.
@@ -78,36 +98,39 @@ class CoroTaskWithLambda<T> extends CoroTask<T> implements IDispatchObject imple
 	final lambda:NodeLambda<T>;
 
 	/**
-		Creates a new task using the provided `context` in order to execute `lambda`.
+		Creates a new task using the provided `context` in order to execute `lambda`. The task doesn't
+		run until it is started.
 	**/
-	public function new(context:Context, lambda:NodeLambda<T>, nodeStrategy:INodeStrategy, initialState:TaskState = Running#if coro.stack_traces, ?startPos:haxe.PosInfos#end) {
+	public function new(context:Context, lambda:NodeLambda<T>, nodeStrategy:INodeStrategy#if coro.stack_traces, ?startPos:haxe.PosInfos#end) {
 		this.lambda = lambda;
-		super(context, nodeStrategy, Created#if coro.stack_traces,startPos#end);
-		if (initialState == Running) {
-			dispatchStart();
-		}
+		super(context, nodeStrategy#if coro.stack_traces,startPos#end);
 	}
 
 	/**
-		Starts this task through its context's dispatcher, keeping its creation site as its call frame.
+		Dispatches this task on its context's dispatcher, which then calls `onDispatch`. Unless `start`
+		set a caller before, this keeps the creation site as the task's call frame.
 	**/
-	@:allow(hxcoro.task.CoroBaseTask)
-	function dispatchStart() {
+	@:allow(hxcoro)
+	override function requestActivation() {
 		#if coro.stack_traces
 		callFrameLocked = true;
 		#end
 		context.dispatchOrCall(this);
 	}
 
+	/**
+		Activates this task on the calling thread. The dispatcher calls this, and so do functions
+		like `Coro.scope`, which create the task with the caller's own context and therefore already
+		run on its dispatcher.
+	**/
 	public function onDispatch() {
 		activate();
 	}
 
 	/**
-		Starts executing this task's `lambda`. Has no effect if the task has already been started or has completed.
+		Runs this task's `lambda`.
 	**/
-	override public function doStart() {
-		super.doStart();
+	override function runOwnWork() {
 		lambda(this, this);
 	}
 }

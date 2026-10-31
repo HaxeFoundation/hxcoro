@@ -45,6 +45,8 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 	public var context(get, null):Context;
 
 	#if coro.stack_traces
+	// Set once a start has been requested, after which `start` no longer changes the call frame.
+	// The state can't tell this, because a task whose start was dispatched is still `Created`.
 	var callFrameLocked:Bool;
 	var startPos:Null<haxe.PosInfos>;
 	var callerTask:Null<IStackFrame>;
@@ -56,19 +58,19 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 	var result:Null<T>;
 
 	/**
-		Creates a new task using the provided `context`.
+		Creates a new task using the provided `context`. The task doesn't run until it is started.
 	**/
 	@:nullSafety(Off)
-	public function new(context:Context, nodeStrategy:INodeStrategy, initialState:TaskState#if coro.stack_traces, ?startPos:haxe.PosInfos#end) {
+	public function new(context:Context, nodeStrategy:INodeStrategy#if coro.stack_traces, ?startPos:haxe.PosInfos#end) {
 		final parent = context.get(CoroBaseTask);
 		this.nodeStrategy = nodeStrategy;
 		awaitingContinuations = new TaskContinuationManager(this);
 		#if coro.stack_traces
 		this.startPos = startPos;
-		callFrameLocked = initialState == Running;
+		callFrameLocked = false;
 		#end
 		this.context = context.clone().with(this).set(CancellationToken, this);
-		super(parent, initialState);
+		super(parent);
 	}
 
 	inline function get_context() {
@@ -116,28 +118,19 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 	}
 
 	/**
-		Called once when the task starts running. Subclasses override this to begin their work.
-	**/
-	public function doStart() {
-		#if coro.stack_traces
-		callFrameLocked = true;
-		#end
-	}
-
-	/**
 		Creates a lazy child task to execute `lambda`. The child task does not execute until its `start`
 		method is called. This occurs automatically once this task has finished execution, or right away if
 		it already has.
 	**/
 	public function lazy<T>(lambda:NodeLambda<T>#if coro.stack_traces, ?startPos:haxe.PosInfos#end):IStartableCoroTask<T> {
-		final task = new CoroTaskWithLambda(context, lambda, CoroTask.CoroChildStrategy, Created#if coro.stack_traces, startPos#end);
+		final task = new CoroTaskWithLambda(context, lambda, CoroTask.CoroChildStrategy#if coro.stack_traces, startPos#end);
 		// The task is already registered as a child here, so if this task's own work finishes after this
 		// check, startChildren or cancelChildren still sees it.
 		switch (state.load()) {
 			case Completing | Cancelling:
 				// This task has already started or cancelled its children, so start the child like `async`
 				// does. If this task is cancelling, activate cancels it.
-				task.dispatchStart();
+				task.requestActivation();
 			case Created | Running | CancellationRequested | Completed | Cancelled:
 		}
 		return task;
@@ -147,7 +140,9 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 		Creates a child task to execute `lambda` and starts it automatically.
 	**/
 	public function async<T>(lambda:NodeLambda<T>#if coro.stack_traces, ?startPos:haxe.PosInfos#end):ICoroTask<T> {
-		return new CoroTaskWithLambda<T>(context, lambda, CoroTask.CoroChildStrategy#if coro.stack_traces, startPos#end);
+		final task = new CoroTaskWithLambda<T>(context, lambda, CoroTask.CoroChildStrategy#if coro.stack_traces, startPos#end);
+		task.requestActivation();
+		return task;
 	}
 
 	/**
@@ -180,6 +175,8 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 	/**
 		Starts executing this task. Has no effect if the task has already been started or has completed.
 
+		The task might not have started running yet when this function returns.
+
 		When called from inside a task lambda, pass `node` as `caller` to include the calling task
 		in exception stack traces (e.g. `task1.start(node)`).
 	**/
@@ -193,7 +190,12 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 			this.startPos = startPos;
 		}
 		#end
-		activate();
+		// A task that is no longer `Created` has started already. A task whose start was dispatched
+		// but hasn't run yet is still `Created` and gets dispatched again, but `activate` only starts
+		// it once.
+		if (state.load() == Created) {
+			requestActivation();
+		}
 	}
 
 	override function doCancel(error:Exception) {

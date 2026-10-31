@@ -4,7 +4,6 @@ import haxe.coro.context.Context;
 import haxe.coro.context.ExceptionHandler;
 import haxe.coro.dispatchers.Dispatcher;
 import hxcoro.schedulers.ILoop;
-import hxcoro.task.AbstractTask;
 import hxcoro.task.CoroTask;
 import hxcoro.task.ICoroTask;
 import hxcoro.task.NodeLambda;
@@ -18,21 +17,30 @@ import hxcoro.task.node.CoroScopeStrategy;
 class ContextRun {
 	#if coro.stack_traces
 
-	static function createEntryTask<T>(context:Context, lambda:NodeLambda<T>, strategy:CoroScopeStrategy, initialState:TaskState, ?callPos:haxe.PosInfos) {
+	static function createEntryTask<T>(context:Context, lambda:NodeLambda<T>, strategy:CoroScopeStrategy, start:Bool, ?callPos:haxe.PosInfos) {
 		final exceptionHandler = context.get(ExceptionHandler);
-		if (exceptionHandler != null) {
+		final task = if (exceptionHandler != null) {
 			@:nullSafety(Off) final run = exceptionHandler.startSynchronousRun(context, callPos);
-			final task = new CoroTaskWithLambda(run.context, lambda, strategy, initialState, callPos);
+			final task = new CoroTaskWithLambda(run.context, lambda, strategy, callPos);
 			task.onCompletion((_, _) -> run.complete());
-			return task;
+			task;
+		} else {
+			new CoroTaskWithLambda(context, lambda, strategy, callPos);
 		}
-		return new CoroTaskWithLambda(context, lambda, strategy, initialState, callPos);
+		if (start) {
+			task.requestActivation();
+		}
+		return task;
 	}
 
 	#else
 
-	static function createEntryTask<T>(context:Context, lambda:NodeLambda<T>, strategy:CoroScopeStrategy, initialState:TaskState) {
-		return new CoroTaskWithLambda(context, lambda, strategy, initialState);
+	static function createEntryTask<T>(context:Context, lambda:NodeLambda<T>, strategy:CoroScopeStrategy, start:Bool) {
+		final task = new CoroTaskWithLambda(context, lambda, strategy);
+		if (start) {
+			task.requestActivation();
+		}
+		return task;
 	}
 
 	#end
@@ -64,7 +72,7 @@ class ContextRun {
 		if (dispatcher == null) {
 			throw 'Cannot create a task without a Dispatcher element';
 		}
-		return createEntryTask(context, lambda, CoroTask.CoroScopeStrategy, Created);
+		return createEntryTask(context, lambda, CoroTask.CoroScopeStrategy, false);
 	}
 
 	/**
@@ -79,7 +87,7 @@ class ContextRun {
 		if (dispatcher == null) {
 			throw 'Cannot launch a task without a Dispatcher element';
 		}
-		return createEntryTask(context, lambda, CoroTask.CoroScopeStrategy, Running#if coro.stack_traces, callPos #end);
+		return createEntryTask(context, lambda, CoroTask.CoroScopeStrategy, true#if coro.stack_traces, callPos #end);
 	}
 
 	/**

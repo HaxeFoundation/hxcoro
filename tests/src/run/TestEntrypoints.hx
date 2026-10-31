@@ -62,16 +62,18 @@ function assertNoCurrentMessage(?p:PosInfos) {
 
 class TestEntrypoints extends atest.Test {
 	function launchTask(context:Context, loop:ILoop) {
-		context.launchTask(node -> {
+		final launchedTask = context.launchTask(node -> {
 			helloAndGoodbyeAfter("Launched Task 1");
 		});
 
 		assertAwaitLastMessage("Launched Task 1 says hello");
 		assertNoCurrentMessage();
 
-		loop.loop(Once);
+		// On a thread pool, the task's `yield` might not have been scheduled yet, so a single
+		// `loop(Once)` could return without running it. Run the loop until the task is done.
+		loop.awaitTask(launchedTask);
 
-		assertAwaitLastMessage("Launched Task 1 says goodbye");
+		assertLastMessage("Launched Task 1 says goodbye");
 		assertNoCurrentMessage();
 	}
 
@@ -99,15 +101,15 @@ class TestEntrypoints extends atest.Test {
 
 		assertNoCurrentMessage();
 
-		// This will make it say hello but not goodbye because the loop isn't active
+		// This will make it say hello on the thread pool, but not goodbye because the loop isn't active
 		createdTask2.start();
 
-		assertLastMessage("Created Task 2 says hello");
+		assertAwaitLastMessage("Created Task 2 says hello");
 
-		// But with this we finally get it.
-		loop.loop(Once);
+		// But with this we finally get it. As in `launchTask`, a single `loop(Once)` isn't enough.
+		loop.awaitTask(createdTask2);
 
-		assertAwaitLastMessage("Created Task 2 says goodbye");
+		assertLastMessage("Created Task 2 says goodbye");
 		assertNoCurrentMessage();
 	}
 

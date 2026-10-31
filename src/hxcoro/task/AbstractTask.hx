@@ -119,9 +119,9 @@ abstract class AbstractTask implements ICancellationToken {
 	}
 
 	/**
-		Creates a new task.
+		Creates a new task in the `Created` state.
 	**/
-	public function new(parent:Null<AbstractTask>, initialState:TaskState) {
+	public function new(parent:Null<AbstractTask>) {
 		id = atomicId.add(1);
 		this.parent = parent;
 		state = new AtomicState(Created);
@@ -130,13 +130,6 @@ abstract class AbstractTask implements ICancellationToken {
 		numActiveChildren = new AtomicInt(0);
 		if (parent != null) {
 			parent.addChild(this);
-		}
-		switch (initialState) {
-			case Created:
-			case Running:
-				activate();
-			case _:
-				setInternalException('Invalid initial state $initialState');
 		}
 	}
 
@@ -277,9 +270,10 @@ abstract class AbstractTask implements ICancellationToken {
 	}
 
 	/**
-		Starts executing this task. Has no effect if the task has already been started or has completed.
+		Moves this task from `Created` to `Running` and runs its own work, on the calling thread. Has no
+		effect if the task has already been started or has completed.
 	**/
-	function activate() {
+	final function activate() {
 		if (state.compareExchange(Created, Running) == Created) {
 			// Check if parent is cancelling and attempt to cancel this task before starting.
 			// If the task has NonCancellable context, doCancel() will return early and
@@ -289,13 +283,20 @@ abstract class AbstractTask implements ICancellationToken {
 			}
 			// Only start if the task wasn't successfully cancelled
 			if (state.load() == Running) {
-				doStart();
+				runOwnWork();
 			} else if (state.compareExchange(CancellationRequested, Cancelling) == CancellationRequested) {
 				// The task's own work never starts.
 				checkCompletion();
 			}
 		}
 	}
+
+	/**
+		Arranges for `activate` to be called where this task is supposed to run, which may be right away.
+
+		Calling this more than once is harmless, because `activate` only starts a created task.
+	**/
+	abstract function requestActivation():Void;
 
 	function lockChildren() {
 		while (true) {
@@ -343,7 +344,7 @@ abstract class AbstractTask implements ICancellationToken {
 				final children = getCurrentChildren();
 				numActiveChildren.store(activeChildren);
 				for (child in children) {
-					child.activate();
+					child.requestActivation();
 				}
 		}
 	}
@@ -389,7 +390,10 @@ abstract class AbstractTask implements ICancellationToken {
 		cancel();
 	}
 
-	abstract function doStart():Void;
+	/**
+		Runs this task's own work. Called by `activate` once the task is `Running`.
+	**/
+	abstract function runOwnWork():Void;
 
 	abstract function complete():Void;
 

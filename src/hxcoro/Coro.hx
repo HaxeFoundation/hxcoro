@@ -83,7 +83,9 @@ class Coro {
 	@:coroutine static public function scope<T>(lambda:NodeLambda<T>#if coro.stack_traces, ?startPos:haxe.PosInfos#end):T {
 		return suspend(cont -> {
 			final context = cont.context;
-			final scope = new CoroTaskWithLambda(context, lambda, CoroTask.CoroScopeStrategy, Running#if coro.stack_traces, startPos#end);
+			final scope = new CoroTaskWithLambda(context, lambda, CoroTask.CoroScopeStrategy#if coro.stack_traces, startPos#end);
+			// The scope has our context, so we already run on its dispatcher and can activate it ourselves.
+			scope.onDispatch();
 			scope.awaitContinuation(cont#if coro.stack_traces, startPos#end);
 		});
 	}
@@ -99,7 +101,8 @@ class Coro {
 	@:coroutine static public function supervisor<T>(lambda:NodeLambda<T>#if coro.stack_traces, ?startPos:haxe.PosInfos#end):T {
 		return suspend(cont -> {
 			final context = cont.context;
-			final scope = new CoroTaskWithLambda(context, lambda, CoroTask.CoroSupervisorStrategy, Running#if coro.stack_traces, startPos#end);
+			final scope = new CoroTaskWithLambda(context, lambda, CoroTask.CoroSupervisorStrategy#if coro.stack_traces, startPos#end);
+			scope.onDispatch();
 			scope.awaitContinuation(cont#if coro.stack_traces, startPos#end);
 		});
 	}
@@ -122,7 +125,8 @@ class Coro {
 		}
 		return suspend(cont -> {
 			final context = cont.context;
-			final scope = new CoroTaskWithLambda(context, lambda, CoroTask.CoroScopeStrategy, Running#if coro.stack_traces, startPos#end);
+			final scope = new CoroTaskWithLambda(context, lambda, CoroTask.CoroScopeStrategy#if coro.stack_traces, startPos#end);
+			scope.onDispatch();
 			final handle = context.scheduleFunction(ms, () -> {
 				#if coro.stack_traces
 				context.setExceptionStack(cast cont, exception);

@@ -42,7 +42,7 @@ class Test {
 	static function checkImplicitThenAwaitedStack(e:haxe.Exception) {
 		final stack = e.stack.asArray();
 		// Lazy task started implicitly (startChildren), then a sibling calls task.await().
-		// doStart() sets callFrameLocked = true before the sibling can call awaitContinuation,
+		// requestActivation() sets callFrameLocked = true before the sibling can call awaitContinuation,
 		// so startPos is not overwritten by the sibling's await() call site.
 		// startPos remains the node.lazy() call site (line 39).
 		final r = new Inspector(stack).inspect([

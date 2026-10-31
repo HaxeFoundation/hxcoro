@@ -168,14 +168,16 @@ class ContextConvenience {
 		the new task becomes its child.
 	**/
 	static public function async<T>(context:Context, lambda:NodeLambda<T>):ICoroTask<T> {
-		return new CoroTaskWithLambda<T>(context, lambda, CoroTask.CoroChildStrategy);
+		final task = new CoroTaskWithLambda<T>(context, lambda, CoroTask.CoroChildStrategy);
+		task.requestActivation();
+		return task;
 	}
 
 	/**
 		Like `async`, but the task does not run `lambda` until it is started.
 	**/
 	static public function lazy<T>(context:Context, lambda:NodeLambda<T>):IStartableCoroTask<T> {
-		return new CoroTaskWithLambda(context, lambda, CoroTask.CoroChildStrategy, Created);
+		return new CoroTaskWithLambda(context, lambda, CoroTask.CoroChildStrategy);
 	}
 
 	/**
