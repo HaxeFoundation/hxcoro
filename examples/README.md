@@ -10,10 +10,10 @@ The [wiki](https://github.com/HaxeFoundation/hxcoro/wiki) explains the API with 
 
 ## Layout
 
-Each example lives in its own directory with a `README.md`, its code in `src/` and its tests in `test/`. Run an example's tests from the repository root:
+Each example lives in its own directory with a `README.md`, its code in `src/` and its tests, if it has any, in `test/`. Run an example's tests from the repository root:
 
 ```bash
 haxe --cwd examples/<name> build-<target>.hxml
 ```
 
-CI runs every `examples/*/build-<target>.hxml` for the targets of its test matrix. An example that only works on some targets, or that needs external dependencies, should only provide build files for the targets CI can run, and use differently named build files for the rest.
+CI runs every `examples/*/build-<target>.hxml` for the targets of its test matrix. An example that only works on some targets, or that needs external dependencies, should only provide build files for the targets CI can run, and use differently named build files for the rest. Its `README.md` explains how to build it.
