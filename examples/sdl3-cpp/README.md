@@ -19,8 +19,6 @@ haxe --cwd examples/sdl3-cpp build.hxml -D SDL_DIST_DIR=<path to the extracted p
 
 This needs an hxcpp version that has `cpp.marshal.RootHandle`. Only tested on Windows with SDL 3.4.0.
 
-## Status
+## Threads
 
-Work in progress, based on #203. The background work of the Space key relies on tasks starting on their own dispatcher, which #203 ensures. Without it, `node.with(background).async(...).await()` could start the child on the awaiting thread, and the main loop froze while counting.
-
-The code after `await()` continues on the main thread, because `await` suspends through `Coro.suspend`, which resumes on the awaiting coroutine's dispatcher.
+All coroutines of the example run on the main thread, except the prime counting. `node.with(background).async(...)` starts that task on the thread pool, because a task always starts on the dispatcher of its context. `await()` then suspends through `Coro.suspend`, which resumes the awaiting coroutine through its own dispatcher, so the code after `await()` runs on the main thread again and can update the title without synchronization.
