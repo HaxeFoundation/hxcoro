@@ -1,0 +1,3 @@
+build-base.hxml
+--neko bin/json-parser.n
+--cmd neko bin/json-parser.n
