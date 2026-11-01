@@ -5,8 +5,6 @@ import haxe.Int64;
 import haxe.Timer;
 import haxe.atomic.AtomicInt;
 import haxe.coro.IContinuation;
-import haxe.coro.context.Context;
-import haxe.coro.continuations.FunctionContinuation;
 import haxe.coro.schedulers.IScheduler;
 import haxe.coro.schedulers.ISchedulerHandle;
 import haxe.exceptions.ArgumentException;
@@ -40,6 +38,7 @@ private class ThreadQueue {
 private enum ThreadQueueEvent {
 	Add(queue:ThreadQueue);
 	Remove(queue:ThreadQueue);
+	WakeUp;
 }
 
 /**
@@ -107,7 +106,6 @@ class ThreadAwareScheduler implements IScheduler implements ILoop {
 	final queueTls:Tls<TlsQueue>;
 	final queueDeque:Deque<ThreadQueueEvent>;
 	final wakeUpFlag:WakeUpFlag;
-	final wakeUpContinuation:IContinuation<Any>;
 	var firstQueue:Null<ThreadQueue>;
 
 	public function new() {
@@ -115,7 +113,6 @@ class ThreadAwareScheduler implements IScheduler implements ILoop {
 		queueTls = new Tls();
 		queueDeque = new Deque();
 		wakeUpFlag = new WakeUpFlag();
-		wakeUpContinuation = new FunctionContinuation(Context.empty, (_, _) -> {});
 	}
 
 	function getTlsQueue():TlsQueue {
@@ -155,11 +152,17 @@ class ThreadAwareScheduler implements IScheduler implements ILoop {
 		return Timer.milliseconds();
 	}
 
+	/**
+		Processes the coordination deque and returns whether it contained a `WakeUp`.
+	**/
 	function consumeQueueDeque() {
+		var wokenUp = false;
 		while (true) {
 			switch (queueDeque.pop(false)) {
 				case null:
-					return;
+					return wokenUp;
+				case WakeUp:
+					wokenUp = true;
 				case Add(queue):
 					// We don't care about the order, so treat it as a stack
 					final first = firstQueue;
@@ -200,7 +203,7 @@ class ThreadAwareScheduler implements IScheduler implements ILoop {
 		final currentTime = now();
 
 		// First we consume the coordination deque so we know all queues.
-		consumeQueueDeque();
+		final wokenUp = consumeQueueDeque();
 
 		// Move the events from the threads' queues into the heap, so that all events are
 		// dispatched from one place, in order of due time.
@@ -213,7 +216,7 @@ class ThreadAwareScheduler implements IScheduler implements ILoop {
 		// Dispatch the due events one at a time, so that the ones after an event whose dispatch
 		// throws stay in the heap. Only this thread touches the heap, and events scheduled while
 		// dispatching go to a thread queue, so this loop ends.
-		var didSomething = false;
+		var didSomething = wokenUp;
 		while (true) {
 			final minimum = heap.minimum();
 			if (minimum == null || minimum.runTime > currentTime) {
@@ -259,8 +262,10 @@ class ThreadAwareScheduler implements IScheduler implements ILoop {
 		Makes the current or next `loop(Once)` call return. This may be called from any thread.
 	**/
 	public function wakeUp() {
-		// The wake-up is an event that does nothing, so `loop` returns because it dispatched it.
-		schedule(0, wakeUpContinuation);
+		// This goes through the coordination deque instead of `schedule`, so that it doesn't give
+		// the calling thread an event queue of its own.
+		queueDeque.add(WakeUp);
+		wakeUpFlag.set();
 	}
 
 	/**
