@@ -5,6 +5,8 @@ import haxe.Int64;
 import haxe.Timer;
 import haxe.atomic.AtomicInt;
 import haxe.coro.IContinuation;
+import haxe.coro.context.Context;
+import haxe.coro.continuations.FunctionContinuation;
 import haxe.coro.schedulers.IScheduler;
 import haxe.coro.schedulers.ISchedulerHandle;
 import haxe.exceptions.ArgumentException;
@@ -41,8 +43,7 @@ private enum ThreadQueueEvent {
 }
 
 /**
-	A flag that tells the loop thread that there is something to look at: a new event or a
-	`wakeUp` call. Any thread can set it, and only the loop thread clears it and waits for it.
+	A flag that tells the loop thread that a new event was scheduled. Any thread can set it, and only the loop thread clears it and waits for it.
 	It is a state, not a pulse: setting it while it is already set does nothing, so unlike a
 	plain semaphore it can't pile up permits that later make a wait return for no reason.
 
@@ -105,7 +106,7 @@ class ThreadAwareScheduler implements IScheduler implements ILoop {
 	final queueTls:Tls<TlsQueue>;
 	final queueDeque:Deque<ThreadQueueEvent>;
 	final wakeUpFlag:WakeUpFlag;
-	final wakeUpRequested:AtomicInt;
+	final wakeUpContinuation:IContinuation<Any>;
 	var firstQueue:Null<ThreadQueue>;
 
 	public function new() {
@@ -113,7 +114,7 @@ class ThreadAwareScheduler implements IScheduler implements ILoop {
 		queueTls = new Tls();
 		queueDeque = new Deque();
 		wakeUpFlag = new WakeUpFlag();
-		wakeUpRequested = new AtomicInt(0);
+		wakeUpContinuation = new FunctionContinuation(Context.empty, (_, _) -> {});
 	}
 
 	function getTlsQueue():TlsQueue {
@@ -236,10 +237,7 @@ class ThreadAwareScheduler implements IScheduler implements ILoop {
 			// far are collected below, and any event scheduled from now on sets it again, so
 			// the wait below can't miss it.
 			wakeUpFlag.clear();
-			final didSomething = loopNoWait();
-			// Clear the wake-up request in every case: the caller checks its condition again
-			// once we return.
-			if (wakeUpRequested.exchange(0) == 1 || didSomething || runMode == NoWait) {
+			if (loopNoWait() || runMode == NoWait) {
 				return;
 			}
 			final minimum = heap.minimum();
@@ -257,12 +255,13 @@ class ThreadAwareScheduler implements IScheduler implements ILoop {
 	}
 
 	/**
-		Makes the current or next `loop(Once)` call return, even if it hasn't dispatched
-		anything. This may be called from any thread.
+		Makes the current or next `loop(Once)` call return. This may be called from any thread.
+
+		This schedules an event that does nothing, like `uv_async_send` in libuv does. A
+		`wakeUp` is then just another event, which `loop` can't lose or confuse with others.
 	**/
 	public function wakeUp() {
-		wakeUpRequested.store(1);
-		wakeUpFlag.set();
+		schedule(0, wakeUpContinuation);
 	}
 
 	/**
