@@ -16,7 +16,7 @@ class Issue64 extends atest.Test {
 					node.async(node -> {
 						try {
 							latch.arrive(1);
-							delay(5000000);
+							awaitCancellation();
 						} catch(e:CancellationException) {
 							mutex.acquire();
 							cancellations[i * 5 + k] = e;
