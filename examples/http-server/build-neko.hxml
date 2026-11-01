@@ -1,0 +1,3 @@
+build-base.hxml
+--neko bin/http-server.n
+--cmd neko bin/http-server.n
