@@ -70,7 +70,7 @@ private class Signal {
 
 	/**
 		Lowers the signal without waiting. Every `raise` that happens after this call is seen
-		by the next `wait`.
+		by the next `block`.
 	**/
 	public function reset() {
 		if (raised.exchange(0) == 1) {
@@ -82,15 +82,15 @@ private class Signal {
 	/**
 		Waits until the signal is raised and lowers it again.
 	**/
-	public function wait() {
+	public function block() {
 		semaphore.acquire();
 		raised.store(0);
 	}
 
 	/**
-		Like `wait`, but gives up after `timeout` seconds.
+		Like `block`, but gives up after `timeout` seconds.
 	**/
-	public function tryWait(timeout:Float) {
+	public function tryBlock(timeout:Float) {
 		if (semaphore.tryAcquire(timeout)) {
 			raised.store(0);
 		}
@@ -247,11 +247,11 @@ class ThreadAwareScheduler implements IScheduler implements ILoop {
 				// If there's a scheduled event, its due time is our max timeout time.
 				final timeout:Float = (Int64.toInt(minimum.runTime - now())) / 1000;
 				if (timeout > 0) {
-					signal.tryWait(timeout);
+					signal.tryBlock(timeout);
 				}
 			} else {
 				// Otherwise we wait until something happens.
-				signal.wait();
+				signal.block();
 			}
 		}
 	}
