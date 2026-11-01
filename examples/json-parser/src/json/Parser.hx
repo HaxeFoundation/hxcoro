@@ -38,7 +38,6 @@ class Parser {
 
 	function new(input:IChannelReader<Token>) {
 		this.input = input;
-		this.token = null;
 	}
 
 	/**
@@ -51,13 +50,10 @@ class Parser {
 		The lexer always ends with `TEof`, so this never reads from a closed channel.
 	**/
 	@:coroutine function peek():Token {
-		final current = token;
-		if (current != null) {
-			return current;
+		if (token == null) {
+			token = input.read();
 		}
-		final next = input.read();
-		token = next;
-		return next;
+		return token;
 	}
 
 	/**
@@ -146,10 +142,6 @@ class Parser {
 		Throws an error about the token returned by the last `peek`.
 	**/
 	function unexpected<T>():T {
-		final token = this.token;
-		if (token == null) {
-			throw "unexpected() must be called after peek()";
-		}
 		throw new JsonException(token.kind.match(TEof) ? "Unexpected end of input" : 'Unexpected ${token.kind}', token.position);
 	}
 }

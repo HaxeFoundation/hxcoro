@@ -78,12 +78,6 @@ class Lexer {
 
 	function new(output:IChannelWriter<Token>) {
 		this.output = output;
-		this.bytes = Bytes.alloc(0);
-		this.end = 0;
-		this.indexToPosition = 0;
-		this.isLast = false;
-		this.kind = null;
-		this.tokenStart = 0;
 	}
 
 	/**
@@ -103,7 +97,6 @@ class Lexer {
 			if (next == INCOMPLETE) {
 				break;
 			}
-			final kind = this.kind;
 			if (kind == null) {
 				// only whitespace was left
 				i = next;
