@@ -69,7 +69,6 @@ class Generator<T, R> extends SuspensionResult<Iterator<T>> implements IContinua
 		Like `next`, but additionally resumes the generator function with `value` as
 		the result of the `yield` call that offered the returned element.
 	**/
-	@:nullSafety(Off)
 	public function nextWith(value:Null<R>):T {
 		return switch (state) {
 			case Pending:

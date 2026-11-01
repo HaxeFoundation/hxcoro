@@ -4,7 +4,7 @@ using issues.aidan.Issue167.Foo;
 
 private class Foo {
 	@:coroutine public static function bar(s:String) {
-		delay(100);
+		yield();
 
 		return s;
 	}

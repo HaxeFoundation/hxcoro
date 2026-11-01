@@ -4,6 +4,7 @@ import sys.thread.Mutex;
 import haxe.exceptions.ArgumentException;
 import haxe.exceptions.CancellationException;
 import hxcoro.ds.channels.Channel;
+import hxcoro.concurrent.CoroLatch;
 import hxcoro.concurrent.CoroMutex;
 import hxcoro.concurrent.CoroSemaphore;
 import hxcoro.concurrent.exceptions.SemaphoreFullException;
@@ -343,15 +344,18 @@ class TestMutex extends atest.Test {
 			for (_ in 0...numPermits) {
 				s.acquire();
 			}
+			// Waiters that are cancelled before they start never acquire, so make sure they all did.
+			final started = new CoroLatch(numTasks);
 			final waiters = [
 				for (_ in 0...numTasks) {
 					node.async(_ -> {
+						started.arrive(1);
 						s.acquire();
 						s.release();
 					});
 				}
 			];
-			delay(10); // let the waiters suspend in acquire
+			started.wait();
 			for (_ in 0...numPermits) {
 				s.release();
 			}
