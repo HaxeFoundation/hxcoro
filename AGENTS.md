@@ -114,7 +114,7 @@ Files with a target suffix such as `Foo.cpp.hx` or `Foo.eval.hx` are only used o
 ## Code Style and Conventions
 
 - Indent with tabs and follow the style of the surrounding code.
-- Library code compiles with `--macro nullSafety("hxcoro")`, so new code under `src/hxcoro` must be null-safe. Null safety is turned off for php and python builds.
+- Library code compiles with `--macro nullSafety("hxcoro")`, so new code under `src/hxcoro` must be null-safe. Null safety is turned off for php and python builds. This only applies to the library: examples, tests and benchmarks aren't checked, so write them in plain Haxe without local copies of nullable fields or similar workarounds.
 - Use `@:coroutine` for coroutine functions. Express outcome hints through metadata parameters, for example `@:coroutine(outcome = { noThrow: true })`.
 - Stack-trace bookkeeping (`?startPos:haxe.PosInfos` parameters and similar) is gated on `#if coro.stack_traces`, not `#if debug`.
 - Use conditional compilation (`#if target.threaded`, `#if cpp`, `#if lua_vanilla`, ...) or target-suffixed files for target-specific code. `-D lua-vanilla` has no `Sys.sleep` or `Sys.time`.
