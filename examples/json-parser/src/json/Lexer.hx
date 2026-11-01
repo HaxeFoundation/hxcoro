@@ -2,7 +2,6 @@ package json;
 
 import haxe.io.ArrayBufferView;
 import haxe.io.Bytes;
-import haxe.io.BytesBuffer;
 import hxcoro.ds.Out;
 import hxcoro.ds.channels.IChannelWriter;
 import hxcoro.ds.pipelines.IPipeReader;
@@ -244,11 +243,11 @@ class Lexer {
 	}
 
 	/**
-		Decodes the escape sequences of a string. The result is assembled as UTF-8 bytes, because
-		`StringBuf.addChar` doesn't encode characters above 127 on targets with byte strings.
+		Decodes the escape sequences of a string. `\u` escapes aren't supported, to keep the
+		example short.
 	**/
 	function decodeString(start:Int, end:Int):String {
-		final buf = new BytesBuffer();
+		final buf = new StringBuf();
 		var runStart = start;
 		var i = start;
 		while (i < end) {
@@ -256,83 +255,30 @@ class Lexer {
 				i++;
 				continue;
 			}
-			buf.addBytes(bytes, runStart, i - runStart);
+			buf.add(bytes.getString(runStart, i - runStart));
 			switch (bytes.get(i + 1)) {
 				case c = '"'.code | '\\'.code | '/'.code:
-					buf.addByte(c);
+					buf.addChar(c);
 				case 'b'.code:
-					buf.addByte(8);
+					buf.addChar(8);
 				case 'f'.code:
-					buf.addByte(12);
+					buf.addChar(12);
 				case 'n'.code:
-					buf.addByte('\n'.code);
+					buf.addChar('\n'.code);
 				case 'r'.code:
-					buf.addByte('\r'.code);
+					buf.addChar('\r'.code);
 				case 't'.code:
-					buf.addByte('\t'.code);
+					buf.addChar('\t'.code);
 				case 'u'.code:
-					var code = readHex4(i + 2, end);
-					i += 4;
-					if (code >= 0xD800 && code < 0xDC00) {
-						// a high surrogate, which should be followed by an escaped low surrogate
-						final low = i + 8 <= end && bytes.get(i + 2) == '\\'.code && bytes.get(i + 3) == 'u'.code ? readHex4(i + 4, end) : -1;
-						if (low >= 0xDC00 && low < 0xE000) {
-							code = 0x10000 + ((code - 0xD800) << 10) + (low - 0xDC00);
-							i += 6;
-						} else {
-							code = 0xFFFD;
-						}
-					} else if (code >= 0xDC00 && code < 0xE000) {
-						code = 0xFFFD;
-					}
-					addUtf8(buf, code);
+					throw new JsonException("Unicode escape sequences are not supported", position(i));
 				case _:
 					throw new JsonException("Invalid escape sequence", position(i));
 			}
 			i += 2;
 			runStart = i;
 		}
-		buf.addBytes(bytes, runStart, end - runStart);
-		return buf.getBytes().toString();
-	}
-
-	static function addUtf8(buf:BytesBuffer, code:Int) {
-		if (code < 0x80) {
-			buf.addByte(code);
-		} else if (code < 0x800) {
-			buf.addByte(0xC0 | (code >> 6));
-			buf.addByte(0x80 | (code & 0x3F));
-		} else if (code < 0x10000) {
-			buf.addByte(0xE0 | (code >> 12));
-			buf.addByte(0x80 | ((code >> 6) & 0x3F));
-			buf.addByte(0x80 | (code & 0x3F));
-		} else {
-			buf.addByte(0xF0 | (code >> 18));
-			buf.addByte(0x80 | ((code >> 12) & 0x3F));
-			buf.addByte(0x80 | ((code >> 6) & 0x3F));
-			buf.addByte(0x80 | (code & 0x3F));
-		}
-	}
-
-	function readHex4(start:Int, end:Int):Int {
-		if (start + 4 > end) {
-			throw new JsonException("Invalid unicode escape sequence", position(start));
-		}
-		var code = 0;
-		for (i in start...start + 4) {
-			final c = bytes.get(i);
-			final digit = if (isDigit(c)) {
-				c - '0'.code;
-			} else if (c >= 'a'.code && c <= 'f'.code) {
-				c - 'a'.code + 10;
-			} else if (c >= 'A'.code && c <= 'F'.code) {
-				c - 'A'.code + 10;
-			} else {
-				throw new JsonException("Invalid unicode escape sequence", position(i));
-			}
-			code = (code << 4) | digit;
-		}
-		return code;
+		buf.add(bytes.getString(runStart, end - runStart));
+		return buf.toString();
 	}
 
 	/**

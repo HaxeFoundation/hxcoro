@@ -33,5 +33,6 @@ Limitations, compared with a production parser:
 - A token that is split between chunks is lexed again from its start, and the pipe copies the unconsumed bytes when new data arrives. A very long string that arrives in many small chunks therefore takes quadratic time.
 - A number at the very end of the data can only be completed once the next byte arrives or the pipe is closed, because more digits could follow.
 - There is no nesting limit, so deeply nested input can exhaust the stack.
+- `\u` escape sequences aren't supported. Other characters can appear in strings unescaped, as UTF-8.
 
 See [test/TestJson.hx](test/TestJson.hx) for more examples. The tests feed every input in all chunk sizes, so every token is split at every possible point.

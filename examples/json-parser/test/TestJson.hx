@@ -75,10 +75,9 @@ class TestJson extends atest.Test {
 		check('"hello"', [JString("hello")]);
 		check('"a\\"b\\\\c\\/d"', [JString('a"b\\c/d')]);
 		check('"\\b\\f\\n\\r\\t"', [JString("\x08\x0C\n\r\t")]);
-		check('"\\u0041\\u00e9"', [JString("Aé")]);
-		check('"\\ud83d\\ude00"', [JString("😀")]);
 		// multi-byte UTF-8 characters, which are split between chunks
 		check('"é😀"', [JString("é😀")]);
+		check('"é\\n😀"', [JString("é\n😀")]);
 	}
 
 	function testArrays() {
@@ -116,7 +115,7 @@ class TestJson extends atest.Test {
 		checkError("1e", 2);
 		checkError('"abc', 4);
 		checkError('"\\x"', 1);
-		checkError('"\\u12"', 3);
+		checkError('"\\u0041"', 1);
 		checkError("[1,]", 3);
 		checkError("[1 2]", 3);
 		checkError("[1", 2);
