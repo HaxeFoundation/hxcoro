@@ -28,6 +28,60 @@ class TestThreadAwareScheduler extends atest.Test {
 		Assert.isTrue(fired, "the event scheduled by the exited thread was dropped");
 	}
 
+	/**
+		Events dispatched by `loop(NoWait)` used to leave their semaphore permits behind, so a
+		later `loop(Once)` returned at once without dispatching anything, although no event was
+		due and `wakeUp` wasn't called.
+	**/
+	function testOnceWaitsAfterEventsWereDispatched() {
+		final scheduler = new ThreadAwareScheduler();
+		var count = 0;
+		for (_ in 0...5) {
+			scheduler.schedule(0, new FunctionContinuation(Context.empty, (_, _) -> count++));
+		}
+		scheduler.loop(NoWait);
+		Assert.equals(5, count);
+
+		var fired = false;
+		Thread.create(() -> {
+			Sys.sleep(0.05);
+			scheduler.schedule(0, new FunctionContinuation(Context.empty, (_, _) -> fired = true));
+		});
+		scheduler.loop(Once);
+		Assert.isTrue(fired, "loop(Once) returned before the event was scheduled");
+	}
+
+	/**
+		A `wakeUp` that happens before `loop(Once)` runs must not get lost, because callers
+		like `LoopRun` check their condition, then call `loop(Once)`, and rely on `wakeUp` to
+		make it return if the condition changed in between. Once a `loop(Once)` call has
+		returned because of it, the next one waits again.
+
+		The loop runs on a separate thread, so a lost wake-up fails the test after a deadline
+		instead of blocking the test run.
+	**/
+	function testWakeUpBeforeOnceIsNotLost() {
+		final scheduler = new ThreadAwareScheduler();
+		final returned = new Lock();
+		final scheduled = new Lock();
+		var fired = false;
+		var firedAfterSecondLoop = false;
+		Thread.create(() -> {
+			scheduler.wakeUp();
+			scheduler.loop(Once);
+			returned.release();
+			// The wake-up was used up, so this has to wait for the event.
+			scheduler.loop(Once);
+			firedAfterSecondLoop = fired;
+			scheduled.release();
+		});
+		Assert.isTrue(returned.wait(5.0), "loop(Once) did not return after wakeUp");
+		Sys.sleep(0.05);
+		scheduler.schedule(0, new FunctionContinuation(Context.empty, (_, _) -> fired = true));
+		Assert.isTrue(scheduled.wait(5.0), "loop(Once) did not dispatch the event");
+		Assert.isTrue(firedAfterSecondLoop, "loop(Once) returned before the event was scheduled");
+	}
+
 	// Not on neko: assigning a declared field for the first time adds it to the object, which is
 	// not safe while another thread reads the object. The thread pool shares continuations
 	// between threads like that, so this test fails there for reasons unrelated to the scheduler.

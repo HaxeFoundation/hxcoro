@@ -3,6 +3,7 @@ package hxcoro.schedulers;
 import sys.thread.ThreadCallback;
 import haxe.Int64;
 import haxe.Timer;
+import haxe.atomic.AtomicInt;
 import haxe.coro.IContinuation;
 import haxe.coro.schedulers.IScheduler;
 import haxe.coro.schedulers.ISchedulerHandle;
@@ -40,20 +41,79 @@ private enum ThreadQueueEvent {
 }
 
 /**
+	A wake-up signal for the loop thread, which many threads can raise and only the loop
+	thread waits for. Raising it while it is already raised does nothing, so unlike a plain
+	semaphore it can't pile up permits that later make a wait return for no reason.
+
+	`raised` is 1 from the moment a thread raises the signal until the loop thread takes it
+	away. The thread that raises it releases one semaphore permit, so whenever `raised` is 1,
+	exactly one permit exists or is about to be released. The semaphore is only there to
+	block and to support timeouts.
+**/
+private class Signal {
+	final raised:AtomicInt;
+	final semaphore:Semaphore;
+
+	public function new() {
+		raised = new AtomicInt(0);
+		semaphore = new Semaphore(0);
+	}
+
+	/**
+		Raises the signal. This may be called from any thread.
+	**/
+	public function raise() {
+		if (raised.compareExchange(0, 1) == 0) {
+			semaphore.release();
+		}
+	}
+
+	/**
+		Lowers the signal without waiting. Every `raise` that happens after this call is seen
+		by the next `wait`.
+	**/
+	public function reset() {
+		if (raised.exchange(0) == 1) {
+			// The permit of the `raise` we just undid has been released, or is about to be.
+			semaphore.acquire();
+		}
+	}
+
+	/**
+		Waits until the signal is raised and lowers it again.
+	**/
+	public function wait() {
+		semaphore.acquire();
+		raised.store(0);
+	}
+
+	/**
+		Like `wait`, but gives up after `timeout` seconds.
+	**/
+	public function tryWait(timeout:Float) {
+		if (semaphore.tryAcquire(timeout)) {
+			raised.store(0);
+		}
+	}
+}
+
+/**
 	A scheduler for multi-threaded setups such as `hxcoro.run.Setup.createThreadPool`.
 **/
 class ThreadAwareScheduler implements IScheduler implements ILoop {
 	final heap:MinimumHeap;
 	final queueTls:Tls<TlsQueue>;
 	final queueDeque:Deque<ThreadQueueEvent>;
-	final semaphore:Semaphore;
+	final signal:Signal;
+	final wakeUpRequested:AtomicInt;
 	var firstQueue:Null<ThreadQueue>;
 
 	public function new() {
 		heap = new MinimumHeap();
 		queueTls = new Tls();
 		queueDeque = new Deque();
-		semaphore = new Semaphore(0);
+		signal = new Signal();
+		wakeUpRequested = new AtomicInt(0);
 	}
 
 	function getTlsQueue():TlsQueue {
@@ -85,7 +145,7 @@ class ThreadAwareScheduler implements IScheduler implements ILoop {
 
 		final event = new ScheduledEvent(cont, now() + ms);
 		getTlsQueue().add(event);
-		semaphore.release();
+		signal.raise();
 		return event;
     }
 
@@ -165,33 +225,44 @@ class ThreadAwareScheduler implements IScheduler implements ILoop {
 
 	/**
 		Collects the events from the queues of all threads and dispatches the due ones. In
-		`Once` mode, if no event is due, this blocks until the next event is due, a new event
-		is scheduled, or `wakeUp` is called.
+		`Once` mode, if no event is due, this blocks until an event has been dispatched or
+		`wakeUp` is called.
 
 		This must not be called from multiple threads at the same time.
 	**/
 	public function loop(runMode:RunMode) {
-		var wasWokenUp = false;
-		while(true) {
-			if (loopNoWait() || wasWokenUp || runMode == NoWait) {
-				// If we did something we're fine.
+		while (true) {
+			// Lower the signal before collecting the threads' queues. The events that raised it
+			// so far are collected below, and any event scheduled from now on raises it again,
+			// so the wait below can't miss it.
+			signal.reset();
+			final didSomething = loopNoWait();
+			// Clear the wake-up request in every case: the caller checks its condition again
+			// once we return.
+			if (wakeUpRequested.exchange(0) == 1 || didSomething || runMode == NoWait) {
 				return;
 			}
 			final minimum = heap.minimum();
 			if (minimum != null) {
 				// If there's a scheduled event, its due time is our max timeout time.
 				final timeout:Float = (Int64.toInt(minimum.runTime - now())) / 1000;
-				semaphore.tryAcquire(timeout);
+				if (timeout > 0) {
+					signal.tryWait(timeout);
+				}
 			} else {
 				// Otherwise we wait until something happens.
-				semaphore.acquire();
+				signal.wait();
 			}
-			wasWokenUp = true;
 		}
 	}
 
+	/**
+		Makes the current or next `loop(Once)` call return, even if it hasn't dispatched
+		anything. This may be called from any thread.
+	**/
 	public function wakeUp() {
-		semaphore.release();
+		wakeUpRequested.store(1);
+		signal.raise();
 	}
 
 	/**
