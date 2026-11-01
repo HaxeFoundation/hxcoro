@@ -3,6 +3,7 @@ package hxcoro.schedulers;
 import sys.thread.ThreadCallback;
 import haxe.Int64;
 import haxe.Timer;
+import haxe.atomic.AtomicInt;
 import haxe.coro.IContinuation;
 import haxe.coro.schedulers.IScheduler;
 import haxe.coro.schedulers.ISchedulerHandle;
@@ -37,6 +38,64 @@ private class ThreadQueue {
 private enum ThreadQueueEvent {
 	Add(queue:ThreadQueue);
 	Remove(queue:ThreadQueue);
+	WakeUp;
+}
+
+/**
+	A flag that tells the loop thread that a new event was scheduled. Any thread can set it,
+	and only the loop thread clears it and waits for it.
+
+	Whenever `isSet` is 1, exactly one semaphore permit exists or is about to be released by
+	the thread that set it. The semaphore is only there to block and to support timeouts.
+**/
+private class WakeUpFlag {
+	final isSet:AtomicInt;
+	// A `Condition` would be the natural thing to wait on, but it has no timed wait, which
+	// `loop` needs for events that aren't due yet. If it gets one, this could use it instead.
+	final semaphore:Semaphore;
+
+	public function new() {
+		isSet = new AtomicInt(0);
+		semaphore = new Semaphore(0);
+	}
+
+	/**
+		Sets the flag. This may be called from any thread.
+	**/
+	public function set() {
+		if (isSet.compareExchange(0, 1) == 0) {
+			semaphore.release();
+		}
+	}
+
+	/**
+		Clears the flag without waiting. A `set` that happens after this call makes the next
+		`waitAndClear` return.
+	**/
+	public function clear() {
+		if (isSet.exchange(0) == 1) {
+			// Take the permit that belongs to the `set` we just undid. It has been released,
+			// or is about to be.
+			semaphore.acquire();
+		}
+	}
+
+	/**
+		Waits until the flag is set, then clears it.
+	**/
+	public function waitAndClear() {
+		semaphore.acquire();
+		isSet.store(0);
+	}
+
+	/**
+		Like `waitAndClear`, but gives up after `timeout` seconds and leaves the flag as it is.
+	**/
+	public function tryWaitAndClear(timeout:Float) {
+		if (semaphore.tryAcquire(timeout)) {
+			isSet.store(0);
+		}
+	}
 }
 
 /**
@@ -46,14 +105,14 @@ class ThreadAwareScheduler implements IScheduler implements ILoop {
 	final heap:MinimumHeap;
 	final queueTls:Tls<TlsQueue>;
 	final queueDeque:Deque<ThreadQueueEvent>;
-	final semaphore:Semaphore;
+	final wakeUpFlag:WakeUpFlag;
 	var firstQueue:Null<ThreadQueue>;
 
 	public function new() {
 		heap = new MinimumHeap();
 		queueTls = new Tls();
 		queueDeque = new Deque();
-		semaphore = new Semaphore(0);
+		wakeUpFlag = new WakeUpFlag();
 	}
 
 	function getTlsQueue():TlsQueue {
@@ -85,7 +144,7 @@ class ThreadAwareScheduler implements IScheduler implements ILoop {
 
 		final event = new ScheduledEvent(cont, now() + ms);
 		getTlsQueue().add(event);
-		semaphore.release();
+		wakeUpFlag.set();
 		return event;
     }
 
@@ -93,11 +152,17 @@ class ThreadAwareScheduler implements IScheduler implements ILoop {
 		return Timer.milliseconds();
 	}
 
+	/**
+		Processes the coordination deque and returns whether it contained a `WakeUp`.
+	**/
 	function consumeQueueDeque() {
+		var wokenUp = false;
 		while (true) {
 			switch (queueDeque.pop(false)) {
 				case null:
-					return;
+					return wokenUp;
+				case WakeUp:
+					wokenUp = true;
 				case Add(queue):
 					// We don't care about the order, so treat it as a stack
 					final first = firstQueue;
@@ -138,7 +203,7 @@ class ThreadAwareScheduler implements IScheduler implements ILoop {
 		final currentTime = now();
 
 		// First we consume the coordination deque so we know all queues.
-		consumeQueueDeque();
+		final wokenUp = consumeQueueDeque();
 
 		// Move the events from the threads' queues into the heap, so that all events are
 		// dispatched from one place, in order of due time.
@@ -151,7 +216,7 @@ class ThreadAwareScheduler implements IScheduler implements ILoop {
 		// Dispatch the due events one at a time, so that the ones after an event whose dispatch
 		// throws stay in the heap. Only this thread touches the heap, and events scheduled while
 		// dispatching go to a thread queue, so this loop ends.
-		var didSomething = false;
+		var didSomething = wokenUp;
 		while (true) {
 			final minimum = heap.minimum();
 			if (minimum == null || minimum.runTime > currentTime) {
@@ -165,33 +230,42 @@ class ThreadAwareScheduler implements IScheduler implements ILoop {
 
 	/**
 		Collects the events from the queues of all threads and dispatches the due ones. In
-		`Once` mode, if no event is due, this blocks until the next event is due, a new event
-		is scheduled, or `wakeUp` is called.
+		`Once` mode, if no event is due, this blocks until an event has been dispatched or
+		`wakeUp` is called.
 
 		This must not be called from multiple threads at the same time.
 	**/
 	public function loop(runMode:RunMode) {
-		var wasWokenUp = false;
-		while(true) {
-			if (loopNoWait() || wasWokenUp || runMode == NoWait) {
-				// If we did something we're fine.
+		while (true) {
+			// Clear the flag before collecting the threads' queues. The events that set it so
+			// far are collected below, and any event scheduled from now on sets it again, so
+			// the wait below can't miss it.
+			wakeUpFlag.clear();
+			if (loopNoWait() || runMode == NoWait) {
 				return;
 			}
 			final minimum = heap.minimum();
 			if (minimum != null) {
 				// If there's a scheduled event, its due time is our max timeout time.
 				final timeout:Float = (Int64.toInt(minimum.runTime - now())) / 1000;
-				semaphore.tryAcquire(timeout);
+				if (timeout > 0) {
+					wakeUpFlag.tryWaitAndClear(timeout);
+				}
 			} else {
 				// Otherwise we wait until something happens.
-				semaphore.acquire();
+				wakeUpFlag.waitAndClear();
 			}
-			wasWokenUp = true;
 		}
 	}
 
+	/**
+		Makes the current or next `loop(Once)` call return. This may be called from any thread.
+	**/
 	public function wakeUp() {
-		semaphore.release();
+		// This goes through the coordination deque instead of `schedule`, so that it doesn't give
+		// the calling thread an event queue of its own.
+		queueDeque.add(WakeUp);
+		wakeUpFlag.set();
 	}
 
 	/**
@@ -203,7 +277,7 @@ class ThreadAwareScheduler implements IScheduler implements ILoop {
 		var current = firstQueue;
 		var totalWrites = 0;
 		@:privateAccess while (current != null) {
-			Sys.println('\tqueue: (r ${current.queue.read.load()}, w ${current.queue.write.load()}, l: ${current.queue.loadSlots().length})');
+			Sys.println('\tqueue: (r ${current.queue.read.load()}, w ${current.queue.write.load()}, l: ${current.queue.storage.load().slots.length})');
 			totalWrites += current.queue.write.load();
 			current = current.next;
 		}

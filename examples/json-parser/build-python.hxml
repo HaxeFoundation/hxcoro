@@ -1,0 +1,3 @@
+build-base.hxml
+--python bin/json-parser.py
+--cmd python bin/json-parser.py
