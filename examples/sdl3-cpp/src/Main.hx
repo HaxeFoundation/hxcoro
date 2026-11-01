@@ -55,9 +55,11 @@ class App {
 	public var title:Null<String>;
 
 	final background:Dispatcher;
+	final clock:FrameClock;
 
-	public function new(background) {
+	public function new(background, clock) {
 		this.background = background;
+		this.clock = clock;
 		boxes = [];
 		input = Channel.createUnbounded({});
 	}
@@ -91,10 +93,9 @@ class App {
 			timeout(3000, _ -> {
 				final start = Timer.stamp();
 				while (true) {
-					final t = Timer.stamp() - start;
+					final t = clock.awaitFrame() - start;
 					box.size = 40 + 15 * Math.sin(t * 8);
 					box.y = y - 30 * t;
-					delay(16);
 				}
 			});
 		} catch (_:TimeoutException) {
@@ -159,14 +160,17 @@ function main() {
 	final pool       = new FixedThreadPool(4);
 	final background = new ThreadPoolDispatcher(scheduler, pool);
 
-	final app  = new App(background);
-	final task = CoroRun.with(dispatcher).launchTask(node -> app.run(node));
+	final clock = new FrameClock();
+	final app   = new App(background, clock);
+	final task  = CoroRun.with(dispatcher).launchTask(node -> app.run(node));
 
 	final event = new Event();
 	final rect  = new FRect();
 	while (task.isActive()) {
-		// Dispatches the coroutines whose delays are over. This pushes SDL events, which
-		// are handled right below.
+		// Dispatches the coroutines that wait for this frame or whose delays are over. This
+		// pushes SDL events, which are handled right below, so the boxes are updated before
+		// they are drawn.
+		clock.tick();
 		scheduler.loop(NoWait);
 
 		while (SDL.pollEvent(event)) {
