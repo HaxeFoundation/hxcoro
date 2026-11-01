@@ -41,58 +41,58 @@ private enum ThreadQueueEvent {
 }
 
 /**
-	A wake-up signal for the loop thread, which many threads can raise and only the loop
-	thread waits for. Raising it while it is already raised does nothing, so unlike a plain
-	semaphore it can't pile up permits that later make a wait return for no reason.
+	A flag that tells the loop thread that there is something to look at: a new event or a
+	`wakeUp` call. Any thread can set it, and only the loop thread clears it and waits for it.
+	It is a state, not a pulse: setting it while it is already set does nothing, so unlike a
+	plain semaphore it can't pile up permits that later make a wait return for no reason.
 
-	`raised` is 1 from the moment a thread raises the signal until the loop thread takes it
-	away. The thread that raises it releases one semaphore permit, so whenever `raised` is 1,
-	exactly one permit exists or is about to be released. The semaphore is only there to
-	block and to support timeouts.
+	Whenever `isSet` is 1, exactly one semaphore permit exists or is about to be released by
+	the thread that set it. The semaphore is only there to block and to support timeouts.
 **/
-private class Signal {
-	final raised:AtomicInt;
+private class WakeUpFlag {
+	final isSet:AtomicInt;
 	final semaphore:Semaphore;
 
 	public function new() {
-		raised = new AtomicInt(0);
+		isSet = new AtomicInt(0);
 		semaphore = new Semaphore(0);
 	}
 
 	/**
-		Raises the signal. This may be called from any thread.
+		Sets the flag. This may be called from any thread.
 	**/
-	public function raise() {
-		if (raised.compareExchange(0, 1) == 0) {
+	public function set() {
+		if (isSet.compareExchange(0, 1) == 0) {
 			semaphore.release();
 		}
 	}
 
 	/**
-		Lowers the signal without waiting. Every `raise` that happens after this call is seen
-		by the next `block`.
+		Clears the flag without waiting. A `set` that happens after this call makes the next
+		`waitAndClear` return.
 	**/
-	public function reset() {
-		if (raised.exchange(0) == 1) {
-			// The permit of the `raise` we just undid has been released, or is about to be.
+	public function clear() {
+		if (isSet.exchange(0) == 1) {
+			// Take the permit that belongs to the `set` we just undid. It has been released,
+			// or is about to be.
 			semaphore.acquire();
 		}
 	}
 
 	/**
-		Waits until the signal is raised and lowers it again.
+		Waits until the flag is set, then clears it.
 	**/
-	public function block() {
+	public function waitAndClear() {
 		semaphore.acquire();
-		raised.store(0);
+		isSet.store(0);
 	}
 
 	/**
-		Like `block`, but gives up after `timeout` seconds.
+		Like `waitAndClear`, but gives up after `timeout` seconds and leaves the flag as it is.
 	**/
-	public function tryBlock(timeout:Float) {
+	public function tryWaitAndClear(timeout:Float) {
 		if (semaphore.tryAcquire(timeout)) {
-			raised.store(0);
+			isSet.store(0);
 		}
 	}
 }
@@ -104,7 +104,7 @@ class ThreadAwareScheduler implements IScheduler implements ILoop {
 	final heap:MinimumHeap;
 	final queueTls:Tls<TlsQueue>;
 	final queueDeque:Deque<ThreadQueueEvent>;
-	final signal:Signal;
+	final wakeUpFlag:WakeUpFlag;
 	final wakeUpRequested:AtomicInt;
 	var firstQueue:Null<ThreadQueue>;
 
@@ -112,7 +112,7 @@ class ThreadAwareScheduler implements IScheduler implements ILoop {
 		heap = new MinimumHeap();
 		queueTls = new Tls();
 		queueDeque = new Deque();
-		signal = new Signal();
+		wakeUpFlag = new WakeUpFlag();
 		wakeUpRequested = new AtomicInt(0);
 	}
 
@@ -145,7 +145,7 @@ class ThreadAwareScheduler implements IScheduler implements ILoop {
 
 		final event = new ScheduledEvent(cont, now() + ms);
 		getTlsQueue().add(event);
-		signal.raise();
+		wakeUpFlag.set();
 		return event;
     }
 
@@ -232,10 +232,10 @@ class ThreadAwareScheduler implements IScheduler implements ILoop {
 	**/
 	public function loop(runMode:RunMode) {
 		while (true) {
-			// Lower the signal before collecting the threads' queues. The events that raised it
-			// so far are collected below, and any event scheduled from now on raises it again,
-			// so the wait below can't miss it.
-			signal.reset();
+			// Clear the flag before collecting the threads' queues. The events that set it so
+			// far are collected below, and any event scheduled from now on sets it again, so
+			// the wait below can't miss it.
+			wakeUpFlag.clear();
 			final didSomething = loopNoWait();
 			// Clear the wake-up request in every case: the caller checks its condition again
 			// once we return.
@@ -247,11 +247,11 @@ class ThreadAwareScheduler implements IScheduler implements ILoop {
 				// If there's a scheduled event, its due time is our max timeout time.
 				final timeout:Float = (Int64.toInt(minimum.runTime - now())) / 1000;
 				if (timeout > 0) {
-					signal.tryBlock(timeout);
+					wakeUpFlag.tryWaitAndClear(timeout);
 				}
 			} else {
 				// Otherwise we wait until something happens.
-				signal.block();
+				wakeUpFlag.waitAndClear();
 			}
 		}
 	}
@@ -262,7 +262,7 @@ class ThreadAwareScheduler implements IScheduler implements ILoop {
 	**/
 	public function wakeUp() {
 		wakeUpRequested.store(1);
-		signal.raise();
+		wakeUpFlag.set();
 	}
 
 	/**
