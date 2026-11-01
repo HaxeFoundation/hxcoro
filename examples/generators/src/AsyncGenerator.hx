@@ -112,7 +112,7 @@ class AsyncGenerator<T> extends SuspensionResult<Iterator<T>> implements IContin
 	public function next() {
 		final value = nextValue;
 		if (gState.compareExchange(ValueAvailable, Running) == ValueAvailable) {
-			@:nullSafety(Off) cont.callAsync();
+			cont.callAsync();
 		}
 		return value;
 	}
@@ -149,7 +149,7 @@ class AsyncGenerator<T> extends SuspensionResult<Iterator<T>> implements IContin
 				case AwaitingValue:
 					if (gState.compareExchange(AwaitingValue, Stopped) == AwaitingValue) {
 						// resume waiting hasNext
-						@:nullSafety(Off) cont.callAsync();
+						cont.callAsync();
 						return;
 					}
 				case Stopped:
@@ -186,7 +186,7 @@ class AsyncGenerator<T> extends SuspensionResult<Iterator<T>> implements IContin
 						final awaitCont = cont;
 						suspend(cont -> {
 							offerValue(cont);
-							@:nullSafety(Off) awaitCont.callAsync();
+							awaitCont.callAsync();
 						});
 						return Unit;
 					}
