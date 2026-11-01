@@ -1,0 +1,3 @@
+build-base.hxml
+--jvm bin/json-parser.jar
+--cmd java -jar bin/json-parser.jar
