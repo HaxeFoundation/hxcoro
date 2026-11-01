@@ -2,6 +2,7 @@ import hxcoro.run.Setup;
 import hxcoro.run.LoopRun;
 import hxcoro.task.NodeLambda;
 import hxcoro.task.CoroBaseTask;
+import haxe.coro.IContinuation;
 
 var setupFactory:() -> hxcoro.run.Setup.LoopSetup = Setup.createDefault;
 
@@ -25,4 +26,14 @@ function run<T>(lambda:NodeLambda<T>#if coro.stack_traces, ?callPos:haxe.PosInfo
 		case null: task.get();
 		case error: throw error;
 	};
+}
+
+/**
+	Suspends until the current task is cancelled, then throws the `CancellationException`.
+
+	Use this instead of a long `delay` to wait for cancellation, so that the test doesn't depend
+	on the timing of a real-time scheduler.
+**/
+@:coroutine function awaitCancellation() {
+	hxcoro.Coro.suspendCancellable((_:IContinuation<Any>) -> null);
 }

@@ -3,6 +3,7 @@ package concurrent;
 import haxe.exceptions.CoroutineException;
 import haxe.ds.Vector;
 import hxcoro.concurrent.CoroBarrier;
+import hxcoro.concurrent.CoroLatch;
 
 class TestBarrier extends atest.Test {
 	function testCppSample() {
@@ -110,12 +111,18 @@ class TestBarrier extends atest.Test {
 		final numTasks = 1000;
 		run(node -> {
 			final barrier = new CoroBarrier(numTasks + 1);
+			// A waiter that is cancelled before it starts never arrives, so the barrier would
+			// never complete. Once a waiter has started, it arrives even if it is cancelled.
+			final started = new CoroLatch(numTasks);
 			final waiters = [
 				for (_ in 0...numTasks) {
-					node.async(_ -> barrier.arriveAndWait());
+					node.async(_ -> {
+						started.arrive(1);
+						barrier.arriveAndWait();
+					});
 				}
 			];
-			delay(10); // let the waiters suspend in arriveAndWait
+			started.wait();
 			node.async(_ -> barrier.arrive(1));
 			// Races with the barrier completing the phase and resuming its waiters
 			for (i in 0...numTasks) {

@@ -236,9 +236,7 @@ class TestCoroutineScope extends atest.Test {
 				scope(_ -> {
 					push("before yield 1");
 					barrier.arriveAndWait();
-					while (true) {
-						delay(1);
-					}
+					awaitCancellation();
 					push("after yield 1");
 				});
 			});

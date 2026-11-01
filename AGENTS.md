@@ -125,6 +125,8 @@ Files with a target suffix such as `Foo.cpp.hx` or `Foo.eval.hx` are only used o
 - Test classes extend `atest.Test`. Test methods are named `testXxx`, and assertions use `Assert`.
 - Use `run(node -> { ... })` to execute coroutine code inside a test. It is imported for all tests by `tests/src/import.hx`, comes from `tests/src/TestRun.hx`, and honours the `HXCORO_DISPATCHER` selection.
 - Classes in the `tests/src/` subdirectories (`concurrent`, `ds`, `structured`, ...) are discovered automatically through `atest.Macros.addCases`. Top-level test classes must be registered by hand in `tests/src/Main.hx`.
+- Never rely on `delay` timing with a real-time scheduler, such as the one `run` uses. A slow CI machine can take longer than any delay. `delay` is fine with a `VirtualTimeScheduler`, for example through `VirtualRun.run` or `Setup.createVirtualTrampoline`. Otherwise, synchronize with latches or barriers, use `yield()` to suspend, and use `awaitCancellation()` from `tests/src/TestRun.hx` to wait until the task is cancelled.
+- A task that is cancelled before it starts never runs its body. To have tasks reach a certain point before cancelling them, let them arrive at a `CoroLatch` first and wait for it.
 - Tests that create threads, thread pools or thread-aware schedulers themselves go to `thread-tests/src/cases/`, where they are discovered automatically. Give every wait a deadline, so that a bug fails the test instead of hanging the run.
 - For callstack tests, add `callstack-tests/cases/<name>/Test.hx`. It is discovered automatically. See `callstack-tests/README.md` for the per-target stack quirks.
 
