@@ -43,15 +43,16 @@ private enum ThreadQueueEvent {
 }
 
 /**
-	A flag that tells the loop thread that a new event was scheduled. Any thread can set it, and only the loop thread clears it and waits for it.
-	It is a state, not a pulse: setting it while it is already set does nothing, so unlike a
-	plain semaphore it can't pile up permits that later make a wait return for no reason.
+	A flag that tells the loop thread that a new event was scheduled. Any thread can set it,
+	and only the loop thread clears it and waits for it.
 
 	Whenever `isSet` is 1, exactly one semaphore permit exists or is about to be released by
 	the thread that set it. The semaphore is only there to block and to support timeouts.
 **/
 private class WakeUpFlag {
 	final isSet:AtomicInt;
+	// A `Condition` would be the natural thing to wait on, but it has no timed wait, which
+	// `loop` needs for events that aren't due yet. If it gets one, this could use it instead.
 	final semaphore:Semaphore;
 
 	public function new() {
@@ -256,11 +257,9 @@ class ThreadAwareScheduler implements IScheduler implements ILoop {
 
 	/**
 		Makes the current or next `loop(Once)` call return. This may be called from any thread.
-
-		This schedules an event that does nothing, like `uv_async_send` in libuv does. A
-		`wakeUp` is then just another event, which `loop` can't lose or confuse with others.
 	**/
 	public function wakeUp() {
+		// The wake-up is an event that does nothing, so `loop` returns because it dispatched it.
 		schedule(0, wakeUpContinuation);
 	}
 
