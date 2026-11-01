@@ -1,7 +1,7 @@
 package issues.aidan;
 
 @:coroutine function suspendThenThrow() {
-	delay(1);
+	yield();
 	throw "fail";
 }
 

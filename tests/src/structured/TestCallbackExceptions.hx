@@ -114,14 +114,17 @@ class TestCallbackExceptions extends atest.Test {
 		var secondCalled = false;
 		try {
 			run(node -> {
+				final registered = new hxcoro.concurrent.CoroLatch(1);
 				final child = node.async(_ -> {
-					delay(1);
+					registered.wait();
 					1;
 				});
 				child.onCompletion((_, _) -> throw new Exception("callback failure"));
 				child.onCompletion((_, _) -> secondCalled = true);
+				registered.arrive(1);
 				child.await();
-				delay(20);
+				// The exception was scheduled before this, so a single-threaded loop runs it first.
+				yield();
 			});
 		} catch (e:Exception) {
 			// On a single-threaded setup, the reported exception ends the run.

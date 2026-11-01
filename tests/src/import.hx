@@ -3,6 +3,7 @@ import haxe.coro.Coroutine;
 import hxcoro.Coro.*;
 import hxcoro.CoroRun;
 import TestRun.run;
+import TestRun.awaitCancellation;
 
 using hxcoro.util.Convenience;
 using hxcoro.run.ContextRun;

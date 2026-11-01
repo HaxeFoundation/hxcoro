@@ -110,14 +110,17 @@ class TestLatch extends atest.Test {
 		final numTasks = 1000;
 		run(node -> {
 			final latch = new CoroLatch(1);
+			// Waiters that are cancelled before they start never wait, so make sure they all did.
+			final started = new CoroLatch(numTasks);
 			final waiters = [
 				for (_ in 0...numTasks) {
 					node.async(_ -> {
+						started.arrive(1);
 						latch.wait();
 					});
 				}
 			];
-			delay(10); // let the waiters suspend in wait
+			started.wait();
 			node.async(_ -> latch.arrive(1));
 			// Races with the latch resuming its waiters
 			for (i in 0...numTasks) {
