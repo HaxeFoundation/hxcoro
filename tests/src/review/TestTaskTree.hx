@@ -32,6 +32,11 @@ class TestTaskTree extends atest.Test {
 		The children complete after the node has returned 42, so the node is `Completing`, and
 		`childCancels` moves it to `Cancelling`.
 
+		The docs contradict each other: `CoroChildStrategy`'s class doc says async tasks are
+		cancelled when a child is cancelled, `ICoroNode.cancelChildren` says the node is not. No test
+		in the regular suite depends on the current behaviour: with `CoroChildStrategy.childCancels`
+		made a no-op, the whole suite still passes.
+
 		Proposed semantics (Kotlin): a child ending with a `CancellationException` never cancels its
 		parent, so `childCancels` is a no-op in all strategies. Open question: whether an escaped
 		`TimeoutException` (a `CancellationException` subclass) counts as a failure; today it cancels
@@ -128,9 +133,16 @@ class TestTaskTree extends atest.Test {
 		(`AbstractTask.hx:388-391`), so a failing child of a NonCancellable task is ignored and "boom"
 		is lost.
 
+		The regular suite already asserts in `tests/src/elements/TestNonCancellable.hx`
+		(`testFailurePropagatesToParent`) that a NonCancellable task's own exception fails it and
+		propagates to its parent, because `ownWorkFails` bypasses `doCancel`. So today a task's own
+		failure counts, but the same failure in a child is dropped.
+
 		Proposed fix: distinguish external cancellation (parent `cancelChildren`, the parent check in
 		`activate`, user `cancel()`) from failure (`childErrors`, internal errors), and ignore only the
-		former.
+		former. For comparison, Kotlin's `NonCancellable` doesn't fail the parent either; the child's
+		exception goes to the uncaught exception handler. Either outcome is acceptable, losing the
+		error silently is not.
 	**/
 	function testNonCancellableKeepsChildError() {
 		var t:Null<ICoroTask<Any>> = null;
@@ -149,6 +161,9 @@ class TestTaskTree extends atest.Test {
 	/**
 		T4b: `timeout` inside a `NonCancellable` task never takes effect, because the element is
 		inherited by every descendant via the context, including the scope `timeout` creates.
+		`NonCancellable`'s doc says it prevents cancellation of "tasks created in its context,
+		including through cancellation of their parent", so this is as documented. The test asserts
+		Kotlin's semantics instead, where `withTimeout` works inside `NonCancellable`.
 
 		Proposed fix: scopes created inside should not inherit `NonCancellable`. Kotlin's
 		`NonCancellable` is a Job, not an inherited flag. Possibly strip the element when creating

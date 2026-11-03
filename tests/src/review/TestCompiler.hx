@@ -204,7 +204,8 @@ class TestCompiler extends atest.Test {
 
 		Fix: mirror `exceptions.ml`. For catch types where `is_haxe_exception` holds, test and bind
 		the wrapped `etmp_error`, and use the unwrapped value only for other types. Reuse the helper
-		from `exceptions.ml`. Also check whether `haxe.Exception` is in `wildcard_catches`.
+		from `exceptions.ml`. `haxe.Exception` is in `wildcard_catches` (`src/coro/coro.ml:692`),
+		`haxe.ValueException` is not, so it goes through the unwrapping test.
 	**/
 	function testCatchValueException() {
 		@:coroutine function f():Dynamic {
