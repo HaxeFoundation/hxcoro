@@ -9,7 +9,7 @@ import hxcoro.task.ICoroTask;
 
 /**
 	How a task's cause is recorded: cancellation versus failure, failures that happen while
-	cancelling, and suppressed errors.
+	cancelling.
 **/
 class TestStopCause extends atest.Test {
 	function testCancelledTask() {
