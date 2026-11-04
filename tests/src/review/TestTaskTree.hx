@@ -17,9 +17,9 @@ import hxcoro.task.ICoroTask;
 	  Children are a linked list guarded by a spin-lock encoded as `numActiveChildren == -1`
 	  (`lockChildren`).
 	- `CoroBaseTask` adds the coroutine parts: awaiters, `awaitChildren`, context.
-	- A node strategy decides how child outcomes affect the parent: `CoroChildStrategy` for
-	  `async`/`lazy`, `CoroScopeStrategy` for `scope`/root, `CoroSupervisorStrategy`. The
-	  strategies are being replaced by a `TaskKind` enum on `AbstractTask` (#215).
+	- `TaskKind` on `AbstractTask` decides how child outcomes affect the parent: `Concurrent` for
+	  `async`/`lazy`, `Sequential` for `scope`/`timeout`/root, `SequentialSupervisor` for
+	  `supervisor` (#216).
 
 	Decisions from #215 that the tests below assert:
 	- A child's cancellation never affects its parent (T2). A `CancellationException` that a task's
@@ -35,18 +35,18 @@ class TestTaskTree extends atest.Test {
 	/**
 		T2: `cancelChildren()` inside `async` cancels the node itself. Decided in #215: it must not.
 
-		`src/hxcoro/task/node/CoroChildStrategy.hx:31-33`: `childCancels` calls `task.cancel(cause)`,
-		while `CoroScopeStrategy.hx:31` and `CoroSupervisorStrategy.hx:24` are no-ops. Routing is in
-		`AbstractTask.childCompletes`: a child that ends with a `CancellationException` goes to
-		`childCancels`. `ICoroNode.cancelChildren` is documented as not cancelling the node.
+		`AbstractTask.childCancels` calls `cancel(cause)` for a `Concurrent` task and does nothing for
+		the sequential kinds. Routing is in `AbstractTask.childCompletes`: a child that ends with a
+		`CancellationException` goes to `childCancels`. `ICoroNode.cancelChildren` is documented as
+		not cancelling the node.
 
 		The children complete after the node has returned 42, so the node is `Completing`, and
 		`childCancels` moves it to `Cancelling`.
 
-		The docs contradict each other: `CoroChildStrategy`'s class doc says async tasks are
-		cancelled when a child is cancelled, `ICoroNode.cancelChildren` says the node is not. No test
-		in the regular suite depends on the current behaviour: with `CoroChildStrategy.childCancels`
-		made a no-op, the whole suite still passes.
+		The docs contradict each other: `TaskKind.Concurrent` says the task is cancelled when a child
+		is cancelled, `ICoroNode.cancelChildren` says the node is not. No test in the regular suite
+		depends on the current behaviour: with `childCancels` made a no-op, the whole suite still
+		passes.
 
 		Decided semantics: a child that ends cancelled never affects its parent, for every `TaskKind`.
 		`childCancels` goes away. What a child reports is decided by its own final state (`Cancelled`
@@ -195,7 +195,7 @@ class TestTaskTree extends atest.Test {
 
 		`src/hxcoro/task/CoroBaseTask.hx:201-206`: `override function doCancel(error)` returns early if
 		`context.get(NonCancellable) != null`. `doCancel` is also the path for child errors
-		(`CoroChildStrategy.childErrors` and the scope strategy) and for `setInternalException`
+		(`AbstractTask.childErrors`, for every kind but `SequentialSupervisor`) and for `setInternalException`
 		(`AbstractTask.hx:388-391`), so a failing child of a NonCancellable task is ignored and "boom"
 		is lost.
 
