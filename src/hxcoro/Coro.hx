@@ -2,7 +2,6 @@ package hxcoro;
 
 import haxe.coro.IContinuation;
 import haxe.coro.SuspensionResult;
-import haxe.coro.context.Context;
 import haxe.coro.dispatchers.Dispatcher;
 import haxe.exceptions.ArgumentException;
 import haxe.exceptions.CancellationException;
@@ -88,31 +87,6 @@ class Coro {
 			final scope = new CoroTaskWithLambda(context, lambda, Sequential#if coro.stack_traces, startPos#end);
 			// The scope has our context, so we already run on its dispatcher and can activate it ourselves.
 			scope.onDispatch();
-			scope.awaitContinuation(cont#if coro.stack_traces, startPos#end);
-		});
-	}
-
-	/**
-		Like `scope`, but the new task uses `context` instead of the caller's context. `context`
-		is usually obtained from the caller's node with `node.with(...)` or `node.without(...)`,
-		which keeps the new task a child of the caller. This is how to run a block under another
-		`Dispatcher`, with a `CoroName`, or inside a `NonCancellable` boundary.
-
-		The caller waits for the block even if it is cancelled in the meantime, so a
-		`NonCancellable` block runs its cleanup to completion.
-
-		If `context` has another `Dispatcher` than the caller, the block is dispatched there and
-		the caller resumes on its own dispatcher afterwards. Otherwise the block starts running
-		right away, like `scope`.
-	**/
-	@:coroutine static public function scopeWith<T>(context:Context, lambda:NodeLambda<T>#if coro.stack_traces, ?startPos:haxe.PosInfos#end):T {
-		return suspend(cont -> {
-			final scope = new CoroTaskWithLambda(context, lambda, Sequential#if coro.stack_traces, startPos#end);
-			if (context.get(Dispatcher) == cont.context.get(Dispatcher)) {
-				scope.onDispatch();
-			} else {
-				scope.requestActivation();
-			}
 			scope.awaitContinuation(cont#if coro.stack_traces, startPos#end);
 		});
 	}

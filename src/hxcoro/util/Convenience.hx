@@ -12,6 +12,7 @@ import haxe.coro.continuations.FunctionContinuation;
 import haxe.coro.dispatchers.Dispatcher;
 import haxe.coro.dispatchers.IDispatchObject;
 import haxe.exceptions.CancellationException;
+import hxcoro.Coro;
 import hxcoro.task.CoroBaseTask;
 import hxcoro.task.CoroTask;
 import hxcoro.task.TaskKind;
@@ -174,6 +175,32 @@ class ContextConvenience {
 		final task = new CoroTaskWithLambda<T>(context, lambda, Concurrent);
 		task.requestActivation();
 		return task;
+	}
+
+	/**
+		Executes `lambda` in a new `Sequential` task created with `context` and returns its result once
+		the task and all its children have completed, like `Coro.scope`. `context` is usually obtained
+		from the calling node with `node.with(...)` or `node.without(...)`, which keeps the new task a
+		child of the caller. This is how to run a block under another `Dispatcher`, with a `CoroName`,
+		or inside a `NonCancellable` boundary.
+
+		If `lambda` or one of the children raises an exception, the remaining children are cancelled
+		and the exception is thrown from this call. The caller waits for the block even if it is
+		cancelled in the meantime, so a `NonCancellable` block runs its cleanup to completion.
+
+		If `context` has another `Dispatcher` than the caller, the block is dispatched there and the
+		caller resumes on its own dispatcher afterwards. Otherwise the block starts running right away.
+	**/
+	@:coroutine static public function scope<T>(context:Context, lambda:NodeLambda<T>#if coro.stack_traces, ?startPos:haxe.PosInfos#end):T {
+		return Coro.suspend(cont -> {
+			final scope = new CoroTaskWithLambda(context, lambda, Sequential#if coro.stack_traces, startPos#end);
+			if (context.get(Dispatcher) == cont.context.get(Dispatcher)) {
+				scope.onDispatch();
+			} else {
+				scope.requestActivation();
+			}
+			scope.awaitContinuation(cont#if coro.stack_traces, startPos#end);
+		});
 	}
 
 	/**
