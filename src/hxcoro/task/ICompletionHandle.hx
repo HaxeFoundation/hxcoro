@@ -5,9 +5,7 @@ package hxcoro.task;
 **/
 interface ICompletionHandle {
 	/**
-		Unregisters the callback, so that it does not run when the task completes. Has no effect
-		if the task has already completed. This function is thread safe and may be called more
-		than once.
+		Unregisters the callback. Has no effect once the task has completed.
 	**/
 	function close():Void;
 }
