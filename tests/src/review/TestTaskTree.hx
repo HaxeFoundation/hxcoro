@@ -2,7 +2,6 @@ package review;
 
 import haxe.exceptions.CancellationException;
 import hxcoro.elements.CoroName;
-import hxcoro.elements.NonCancellable;
 import hxcoro.TimeoutException;
 import hxcoro.task.CoroBaseTask;
 import hxcoro.task.ICoroTask;
@@ -21,72 +20,17 @@ import hxcoro.task.ICoroTask;
 	  `supervisor` (#216).
 
 	Decisions from #215 that the tests below assert:
-	- A child's cancellation never affects its parent (T2). The kind of a child's outcome comes from
-	  its `StopCause` (`Cancellation` or `Failure`, #218), not from the exception type. A
-	  `CancellationException` thrown while no cancellation was requested is a failure (1b), which
-	  #218 implemented together with "a failure while cancelling replaces the cancellation" and
-	  "only `cancel()` is gated by `NonCancellable`" (T4a); their tests live in
-	  `tests/src/structured/TestStopCause.hx`.
+	- The kind of a child's outcome comes from its `StopCause` (`Cancellation` or `Failure`, #218),
+	  not from the exception type. A `CancellationException` thrown while no cancellation was
+	  requested is a failure (1b), which #218 implemented together with "a failure while cancelling
+	  replaces the cancellation" and "only `cancel()` is gated by `NonCancellable`" (T4a); their
+	  tests live in `tests/src/structured/TestStopCause.hx`. A child's cancellation never affects
+	  its parent (T2) and `NonCancellable` is a boundary, not an inherited flag (T4): see
+	  `tests/src/structured/TestChildOutcomes.hx` and `tests/src/elements/TestNonCancellable.hx`.
 	- `await()` is cancellable (T3).
-	- `NonCancellable` is a boundary, not an inherited flag (T4, #214).
 	- Creating a child on a task in a final state throws from the task constructor (T6b).
 **/
 class TestTaskTree extends atest.Test {
-	/**
-		T2: `cancelChildren()` inside `async` cancels the node itself. Decided in #215: it must not.
-
-		`AbstractTask.childCancels` calls `cancel(cause)` for a `Concurrent` task and does nothing for
-		the sequential kinds. Routing is in `AbstractTask.childCompletes`: a child that ends with a
-		`CancellationException` goes to `childCancels`. `ICoroNode.cancelChildren` is documented as
-		not cancelling the node.
-
-		The children complete after the node has returned 42, so the node is `Completing`, and
-		`childCancels` moves it to `Cancelling`.
-
-		The docs contradict each other: `TaskKind.Concurrent` says the task is cancelled when a child
-		is cancelled, `ICoroNode.cancelChildren` says the node is not. No test in the regular suite
-		depends on the current behaviour: with `childCancels` made a no-op, the whole suite still
-		passes.
-
-		Decided semantics: a child that ends cancelled never affects its parent, for every `TaskKind`.
-		`childCancels` goes away. `childCompletes` already decides by the child's `StopCause` (#218).
-		The parent is notified from `beginCancellation` rather than `childCompletes`, so siblings are
-		cancelled as soon as a child fails and not only once its subtree has finished.
-	**/
-	function testCancelChildrenDoesNotCancelAsyncNode() {
-		var t:Null<ICoroTask<Int>> = null;
-		VirtualRun.run(node -> {
-			t = node.async(n -> {
-				n.async(_ -> awaitCancellation());
-				n.async(_ -> awaitCancellation());
-				yield();
-				n.cancelChildren();
-				return 42;
-			});
-		});
-		Assert.isFalse(t.isActive());
-		Assert.isNull(t.getError());
-		Assert.equals(42, t.get());
-	}
-
-	/**
-		T2: same as above, cancelling a single child with `child.cancel()`.
-	**/
-	function testCancelChildDoesNotCancelAsyncNode() {
-		var t:Null<ICoroTask<Int>> = null;
-		VirtualRun.run(node -> {
-			t = node.async(n -> {
-				final child = n.async(_ -> awaitCancellation());
-				yield();
-				child.cancel();
-				return 42;
-			});
-		});
-		Assert.isFalse(t.isActive());
-		Assert.isNull(t.getError());
-		Assert.equals(42, t.get());
-	}
-
 	/**
 		T3: `await()` is not cancellable. Decided in #215: it becomes cancellable.
 
@@ -137,34 +81,6 @@ class TestTaskTree extends atest.Test {
 		});
 		Assert.isFalse(awaiterActive, "the awaiter didn't react to cancellation");
 		Assert.isFalse(task.isActive());
-	}
-
-	/**
-		T4b: `timeout` inside a `NonCancellable` task never takes effect, because the element is
-		inherited by every descendant via the context, including the scope `timeout` creates.
-		`NonCancellable`'s doc says it prevents cancellation of "tasks created in its context,
-		including through cancellation of their parent", so this is as documented. The test asserts
-		Kotlin's semantics instead, where `withTimeout` works inside `NonCancellable`.
-
-		Decided fix (#214): `NonCancellable` is a boundary. `CoroBaseTask.doCancel` ignores the
-		cancellation only if this task introduced the element, i.e. its parent's context does not
-		hold the same instance. Descendants inherit the instance, so they stay cancellable, and a
-		nested `with(new NonCancellable())` starts a new boundary. Not by stripping the element from
-		children's contexts: `node.with(...)` hands out the raw context, so `Convenience.async` would
-		reintroduce it.
-	**/
-	function testTimeoutInsideNonCancellable() {
-		var timedOut = false;
-		VirtualRun.run(node -> {
-			node.with(new NonCancellable()).async(_ -> {
-				try {
-					timeout(10, _ -> delay(100));
-				} catch (_:TimeoutException) {
-					timedOut = true;
-				}
-			});
-		});
-		Assert.isTrue(timedOut);
 	}
 
 	/**
