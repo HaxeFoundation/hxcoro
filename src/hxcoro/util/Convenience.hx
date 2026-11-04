@@ -188,8 +188,9 @@ class ContextConvenience {
 		and the exception is thrown from this call. The caller waits for the block even if it is
 		cancelled in the meantime, so a `NonCancellable` block runs its cleanup to completion.
 
-		If `context` has another `Dispatcher` than the caller, the block is dispatched there and the
-		caller resumes on its own dispatcher afterwards. Otherwise the block starts running right away.
+		The block runs on the `Dispatcher` of `context`. If that is the caller's own dispatcher, the
+		block starts synchronously, before this call suspends, like `Coro.scope`. Otherwise it is
+		dispatched there, and once it has completed, the caller resumes on its own dispatcher.
 	**/
 	@:coroutine static public function scope<T>(context:Context, lambda:NodeLambda<T>#if coro.stack_traces, ?startPos:haxe.PosInfos#end):T {
 		return Coro.suspend(cont -> {
