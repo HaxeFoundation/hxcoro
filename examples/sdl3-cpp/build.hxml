@@ -1,0 +1,8 @@
+# Set SDL_DIST_DIR to the extracted SDL3 development package (SDL3-devel-<version>-VC.zip on Windows).
+# On other systems, leave it out if SDL3 is installed where the compiler finds it.
+--class-path src
+--library hxcoro
+--main Main
+-D HXCPP_CPP17
+-D SDL_DIST_DIR=path/to/SDL3
+--cpp bin
