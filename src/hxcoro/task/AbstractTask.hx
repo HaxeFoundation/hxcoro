@@ -86,6 +86,7 @@ abstract class AbstractTask implements ICancellationToken {
 	final cancellationManager:TaskCancellationManager;
 	final error:AtomicObject<Null<Exception>>;
 	final state:AtomicState<TaskState>;
+	final kind:TaskKind;
 
 	/**
 		The task's unique id, assigned on creation.
@@ -119,11 +120,12 @@ abstract class AbstractTask implements ICancellationToken {
 	}
 
 	/**
-		Creates a new task in the `Created` state.
+		Creates a new task of `kind` in the `Created` state.
 	**/
-	public function new(parent:Null<AbstractTask>) {
+	public function new(parent:Null<AbstractTask>, kind:TaskKind) {
 		id = atomicId.add(1);
 		this.parent = parent;
+		this.kind = kind;
 		state = new AtomicState(Created);
 		error = new AtomicObject(null);
 		cancellationManager = @:nullSafety(Off) new TaskCancellationManager(this);
@@ -407,11 +409,32 @@ abstract class AbstractTask implements ICancellationToken {
 	@:allow(hxcoro.task.TaskContinuationManager)
 	abstract function reportCallbackError(error:Exception):Void;
 
-	abstract function childSucceeds(child:AbstractTask):Void;
+	/**
+		Called when `child` fails with `cause`, which is not a `CancellationException`. Child and
+		scope tasks inherit the failure, supervisors ignore it.
+	**/
+	function childErrors(child:AbstractTask, cause:Exception) {
+		switch (kind) {
+			case Child | Scope:
+				switch (state.load()) {
+					case Created | Running | Completing:
+						doCancel(cause);
+					case CancellationRequested | Cancelling | Completed | Cancelled:
+				}
+			case Supervisor:
+		}
+	}
 
-	abstract function childErrors(child:AbstractTask, cause:Exception):Void;
-
-	abstract function childCancels(child:AbstractTask, cause:CancellationException):Void;
+	/**
+		Called when `child` is cancelled with `cause`. Only child tasks are cancelled along with it.
+	**/
+	function childCancels(child:AbstractTask, cause:CancellationException) {
+		switch (kind) {
+			case Child:
+				cancel(cause);
+			case Scope | Supervisor:
+		}
+	}
 
 	// called from child
 
@@ -419,7 +442,6 @@ abstract class AbstractTask implements ICancellationToken {
 		if (processResult) {
 			switch (child.state.load()) {
 				case Completed:
-					childSucceeds(child);
 				case Cancelled:
 					@:nullSafety(Off) final childError:Exception = child.getError();
 					if (childError is CancellationException) {

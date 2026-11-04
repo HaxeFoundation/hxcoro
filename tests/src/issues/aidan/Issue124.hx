@@ -4,6 +4,7 @@ import haxe.coro.Coroutine;
 import haxe.coro.context.Context;
 import hxcoro.task.ICoroTask;
 import hxcoro.task.CoroTask;
+import hxcoro.task.TaskKind;
 import hxcoro.ds.channels.Channel;
 import hxcoro.task.ICoroNode;
 
@@ -21,7 +22,7 @@ class CoroChannelTask<T> extends CoroTask<haxe.Unit> implements IReceiver<T> imp
 	final channel:Channel<T>;
 
 	public function new(context:Context, channel:Channel<T>) {
-		super(context, CoroTask.CoroScopeStrategy);
+		super(context, Scope);
 		this.channel = channel;
 	}
 

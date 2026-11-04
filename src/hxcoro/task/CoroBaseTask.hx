@@ -15,7 +15,6 @@ import hxcoro.task.AbstractTask;
 import hxcoro.task.CoroTask;
 import hxcoro.task.ICoroNode;
 import hxcoro.task.ICoroTask;
-import hxcoro.task.node.INodeStrategy;
 
 /**
 	Holds the continuations waiting for a task and resumes them with the task's outcome once it completes.
@@ -52,7 +51,6 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 	var callerTask:Null<IStackFrame>;
 	#end
 
-	final nodeStrategy:INodeStrategy;
 	final awaitingContinuations:TaskContinuationManager;
 	var awaitingChildContinuation:Null<IContinuation<Any>>;
 	var result:Null<T>;
@@ -61,16 +59,15 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 		Creates a new task using the provided `context`. The task doesn't run until it is started.
 	**/
 	@:nullSafety(Off)
-	public function new(context:Context, nodeStrategy:INodeStrategy#if coro.stack_traces, ?startPos:haxe.PosInfos#end) {
+	public function new(context:Context, kind:TaskKind#if coro.stack_traces, ?startPos:haxe.PosInfos#end) {
 		final parent = context.get(CoroBaseTask);
-		this.nodeStrategy = nodeStrategy;
 		awaitingContinuations = new TaskContinuationManager(this);
 		#if coro.stack_traces
 		this.startPos = startPos;
 		callFrameLocked = false;
 		#end
 		this.context = context.clone().with(this).set(CancellationToken, this);
-		super(parent);
+		super(parent, kind);
 	}
 
 	inline function get_context() {
@@ -123,7 +120,7 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 		it already has.
 	**/
 	public function lazy<T>(lambda:NodeLambda<T>#if coro.stack_traces, ?startPos:haxe.PosInfos#end):IStartableCoroTask<T> {
-		final task = new CoroTaskWithLambda(context, lambda, CoroTask.CoroChildStrategy#if coro.stack_traces, startPos#end);
+		final task = new CoroTaskWithLambda(context, lambda, Child#if coro.stack_traces, startPos#end);
 		// The task is already registered as a child here, so if this task's own work finishes after this
 		// check, startChildren or cancelChildren still sees it.
 		switch (state.load()) {
@@ -140,7 +137,7 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 		Creates a child task to execute `lambda` and starts it automatically.
 	**/
 	public function async<T>(lambda:NodeLambda<T>#if coro.stack_traces, ?startPos:haxe.PosInfos#end):ICoroTask<T> {
-		final task = new CoroTaskWithLambda<T>(context, lambda, CoroTask.CoroChildStrategy#if coro.stack_traces, startPos#end);
+		final task = new CoroTaskWithLambda<T>(context, lambda, Child#if coro.stack_traces, startPos#end);
 		task.requestActivation();
 		return task;
 	}
@@ -263,21 +260,10 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 		}
 	}
 
-	// strategy dispatcher
-
 	function complete() {
-		nodeStrategy.complete(this);
-	}
-
-	function childSucceeds(child:AbstractTask) {
-		nodeStrategy.childSucceeds(this, child);
-	}
-
-	function childErrors(child:AbstractTask, cause:Exception) {
-		nodeStrategy.childErrors(this, child, cause);
-	}
-
-	function childCancels(child:AbstractTask, cause:CancellationException) {
-		nodeStrategy.childCancels(this, child, cause);
+		// Only child tasks report their outcome to the parent. Scopes and supervisors deliver it to
+		// whoever awaits them, which for `Coro.scope` is the suspended caller.
+		parent?.childCompletes(this, kind == Child);
+		handleAwaitingContinuations();
 	}
 }

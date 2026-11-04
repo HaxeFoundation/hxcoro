@@ -10,6 +10,7 @@ import hxcoro.continuations.RacingContinuation;
 import hxcoro.continuations.TimeoutContinuation;
 import hxcoro.exceptions.TimeoutException;
 import hxcoro.task.CoroTask;
+import hxcoro.task.TaskKind;
 import hxcoro.task.NodeLambda;
 
 private typedef SuspendCancellableFunc<T> = IContinuation<T> -> Null<(CancellationException -> Void)>;
@@ -83,7 +84,7 @@ class Coro {
 	@:coroutine static public function scope<T>(lambda:NodeLambda<T>#if coro.stack_traces, ?startPos:haxe.PosInfos#end):T {
 		return suspend(cont -> {
 			final context = cont.context;
-			final scope = new CoroTaskWithLambda(context, lambda, CoroTask.CoroScopeStrategy#if coro.stack_traces, startPos#end);
+			final scope = new CoroTaskWithLambda(context, lambda, Scope#if coro.stack_traces, startPos#end);
 			// The scope has our context, so we already run on its dispatcher and can activate it ourselves.
 			scope.onDispatch();
 			scope.awaitContinuation(cont#if coro.stack_traces, startPos#end);
@@ -101,7 +102,7 @@ class Coro {
 	@:coroutine static public function supervisor<T>(lambda:NodeLambda<T>#if coro.stack_traces, ?startPos:haxe.PosInfos#end):T {
 		return suspend(cont -> {
 			final context = cont.context;
-			final scope = new CoroTaskWithLambda(context, lambda, CoroTask.CoroSupervisorStrategy#if coro.stack_traces, startPos#end);
+			final scope = new CoroTaskWithLambda(context, lambda, Supervisor#if coro.stack_traces, startPos#end);
 			scope.onDispatch();
 			scope.awaitContinuation(cont#if coro.stack_traces, startPos#end);
 		});
@@ -125,7 +126,7 @@ class Coro {
 		}
 		return suspend(cont -> {
 			final context = cont.context;
-			final scope = new CoroTaskWithLambda(context, lambda, CoroTask.CoroScopeStrategy#if coro.stack_traces, startPos#end);
+			final scope = new CoroTaskWithLambda(context, lambda, Scope#if coro.stack_traces, startPos#end);
 			scope.onDispatch();
 			final handle = context.scheduleFunction(ms, () -> {
 				#if coro.stack_traces
