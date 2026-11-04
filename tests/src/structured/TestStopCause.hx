@@ -3,7 +3,7 @@ package structured;
 import haxe.Exception;
 import haxe.exceptions.CancellationException;
 import hxcoro.elements.NonCancellable;
-import hxcoro.exceptions.TimeoutException;
+import hxcoro.TimeoutException;
 import hxcoro.task.CoroBaseTask;
 import hxcoro.task.ICoroTask;
 

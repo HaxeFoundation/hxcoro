@@ -6,8 +6,8 @@ import hxcoro.ds.Out;
 import hxcoro.ds.CircularBuffer;
 import hxcoro.ds.channels.Channel;
 import hxcoro.ds.channels.bounded.AtomicChannelState;
-import hxcoro.ds.channels.exceptions.ChannelClosedException;
-import hxcoro.ds.channels.exceptions.InvalidChannelStateException;
+import hxcoro.ds.channels.ChannelClosedException;
+import hxcoro.ds.channels.InvalidChannelStateException;
 
 using hxcoro.util.Convenience;
 using hxcoro.util.MutexExtensions;

@@ -68,11 +68,6 @@ private class TaskStateTools {
 }
 
 /**
-	Raised as a task's error when the task detects an invalid internal state.
-**/
-class TaskException extends Exception {}
-
-/**
 	AbstractTask is the base class for tasks which manages its `TaskState` and children.
 
 	Developer note: it should have no knowledge of any asynchronous behavior or anything related to coroutines,
