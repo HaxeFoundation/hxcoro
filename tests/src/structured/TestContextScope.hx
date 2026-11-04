@@ -41,15 +41,15 @@ private class ManualDispatcher extends Dispatcher {
 }
 
 /**
-	`scopeWith` runs a block in a child task created with a given context.
+	`context.scope` runs a block in a child task created with that context.
 **/
-class TestScopeWith extends atest.Test {
+class TestContextScope extends atest.Test {
 	function testElementIsVisibleAndResultIsReturned() {
 		final name = new CoroName("inner");
 		var seen:Null<CoroName> = null;
 		var result = 0;
 		final task = VirtualRun.run(node -> {
-			result = scopeWith(node.with(name), n -> {
+			result = node.with(name).scope(n -> {
 				seen = n.context.get(CoroName);
 				42;
 			});
@@ -64,7 +64,7 @@ class TestScopeWith extends atest.Test {
 		var continued = false;
 		final task = VirtualRun.run(node -> {
 			try {
-				scopeWith(node.with(new CoroName("x")), _ -> throw new Exception("boom"));
+				node.with(new CoroName("x")).scope(_ -> throw new Exception("boom"));
 			} catch (e:Exception) {
 				caught = e;
 			}
@@ -83,7 +83,7 @@ class TestScopeWith extends atest.Test {
 			node.async(_ -> {
 				events.push("sibling");
 			});
-			scopeWith(node.with(new CoroName("x")), _ -> {
+			node.with(new CoroName("x")).scope(_ -> {
 				events.push("scope");
 			});
 		});
@@ -96,7 +96,7 @@ class TestScopeWith extends atest.Test {
 		final events = [];
 		final task = CoroRun.with(new TrampolineDispatcher(scheduler)).launchTask(node -> {
 			events.push("before");
-			scopeWith(node.with(manual), _ -> {
+			node.with(manual).scope(_ -> {
 				events.push("scope");
 			});
 			events.push("after");
@@ -117,7 +117,7 @@ class TestScopeWith extends atest.Test {
 					awaitCancellation();
 				} catch (e:CancellationException) {
 					cause = e;
-					scopeWith(n.with(new NonCancellable()), _ -> {
+					n.with(new NonCancellable()).scope(_ -> {
 						delay(10);
 						cleanupRan = true;
 					});
@@ -136,7 +136,7 @@ class TestScopeWith extends atest.Test {
 	function testTimeoutInsideNonCancellableBlock() {
 		var timedOut = false;
 		final task = VirtualRun.run(node -> {
-			scopeWith(node.with(new NonCancellable()), _ -> {
+			node.with(new NonCancellable()).scope(_ -> {
 				try {
 					timeout(10, _ -> delay(100));
 				} catch (_:TimeoutException) {
@@ -153,7 +153,7 @@ class TestScopeWith extends atest.Test {
 		var t:Null<ICoroTask<Any>> = null;
 		final task = VirtualRun.run(node -> {
 			t = node.async(n -> {
-				scopeWith(n.with(new CoroName("x")), _ -> {
+				n.with(new CoroName("x")).scope(_ -> {
 					try {
 						awaitCancellation();
 					} catch (e:CancellationException) {
