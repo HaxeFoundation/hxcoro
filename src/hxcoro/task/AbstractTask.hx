@@ -465,27 +465,30 @@ abstract class AbstractTask implements ICancellationToken {
 	}
 
 	final function checkCompletion() {
-		switch (lockChildren()) {
+		// The final transition happens while the children lock is held, so that no child can attach
+		// to a task that is about to complete. `complete` runs after the lock is released, because it
+		// resumes other code.
+		final completed = switch (lockChildren()) {
 			case 0:
-				numActiveChildren.store(0);
+				switch (state.load()) {
+					case Created | Running | CancellationRequested:
+						// The task's own work has not finished yet.
+						false;
+					case Completing:
+						// If this fails, the task was cancelled concurrently and whoever did that checks again.
+						state.compareExchange(Completing, Completed) == Completing;
+					case Cancelling:
+						state.compareExchange(Cancelling, Cancelled) == Cancelling;
+					case Completed | Cancelled:
+						false;
+				}
 			case activeChildren:
 				numActiveChildren.store(activeChildren);
 				return;
 		}
-
-		switch (state.load()) {
-			case Created | Running | CancellationRequested:
-				// The task's own work has not finished yet.
-			case Completing:
-				// If this fails, the task was cancelled concurrently and whoever did that checks again.
-				if (state.compareExchange(Completing, Completed) == Completing) {
-					complete();
-				}
-			case Cancelling:
-				if (state.compareExchange(Cancelling, Cancelled) == Cancelling) {
-					complete();
-				}
-			case Completed | Cancelled:
+		numActiveChildren.store(0);
+		if (completed) {
+			complete();
 		}
 	}
 
@@ -500,6 +503,9 @@ abstract class AbstractTask implements ICancellationToken {
 
 	abstract function complete():Void;
 
+	/**
+		Called after the last child completed and the children lock was released.
+	**/
 	abstract function childrenCompleted():Void;
 
 	/**
@@ -562,8 +568,9 @@ abstract class AbstractTask implements ICancellationToken {
 				return setInternalException('numActiveChildren is already 0 in childCompletes');
 			case 1:
 				firstChild = null;
-				childrenCompleted();
 				numActiveChildren.store(0);
+				// Resumes the awaitChildren waiter, outside the lock so that it may take it right away.
+				childrenCompleted();
 				checkCompletion();
 			case activeChildren:
 				final next = child.nextSibling;
