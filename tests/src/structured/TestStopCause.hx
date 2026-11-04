@@ -236,6 +236,73 @@ class TestStopCause extends atest.Test {
 	}
 
 	/**
+		When a cancelling task is upgraded to a failure, its cancellation cause stays what it was: the
+		children and the callbacks have received it already.
+	**/
+	function testUpgradeKeepsCancellationCause() {
+		var t:Null<ICoroTask<Any>> = null;
+		var child:Null<ICoroTask<Any>> = null;
+		final cause = new CancellationException();
+		VirtualRun.run(node -> {
+			supervisor(n -> {
+				t = n.async(p -> {
+					child = p.async(_ -> awaitCancellation());
+					try {
+						awaitCancellation();
+					} catch (e:CancellationException) {
+						throw new Exception("cleanup failed");
+					}
+				});
+				yield();
+				yield();
+				t.cancel(cause);
+				try {
+					t.await();
+				} catch (_:Exception) {}
+			});
+		});
+		Assert.isTrue(t.isFailed());
+		Assert.equals("cleanup failed", t.getError().message);
+		final parent:CoroBaseTask<Any> = cast t;
+		Assert.isTrue(parent.cancellationException == cause, "the upgrade replaced the cancellation cause");
+		Assert.isTrue(child.isCancelled());
+		Assert.isTrue(child.getError() == cause, "the child was not cancelled with the original cause");
+	}
+
+	/**
+		A task that inherits a child's failure reuses the child's cause, so the child's own children
+		and the child's siblings are all cancelled with the same cause object.
+	**/
+	function testInheritedFailureSharesCauseAcrossTree() {
+		var t:Null<ICoroTask<Any>> = null;
+		var sibling:Null<ICoroTask<Any>> = null;
+		var grandchild:Null<ICoroTask<Any>> = null;
+		VirtualRun.run(node -> {
+			supervisor(n -> {
+				t = n.async(p -> {
+					sibling = p.async(_ -> awaitCancellation());
+					p.async(a -> {
+						grandchild = a.async(_ -> awaitCancellation());
+						yield();
+						throw new Exception("boom");
+					});
+					awaitCancellation();
+				});
+				try {
+					t.await();
+				} catch (_:Exception) {}
+			});
+		});
+		Assert.isTrue(t.isFailed());
+		Assert.equals("boom", t.getError().message);
+		Assert.isTrue(grandchild.isCancelled());
+		Assert.isTrue(sibling.isCancelled());
+		Assert.isTrue(grandchild.getError() == sibling.getError(), "the grandchild and the sibling have different causes");
+		final parent:CoroBaseTask<Any> = cast t;
+		Assert.isTrue(sibling.getError() == parent.cancellationException, "the sibling's cause is not the parent's");
+	}
+
+	/**
 		Only cancellation is gated by `NonCancellable`: a failing child fails the task.
 	**/
 	function testChildFailureFailsNonCancellableTask() {
