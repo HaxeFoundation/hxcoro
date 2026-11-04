@@ -181,12 +181,11 @@ class ContextConvenience {
 		Executes `lambda` in a new `Sequential` task created with `context` and returns its result once
 		the task and all its children have completed, like `Coro.scope`. If `context` contains a task,
 		the new task becomes its child; otherwise the new task has no parent: the caller still waits
-		for it, but cancelling the caller does not cancel it. This is how to run a block under another
-		`Dispatcher`, with a `CoroName`, or inside a `NonCancellable` boundary.
+		for it, but cancelling the caller does not cancel it.
 
 		If `lambda` or one of the children raises an exception, the remaining children are cancelled
 		and the exception is thrown from this call. The caller waits for the block even if it is
-		cancelled in the meantime, so a `NonCancellable` block runs its cleanup to completion.
+		cancelled in the meantime.
 
 		The block runs on the `Dispatcher` of `context`. If that is the caller's own dispatcher, the
 		block starts synchronously, before this call suspends; otherwise it is dispatched there. In
