@@ -268,8 +268,9 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 	}
 
 	/**
-		Suspends the calling task until this task completes. If the caller is cancelled first, it
-		resumes with its `CancellationException` and no longer waits for this task.
+		Suspends the calling task until this task completes, starting this task if necessary. If the
+		caller is cancelled first, or is cancelled already, it resumes with its `CancellationException`
+		and no longer waits for this task, which keeps running.
 	**/
 	@:coroutine public function await(#if coro.stack_traces ?startPos:haxe.PosInfos #end):T {
 		return Coro.suspendCancellable(cont -> {
