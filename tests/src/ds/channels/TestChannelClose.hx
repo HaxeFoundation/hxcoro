@@ -5,7 +5,7 @@ import hxcoro.schedulers.VirtualTimeScheduler;
 import hxcoro.ds.Out;
 import hxcoro.task.NodeLambda;
 import hxcoro.ds.channels.Channel;
-import hxcoro.ds.channels.exceptions.ChannelClosedException;
+import hxcoro.ds.channels.ChannelClosedException;
 
 /**
 	Closing a channel while readers are suspended in it, for both channel kinds (#186).

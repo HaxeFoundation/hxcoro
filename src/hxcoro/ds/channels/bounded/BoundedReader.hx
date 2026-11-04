@@ -5,8 +5,8 @@ import haxe.coro.IContinuation;
 import haxe.coro.context.Context;
 import hxcoro.ds.Out;
 import hxcoro.ds.CircularBuffer;
-import hxcoro.ds.channels.exceptions.ChannelClosedException;
-import hxcoro.ds.channels.exceptions.InvalidChannelStateException;
+import hxcoro.ds.channels.ChannelClosedException;
+import hxcoro.ds.channels.InvalidChannelStateException;
 import hxcoro.ds.channels.bounded.AtomicChannelState;
 
 using hxcoro.util.Convenience;

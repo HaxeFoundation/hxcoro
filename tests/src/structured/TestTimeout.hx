@@ -4,7 +4,7 @@ import hxcoro.dispatchers.TrampolineDispatcher;
 import haxe.Exception;
 import haxe.exceptions.ArgumentException;
 import hxcoro.schedulers.VirtualTimeScheduler;
-import hxcoro.exceptions.TimeoutException;
+import hxcoro.TimeoutException;
 
 class TestTimeout extends atest.Test {
 	function test_timeout() {

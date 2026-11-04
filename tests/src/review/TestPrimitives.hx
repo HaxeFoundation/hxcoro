@@ -8,7 +8,7 @@ import hxcoro.concurrent.CoroLatch.CoroLatchImpl;
 import hxcoro.ds.CircularBuffer;
 import hxcoro.ds.Out;
 import hxcoro.ds.channels.Channel;
-import hxcoro.ds.channels.exceptions.ChannelClosedException;
+import hxcoro.ds.channels.ChannelClosedException;
 import hxcoro.ds.pipelines.Pipe;
 import hxcoro.ds.pipelines.pipe.PipeWriter;
 import hxcoro.schedulers.VirtualTimeScheduler;

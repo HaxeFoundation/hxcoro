@@ -1,4 +1,4 @@
-package hxcoro.concurrent.exceptions;
+package hxcoro.concurrent;
 
 import haxe.Exception;
 

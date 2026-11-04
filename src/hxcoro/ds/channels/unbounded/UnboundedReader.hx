@@ -5,7 +5,7 @@ import haxe.Exception;
 import haxe.coro.IContinuation;
 import haxe.coro.context.Context;
 import hxcoro.ds.Out;
-import hxcoro.ds.channels.exceptions.ChannelClosedException;
+import hxcoro.ds.channels.ChannelClosedException;
 
 using hxcoro.util.MutexExtensions;
 

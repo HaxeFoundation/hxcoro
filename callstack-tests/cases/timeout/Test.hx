@@ -1,6 +1,6 @@
 package timeout;
 
-import hxcoro.exceptions.TimeoutException;
+import hxcoro.TimeoutException;
 
 class Test {
 	public static function run() {

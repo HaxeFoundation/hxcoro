@@ -2,7 +2,7 @@ package hxcoro.concurrent;
 
 import haxe.coro.IContinuation;
 import haxe.exceptions.ArgumentException;
-import hxcoro.concurrent.exceptions.SemaphoreFullException;
+import hxcoro.concurrent.SemaphoreFullException;
 import hxcoro.ds.PagedDeque;
 import haxe.atomic.AtomicInt;
 
