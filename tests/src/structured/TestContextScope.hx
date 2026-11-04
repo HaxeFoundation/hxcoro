@@ -6,10 +6,12 @@ import haxe.coro.dispatchers.IDispatchObject;
 import haxe.coro.schedulers.IScheduler;
 import haxe.exceptions.CancellationException;
 import hxcoro.TimeoutException;
+import hxcoro.concurrent.CoroLatch;
 import hxcoro.dispatchers.TrampolineDispatcher;
 import hxcoro.elements.CoroName;
 import hxcoro.elements.NonCancellable;
 import hxcoro.schedulers.VirtualTimeScheduler;
+import hxcoro.task.CoroBaseTask;
 import hxcoro.task.ICoroTask;
 
 /**
@@ -19,9 +21,12 @@ private class ManualDispatcher extends Dispatcher {
 	final s:IScheduler;
 	final queue:Array<IDispatchObject>;
 
+	public var dispatched(default, null):Int;
+
 	public function new(scheduler:IScheduler) {
 		s = scheduler;
 		queue = [];
+		dispatched = 0;
 	}
 
 	function get_scheduler() {
@@ -29,6 +34,7 @@ private class ManualDispatcher extends Dispatcher {
 	}
 
 	public function dispatch(obj:IDispatchObject) {
+		dispatched++;
 		queue.push(obj);
 	}
 
@@ -102,9 +108,39 @@ class TestContextScope extends atest.Test {
 			events.push("after");
 		});
 		Assert.same(["before"], events);
+		Assert.equals(1, manual.dispatched, "the block was dispatched more than once");
 		manual.runAll();
 		Assert.same(["before", "scope", "after"], events);
+		Assert.equals(1, manual.dispatched);
 		Assert.isFalse(task.isActive());
+	}
+
+	function testContextWithoutTaskRunsDetached() {
+		var result = 0;
+		var blockCancelled = false;
+		var t:Null<ICoroTask<Any>> = null;
+		final task = VirtualRun.run(node -> {
+			final latch = new CoroLatch(1);
+			t = node.async(n -> {
+				result = n.without(CoroBaseTask.key).scope(_ -> {
+					try {
+						latch.wait();
+					} catch (e:CancellationException) {
+						blockCancelled = true;
+						throw e;
+					}
+					42;
+				});
+			});
+			yield();
+			t.cancel();
+			yield();
+			latch.arrive(1);
+		});
+		Assert.isFalse(task.isActive(), "the run never completed");
+		Assert.isTrue(t.isCancelled());
+		Assert.isFalse(blockCancelled, "cancelling the caller cancelled a block without a parent");
+		Assert.equals(42, result);
 	}
 
 	function testNonCancellableCleanupCompletes() {

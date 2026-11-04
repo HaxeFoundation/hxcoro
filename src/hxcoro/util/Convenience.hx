@@ -179,10 +179,11 @@ class ContextConvenience {
 
 	/**
 		Executes `lambda` in a new `Sequential` task created with `context` and returns its result once
-		the task and all its children have completed, like `Coro.scope`. `context` is usually obtained
-		from the calling node with `node.with(...)` or `node.without(...)`, which keeps the new task a
-		child of the caller. This is how to run a block under another `Dispatcher`, with a `CoroName`,
-		or inside a `NonCancellable` boundary.
+		the task and all its children have completed, like `Coro.scope`. If `context` contains a task,
+		as one obtained from the calling node with `node.with(...)` or `node.without(...)` does, the
+		new task becomes its child. This is how to run a block under another `Dispatcher`, with a
+		`CoroName`, or inside a `NonCancellable` boundary. If `context` contains no task, the new task
+		has no parent: the caller still waits for it, but cancelling the caller does not cancel it.
 
 		If `lambda` or one of the children raises an exception, the remaining children are cancelled
 		and the exception is thrown from this call. The caller waits for the block even if it is
@@ -197,10 +198,10 @@ class ContextConvenience {
 		return Coro.suspend(cont -> {
 			final scope = new CoroTaskWithLambda(context, lambda, Sequential#if coro.stack_traces, startPos#end);
 			if (context.get(Dispatcher) == cont.context.get(Dispatcher)) {
+				// We already run on the scope's dispatcher, so activate it ourselves.
 				scope.onDispatch();
-			} else {
-				scope.requestActivation();
 			}
+			// Otherwise this starts the scope, which dispatches it.
 			scope.awaitContinuation(cont#if coro.stack_traces, startPos#end);
 		});
 	}
