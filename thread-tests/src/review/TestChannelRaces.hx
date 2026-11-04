@@ -78,6 +78,9 @@ class TestChannelRaces extends atest.Test {
 		Fix: drain the waiters into a local array inside the `lock.with` that sets `closed`, then
 		resume them outside. Delete the misleading comment. The known failures in
 		`tests/src/review/TestChannelCancellation.hx` are related; re-run them after the fix.
+
+		The race is timing dependent: it reproduces reliably on JVM and HL and intermittently on
+		eval, so the eval CI job sees it only sometimes.
 	**/
 	function testCloseWhileCancellingReaders() {
 		final rounds = 200;

@@ -19,6 +19,12 @@ class TestRealTimeScheduler extends atest.Test {
 		the loop, and the loop spins at 100% CPU forever. This setup is the default on hl, python and
 		neko (`Setup.createDefault`). `Once` with a long `delay` also burns a core.
 
+		`LoopRun.runTask`'s doc makes the caller responsible for the dispatcher and the loop
+		terminating together, but `awaitTaskCompletion` already calls `wakeUp` for exactly this case,
+		so the scheduler and the loop disagree with each other rather than with the user. If `wakeUp`
+		stays a no-op, `LoopRun` should stop relying on it and `createDefault` should not pair them.
+		After this test fails, the loop thread keeps spinning for the rest of the process.
+
 		Fix: an atomic wake flag set by `wakeUp` and checked in the spin. Better: block on a
 		`sys.thread.Semaphore`/`Condition` with a timeout until the earliest due time, as
 		`ThreadAwareScheduler` does (reuse its `WakeUpFlag` approach). Keep a pure spin only on

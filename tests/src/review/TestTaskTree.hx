@@ -17,25 +17,42 @@ import hxcoro.task.ICoroTask;
 	  Children are a linked list guarded by a spin-lock encoded as `numActiveChildren == -1`
 	  (`lockChildren`).
 	- `CoroBaseTask` adds the coroutine parts: awaiters, `awaitChildren`, context.
-	- A node strategy decides how child outcomes affect the parent: `CoroChildStrategy` for
-	  `async`/`lazy`, `CoroScopeStrategy` for `scope`/root, `CoroSupervisorStrategy`.
+	- `TaskKind` on `AbstractTask` decides how child outcomes affect the parent: `Concurrent` for
+	  `async`/`lazy`, `Sequential` for `scope`/`timeout`/root, `SequentialSupervisor` for
+	  `supervisor` (#216).
+
+	Decisions from #215 that the tests below assert:
+	- A child's cancellation never affects its parent (T2). The kind of a child's outcome comes from
+	  its `StopCause` (`Cancellation` or `Failure`, #218), not from the exception type. A
+	  `CancellationException` thrown while no cancellation was requested is a failure (1b), which
+	  #218 implemented together with "a failure while cancelling replaces the cancellation" and
+	  "only `cancel()` is gated by `NonCancellable`" (T4a); their tests live in
+	  `tests/src/structured/TestStopCause.hx`.
+	- `await()` is cancellable (T3).
+	- `NonCancellable` is a boundary, not an inherited flag (T4, #214).
+	- Creating a child on a task in a final state throws from the task constructor (T6b).
 **/
 class TestTaskTree extends atest.Test {
 	/**
-		T2: `cancelChildren()` inside `async` cancels the node itself. Needs a maintainer decision.
+		T2: `cancelChildren()` inside `async` cancels the node itself. Decided in #215: it must not.
 
-		`src/hxcoro/task/node/CoroChildStrategy.hx:31-33`: `childCancels` calls `task.cancel(cause)`,
-		while `CoroScopeStrategy.hx:31` and `CoroSupervisorStrategy.hx:24` are no-ops. Routing is in
-		`AbstractTask.childCompletes`: a child that ends with a `CancellationException` goes to
-		`childCancels`. `ICoroNode.cancelChildren` is documented as not cancelling the node.
+		`AbstractTask.childCancels` calls `cancel(cause)` for a `Concurrent` task and does nothing for
+		the sequential kinds. Routing is in `AbstractTask.childCompletes`: a child that ends with a
+		`CancellationException` goes to `childCancels`. `ICoroNode.cancelChildren` is documented as
+		not cancelling the node.
 
 		The children complete after the node has returned 42, so the node is `Completing`, and
 		`childCancels` moves it to `Cancelling`.
 
-		Proposed semantics (Kotlin): a child ending with a `CancellationException` never cancels its
-		parent, so `childCancels` is a no-op in all strategies. Open question: whether an escaped
-		`TimeoutException` (a `CancellationException` subclass) counts as a failure; today it cancels
-		an async parent but is swallowed under scope/root.
+		The docs contradict each other: `TaskKind.Concurrent` says the task is cancelled when a child
+		is cancelled, `ICoroNode.cancelChildren` says the node is not. No test in the regular suite
+		depends on the current behaviour: with `childCancels` made a no-op, the whole suite still
+		passes.
+
+		Decided semantics: a child that ends cancelled never affects its parent, for every `TaskKind`.
+		`childCancels` goes away. `childCompletes` already decides by the child's `StopCause` (#218).
+		The parent is notified from `beginCancellation` rather than `childCompletes`, so siblings are
+		cancelled as soon as a child fails and not only once its subtree has finished.
 	**/
 	function testCancelChildrenDoesNotCancelAsyncNode() {
 		var t:Null<ICoroTask<Int>> = null;
@@ -72,7 +89,7 @@ class TestTaskTree extends atest.Test {
 	}
 
 	/**
-		T3: `await()` is not cancellable. Needs a maintainer decision (public behaviour).
+		T3: `await()` is not cancellable. Decided in #215: it becomes cancellable.
 
 		`src/hxcoro/task/CoroBaseTask.hx:235-239`: `await` → `Coro.suspend` → `awaitContinuation` →
 		`awaitingContinuations.add(cont)` (`:170-173`). `Coro.suspend` registers no cancellation
@@ -83,7 +100,11 @@ class TestTaskTree extends atest.Test {
 		Fix: use `Coro.suspendCancellable` and remove the continuation on cancellation;
 		`ThreadSafeCallbacks.add` (`concurrent/ThreadSafeCallbacks.hx`) already returns a handle.
 		Mind the race between task completion and awaiter cancellation; `CancellingContinuation`
-		handles the resume-vs-cancel CAS.
+		handles the resume-vs-cancel CAS. `onCompletion` returns a handle for the same reason.
+
+		This must land after `scopeWith` (a `scope` that takes a context): a cancelling task can then
+		no longer wait for a `NonCancellable` cleanup child via `launchTask(...).await()`, because the
+		`await` throws right away, and `scopeWith` is the replacement that waits non-cancellably.
 	**/
 	function testAwaitInTimeout() {
 		var timedOut = false;
@@ -120,39 +141,18 @@ class TestTaskTree extends atest.Test {
 	}
 
 	/**
-		T4a: `NonCancellable` swallows child failures. Needs a maintainer decision.
-
-		`src/hxcoro/task/CoroBaseTask.hx:201-206`: `override function doCancel(error)` returns early if
-		`context.get(NonCancellable) != null`. `doCancel` is also the path for child errors
-		(`CoroChildStrategy.childErrors` and the scope strategy) and for `setInternalException`
-		(`AbstractTask.hx:388-391`), so a failing child of a NonCancellable task is ignored and "boom"
-		is lost.
-
-		Proposed fix: distinguish external cancellation (parent `cancelChildren`, the parent check in
-		`activate`, user `cancel()`) from failure (`childErrors`, internal errors), and ignore only the
-		former.
-	**/
-	function testNonCancellableKeepsChildError() {
-		var t:Null<ICoroTask<Any>> = null;
-		VirtualRun.run(node -> {
-			t = node.with(new NonCancellable()).async(n -> {
-				n.async(_ -> {
-					throw "boom";
-				});
-				delay(10);
-			});
-		});
-		Assert.isFalse(t.isActive());
-		Assert.equals("boom", t.getError()?.message);
-	}
-
-	/**
 		T4b: `timeout` inside a `NonCancellable` task never takes effect, because the element is
 		inherited by every descendant via the context, including the scope `timeout` creates.
+		`NonCancellable`'s doc says it prevents cancellation of "tasks created in its context,
+		including through cancellation of their parent", so this is as documented. The test asserts
+		Kotlin's semantics instead, where `withTimeout` works inside `NonCancellable`.
 
-		Proposed fix: scopes created inside should not inherit `NonCancellable`. Kotlin's
-		`NonCancellable` is a Job, not an inherited flag. Possibly strip the element when creating
-		`scope`/`timeout`/`async` children.
+		Decided fix (#214): `NonCancellable` is a boundary. `CoroBaseTask.doCancel` ignores the
+		cancellation only if this task introduced the element, i.e. its parent's context does not
+		hold the same instance. Descendants inherit the instance, so they stay cancellable, and a
+		nested `with(new NonCancellable())` starts a new boundary. Not by stripping the element from
+		children's contexts: `node.with(...)` hands out the raw context, so `Convenience.async` would
+		reintroduce it.
 	**/
 	function testTimeoutInsideNonCancellable() {
 		var timedOut = false;
@@ -194,7 +194,7 @@ class TestTaskTree extends atest.Test {
 	}
 
 	/**
-		T6b: children can attach to a completed parent.
+		T6b: children can attach to a completed parent. Decided in #215: that is an error.
 
 		`src/hxcoro/task/AbstractTask.hx`: `addChild` (`:461-469`) does not check the parent state, and
 		`activate` (`:276-292`) only checks `parent.isCancelling()`. The child of a `Completed` parent
@@ -203,27 +203,37 @@ class TestTaskTree extends atest.Test {
 		T6a, the race between `checkCompletion` unlocking the children (`numActiveChildren.store(0)`)
 		and the `Completing → Completed` CAS, needs real threads and is not covered here.
 
-		Fix: make `addChild` refuse or immediately cancel a child whose parent is final, and document
-		it. This test expects the child to be cancelled without running; if reporting the error is
-		chosen instead, adapt it. Mind T7: don't call `complete()` under the children lock.
+		Decided fix: the task constructor throws, via `addChild`, if the parent is in a final state
+		(`Completed`, `Cancelled`). This covers every creation path (`async`, `lazy`,
+		`scope`, `Convenience.async`, `createTask` on a context), not just `async`/`lazy`. Details:
+		- The check runs under the children lock, and `checkCompletion` must do its final CAS while
+		  still holding that lock and call `complete()` after releasing it (T7). Otherwise `addChild`
+		  can link a child in the window between unlocking and the CAS, which is T6a.
+		- `Completing` and `Cancelling` keep accepting children: a parent waiting for its children is
+		  a valid parent, and the cleanup idiom from Issue47 adds a `NonCancellable` child while the
+		  parent is `Cancelling`.
+		- A dedicated exception type, e.g. `TaskCompletedException`, rather than `TaskException`,
+		  which means "internal invariant violated". This test accepts any exception until it exists.
 	**/
-	function testAsyncOnCompletedNode() {
+	function testAsyncOnCompletedNodeThrows() {
 		var ran = false;
-		var child:Null<ICoroTask<Any>> = null;
-		VirtualRun.run(node -> {
+		var threw = false;
+		final task = VirtualRun.run(node -> {
 			var escaped:Null<CoroBaseTask<Any>> = null;
 			final t = node.async(n -> {
 				escaped = cast n;
 			});
 			t.await();
-			child = escaped.async(_ -> {
-				ran = true;
-				throw "x";
-			});
+			try {
+				escaped.async(_ -> ran = true);
+			} catch (_:haxe.Exception) {
+				threw = true;
+			}
 			yield();
-		}, 1000, _ -> {});
+		});
+		Assert.isFalse(task.isActive());
+		Assert.isTrue(threw, "creating a child on a completed task didn't throw");
 		Assert.isFalse(ran, "a child of a completed task ran");
-		Assert.isOfType(child.getError(), CancellationException);
 	}
 
 	/**

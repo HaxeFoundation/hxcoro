@@ -48,6 +48,11 @@ private class ProbeDispatcher extends Dispatcher {
 	Actually deadlocking would hang the test run, so these tests instead check the lock state each
 	time something is dispatched, through `ProbeDispatcher`, and count the dispatches that happen
 	while the lock is held. The tests run on a trampoline, so nothing runs inline and nothing hangs.
+
+	None of the setups in `hxcoro.run.Setup` deadlock on this by themselves: a running trampoline
+	queues the resumption, and a thread pool resumes it on another thread, which only spins until
+	the lock is released. The deadlock needs `SelfDispatcher`, or a `TrampolineDispatcher` entered
+	from a thread with no running trampoline, e.g. `close()` called from a foreign thread.
 **/
 class TestLockedDispatch extends atest.Test {
 	static function run<T>(dispatcher:ProbeDispatcher, scheduler:VirtualTimeScheduler, lambda:NodeLambda<T>):ICoroTask<T> {

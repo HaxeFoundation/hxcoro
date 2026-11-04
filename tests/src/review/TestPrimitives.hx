@@ -89,7 +89,8 @@ class TestPrimitives extends atest.Test {
 
 		Fix: track a dead-node count and rebuild the heap when dead > live (amortised O(1)), or store
 		a heap index in each event for O(log n) removal under the scheduler's mutex. Make `close` an
-		atomic exchange. The bound in this test is arbitrary; adjust it to the chosen strategy.
+		atomic exchange. Nothing here produces a wrong result, this is a memory and throughput item.
+		The bound in this test is arbitrary; adjust it to the chosen strategy.
 	**/
 	function testClosedEventsLeaveHeap() {
 		final scheduler = new VirtualTimeScheduler();
@@ -109,7 +110,8 @@ class TestPrimitives extends atest.Test {
 		`src/hxcoro/thread/WorkStealingQueue.hx:81` has the same retention (`steal` leaves the
 		dispatched objects in place, and storage never shrinks), but there the slot can't be nulled
 		after a steal CAS because the producer may have wrapped onto it. Let the producer clear
-		`[oldRead, read)` lazily in `add`, or document the retention. Not covered here.
+		`[oldRead, read)` lazily in `add`, or document the retention. Not covered here. Like P7, this
+		is a memory item rather than a wrong result.
 	**/
 	function testCircularBufferPopClearsSlot() {
 		final buffer = new CircularBuffer<Array<Int>>(2);
@@ -153,7 +155,8 @@ class TestPrimitives extends atest.Test {
 	}
 
 	/**
-		P11a: `CoroBarrier(0)` is accepted but never fires. Throw `ArgumentException` for `n < 1`.
+		P11a: `CoroBarrier(0)` is accepted, but its callback never runs: `arrive` and `wait` pass
+		straight through the "already open" path of `decreaseCounter`. Throw `ArgumentException` for `n < 1`.
 		`CoroLatchImpl.new` (`src/hxcoro/concurrent/CoroLatch.hx`) only rejects negative counters,
 		which is right for a latch, so the check belongs in `CoroBarrier.new`.
 	**/
