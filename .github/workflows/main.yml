@@ -7,6 +7,8 @@ concurrency:
 
 jobs:
   test:
+    # Same-repository PRs are covered by the push run; only fork PRs need the pull_request run.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
     strategy:
       fail-fast: false
       matrix:
@@ -178,6 +180,8 @@ jobs:
     # Runs the tests in tests/src/review and thread-tests/src/review, which demonstrate known
     # bugs and are expected to fail. The steps are allowed to fail, so this job never fails the
     # workflow. The list of failing tests is shown in the job summary.
+    # Same-repository PRs are covered by the push run; only fork PRs need the pull_request run.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
