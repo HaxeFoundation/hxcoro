@@ -81,14 +81,19 @@ jobs:
         if: matrix.target == 'cpp'
         uses: actions/cache/restore@v4
         with:
-          # Precompiled headers stay out: clang validates a PCH against the modification times
-          # of its headers, which a fresh hxcpp checkout never matches, so a restored one fails
-          # every build on macOS. Rebuilding them takes seconds.
-          path: |
-            ${{ runner.temp }}/hxcpp-cache
-            !${{ runner.temp }}/hxcpp-cache/**/*.pch
+          path: ${{ runner.temp }}/hxcpp-cache
           key: ${{ steps.hxcpp-cache.outputs.key }}-${{ github.run_id }}-${{ github.run_attempt }}
           restore-keys: ${{ steps.hxcpp-cache.outputs.key }}-
+
+      # clang validates a precompiled header against the modification times of the headers it
+      # was built from, which a fresh hxcpp checkout never matches, so a restored PCH fails every
+      # build on macOS. Delete them, hxcpp rebuilds them in seconds. GCC and MSVC don't check.
+      # An exclusion in the cache paths doesn't work for this: actions/cache archives the whole
+      # directory regardless.
+      - name: Remove restored precompiled headers
+        if: matrix.target == 'cpp' && runner.os == 'macOS'
+        shell: bash
+        run: find "$HXCPP_COMPILE_CACHE" -name '*.pch' -print -delete 2>/dev/null || true
 
       - name: Run tests
         shell: bash
@@ -173,14 +178,18 @@ jobs:
           done
           exit $failed
 
+      # Keep the cache small, the next run deletes them anyway.
+      - name: Remove precompiled headers before saving
+        if: (success() || failure()) && matrix.target == 'cpp' && runner.os == 'macOS'
+        shell: bash
+        run: find "$HXCPP_COMPILE_CACHE" -name '*.pch' -delete 2>/dev/null || true
+
       - name: Save hxcpp compile cache
         # Objects compiled before a test failure are as valid as any other.
         if: (success() || failure()) && matrix.target == 'cpp'
         uses: actions/cache/save@v4
         with:
-          path: |
-            ${{ runner.temp }}/hxcpp-cache
-            !${{ runner.temp }}/hxcpp-cache/**/*.pch
+          path: ${{ runner.temp }}/hxcpp-cache
           key: ${{ steps.hxcpp-cache.outputs.key }}-${{ github.run_id }}-${{ github.run_attempt }}
 
   known-failures:
