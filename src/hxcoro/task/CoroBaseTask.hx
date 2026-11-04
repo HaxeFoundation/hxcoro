@@ -12,7 +12,6 @@ import haxe.coro.continuations.FunctionContinuation;
 import haxe.exceptions.CancellationException;
 import hxcoro.concurrent.ThreadSafeCallbacks;
 import hxcoro.elements.NonCancellable;
-import hxcoro.exceptions.InvalidTaskStateException;
 import hxcoro.task.AbstractTask;
 import hxcoro.task.CoroTask;
 import hxcoro.task.ICoroNode;
@@ -216,7 +215,7 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 
 		This is meant to be called by the node's own coroutine. Only one call can be in progress at a
 		time: a second concurrent call, which is only possible through a node that was passed to
-		another task, throws `hxcoro.exceptions.InvalidTaskStateException`.
+		another task, throws `InvalidTaskStateException`.
 	**/
 	@:coroutine public function awaitChildren() {
 		startChildren();

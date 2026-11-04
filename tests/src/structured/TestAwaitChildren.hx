@@ -2,7 +2,7 @@ package structured;
 
 import hxcoro.concurrent.CoroLatch;
 import hxcoro.dispatchers.TrampolineDispatcher;
-import hxcoro.exceptions.InvalidTaskStateException;
+import hxcoro.task.InvalidTaskStateException;
 import hxcoro.schedulers.VirtualTimeScheduler;
 import hxcoro.task.AbstractTask;
 import hxcoro.task.CoroBaseTask;

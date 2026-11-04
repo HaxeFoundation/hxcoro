@@ -1,4 +1,4 @@
-package hxcoro.exceptions;
+package hxcoro.task;
 
 import haxe.Exception;
 
