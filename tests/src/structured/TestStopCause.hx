@@ -198,6 +198,44 @@ class TestStopCause extends atest.Test {
 	}
 
 	/**
+		The sibling of a child that failed from an escaped timeout is cancelled with a plain
+		`CancellationException`, not with the `TimeoutException`, which it never had. The parent still
+		reports the `TimeoutException` as its error.
+	**/
+	function testSiblingOfTimedOutChildIsNotCancelledWithTimeout() {
+		var t:Null<ICoroTask<Any>> = null;
+		var sibling:Null<ICoroTask<Any>> = null;
+		var siblingCaught:Null<Exception> = null;
+		VirtualRun.run(node -> {
+			supervisor(n -> {
+				t = n.async(p -> {
+					sibling = p.async(_ -> {
+						try {
+							awaitCancellation();
+						} catch (e:CancellationException) {
+							siblingCaught = e;
+							throw e;
+						}
+					});
+					p.async(_ -> timeout(10, _ -> delay(100)));
+					awaitCancellation();
+				});
+				try {
+					t.await();
+				} catch (_:Exception) {}
+			});
+		});
+		Assert.isTrue(t.isFailed());
+		Assert.isOfType(t.getError(), TimeoutException);
+		Assert.isTrue(sibling.isCancelled());
+		Assert.notNull(siblingCaught);
+		Assert.isFalse(Std.isOfType(siblingCaught, TimeoutException), "the sibling was cancelled with a timeout it never had");
+		Assert.isFalse(Std.isOfType(sibling.getError(), TimeoutException));
+		final parent:CoroBaseTask<Any> = cast t;
+		Assert.isTrue(sibling.getError() == parent.cancellationException, "the sibling's cause is not the parent's");
+	}
+
+	/**
 		Only cancellation is gated by `NonCancellable`: a failing child fails the task.
 	**/
 	function testChildFailureFailsNonCancellableTask() {
