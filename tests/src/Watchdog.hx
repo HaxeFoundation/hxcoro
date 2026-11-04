@@ -57,7 +57,7 @@ class Watched {
 	@:access(hxcoro.task.AbstractTask)
 	static function dumpTask(task:AbstractTask, indent:String) {
 		final name = Type.getClassName(Type.getClass(task));
-		Sys.println('$indent$name ${task.id}: state ${task.state.load().toString()}, active children ${task.numActiveChildren.load()}, error ${task.error.load()}');
+		Sys.println('$indent$name ${task.id}: state ${task.state.load().toString()}, active children ${task.numActiveChildren.load()}, cause ${task.stopCause.load()}');
 		var child = task.firstChild;
 		while (child != null) {
 			dumpTask(child, indent + "\t");

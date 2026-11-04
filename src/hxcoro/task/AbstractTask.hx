@@ -9,6 +9,7 @@ import haxe.atomic.AtomicInt;
 import haxe.atomic.AtomicObject;
 import hxcoro.concurrent.AtomicState;
 import hxcoro.concurrent.BackOff;
+import hxcoro.task.StopCause;
 
 /**
 	The lifecycle state of a task.
@@ -72,6 +73,19 @@ private class TaskStateTools {
 class TaskException extends Exception {}
 
 /**
+	A node of a task's list of suppressed errors.
+**/
+private class SuppressedError {
+	public final error:Exception;
+	public final next:Null<SuppressedError>;
+
+	public function new(error:Exception, next:Null<SuppressedError>) {
+		this.error = error;
+		this.next = next;
+	}
+}
+
+/**
 	AbstractTask is the base class for tasks which manages its `TaskState` and children.
 
 	Developer note: it should have no knowledge of any asynchronous behavior or anything related to coroutines,
@@ -84,7 +98,8 @@ abstract class AbstractTask implements ICancellationToken {
 	final parent:Null<AbstractTask>;
 
 	final cancellationManager:TaskCancellationManager;
-	final error:AtomicObject<Null<Exception>>;
+	final stopCause:AtomicObject<Null<StopCause>>;
+	final suppressed:AtomicObject<Null<SuppressedError>>;
 	final state:AtomicState<TaskState>;
 	final kind:TaskKind;
 
@@ -109,9 +124,9 @@ abstract class AbstractTask implements ICancellationToken {
 		if (!isCancelling()) {
 			return null;
 		}
-		return switch (error.load()) {
+		return switch (stopCause.load()) {
 			case null: null;
-			case error: error.orCancellationException();
+			case Cancellation(cause) | Failure(_, cause): cause;
 		}
 	}
 
@@ -127,7 +142,8 @@ abstract class AbstractTask implements ICancellationToken {
 		this.parent = parent;
 		this.kind = kind;
 		state = new AtomicState(Created);
-		error = new AtomicObject(null);
+		stopCause = new AtomicObject(null);
+		suppressed = new AtomicObject(null);
 		cancellationManager = @:nullSafety(Off) new TaskCancellationManager(this);
 		numActiveChildren = new AtomicInt(0);
 		if (parent != null) {
@@ -138,10 +154,47 @@ abstract class AbstractTask implements ICancellationToken {
 	/**
 		Returns the task's error value if it has completed with one, or `null` otherwise.
 	**/
-	public function getError() {
-		// The state is the authority: `error` can be set on a task that completes successfully
-		// anyway, or is still cancelling, and in neither case is it the task's outcome.
-		return state.load() == Cancelled ? error.load() : null;
+	public function getError():Null<Exception> {
+		// The state is the authority: a cause can be recorded on a task that completes successfully
+		// anyway, or that is still cancelling, and in neither case is it the task's outcome.
+		if (state.load() != Cancelled) {
+			return null;
+		}
+		return switch (stopCause.load()) {
+			case null: null;
+			case Cancellation(cause): cause;
+			case Failure(error, _): error;
+		}
+	}
+
+	/**
+		Returns `true` if the task has completed because it was cancelled.
+	**/
+	public function isCancelled() {
+		return state.load() == Cancelled && stopCause.load().match(Cancellation(_));
+	}
+
+	/**
+		Returns `true` if the task has completed because its own work or one of its children failed.
+	**/
+	public function isFailed() {
+		return state.load() == Cancelled && stopCause.load().match(Failure(_, _));
+	}
+
+	/**
+		Returns the errors that were reported to this task after its error was set, oldest first.
+		Cancellation exceptions and duplicates are not kept. The list is complete once the task is no
+		longer active.
+	**/
+	public function getSuppressedErrors():Array<Exception> {
+		final errors = [];
+		var node = suppressed.load();
+		while (node != null) {
+			errors.push(node.error);
+			node = node.next;
+		}
+		errors.reverse();
+		return errors;
 	}
 
 	/**
@@ -158,14 +211,77 @@ abstract class AbstractTask implements ICancellationToken {
 	}
 
 	/**
-		Requests cancellation of this task with `error` as its cause.
+		Requests cancellation of this task with `cause`. Unlike `fail`, this can be prevented, which
+		is what `NonCancellable` does by overriding it.
 
-		The state is the authority on whether the task is cancelling. `error` is only meaningful once the
-		state says so, which is why it is set before any transition to a cancelling state, and why the
-		first error wins.
+		The state is the authority on whether the task is cancelling. The cause is only meaningful once
+		the state says so, which is why it is recorded before any transition to a cancelling state. A
+		cancellation never replaces a cause that is already recorded.
 	**/
-	function doCancel(error:Exception) {
-		this.error.compareExchange(null, error);
+	function doCancel(cause:CancellationException) {
+		stopCause.compareExchange(null, Cancellation(cause));
+		requestStop();
+	}
+
+	/**
+		Fails this task with `error`, which cannot be prevented. A failure replaces a cancellation that
+		was requested before, but not an earlier failure, which keeps `error` as a suppressed error.
+	**/
+	function fail(error:Exception) {
+		recordFailure(error);
+		requestStop();
+	}
+
+	/**
+		Records `error` as this task's cause. Returns `true` if it is now the cause, or `false` if a
+		failure was recorded before, in which case `error` is kept as a suppressed error.
+	**/
+	function recordFailure(error:Exception) {
+		while (true) {
+			final current = stopCause.load();
+			switch (current) {
+				case Failure(winner, _):
+					addSuppressed(error, winner);
+					return false;
+				case null:
+					if (stopCause.compareExchange(current, Failure(error, error.orCancellationException())) == current) {
+						return true;
+					}
+				case Cancellation(cause):
+					// The children and the callbacks have received `cause` already, so it stays.
+					if (stopCause.compareExchange(current, Failure(error, cause)) == current) {
+						return true;
+					}
+			}
+			BackOff.backOff();
+		}
+	}
+
+	function addSuppressed(error:Exception, winner:Exception) {
+		if (error == winner || error is CancellationException) {
+			return;
+		}
+		while (true) {
+			final head = suppressed.load();
+			var node = head;
+			while (node != null) {
+				if (node.error == error) {
+					return;
+				}
+				node = node.next;
+			}
+			if (suppressed.compareExchange(head, new SuppressedError(error, head)) == head) {
+				return;
+			}
+			BackOff.backOff();
+		}
+	}
+
+	/**
+		Moves this task to a cancelling state after its cause was recorded. The thread whose transition
+		succeeds runs `beginCancellation`, so it runs exactly once.
+	**/
+	function requestStop() {
 		while (true) {
 			final current = state.load();
 			switch (current) {
@@ -189,9 +305,8 @@ abstract class AbstractTask implements ICancellationToken {
 		which has no effect after the first time, and cancels all current children.
 	**/
 	function beginCancellation() {
-		@:nullSafety(Off) final error:Exception = error.load();
 		cancellationManager.run();
-		cancelChildren(error.orCancellationException());
+		cancelChildren(cancellationException);
 	}
 
 	/**
@@ -220,18 +335,30 @@ abstract class AbstractTask implements ICancellationToken {
 	}
 
 	/**
-		Called when the task's own work has failed with `error`. Unlike `doCancel`, this cannot be
-		prevented, but if cancellation was requested before, the error of that request is kept.
+		Called when the task's own work has thrown `error`, which cannot be prevented.
+
+		If nobody requested cancellation, this is a failure, whatever the type of `error`. If
+		cancellation was requested, a `CancellationException` is the unwinding that was asked for and
+		keeps the requested cause, while any other error means something broke while unwinding and
+		becomes the cause instead.
 
 		The caller is responsible for calling `checkCompletion` afterwards.
 	**/
 	final function ownWorkFails(error:Exception) {
-		this.error.compareExchange(null, error);
 		while (true) {
 			final current = state.load();
 			switch (current) {
-				case Running | CancellationRequested:
-					if (state.compareExchange(current, Cancelling) == current) {
+				case Running:
+					recordFailure(error);
+					if (state.compareExchange(Running, Cancelling) == Running) {
+						beginCancellation();
+						return;
+					}
+				case CancellationRequested:
+					if (!(error is CancellationException)) {
+						recordFailure(error);
+					}
+					if (state.compareExchange(CancellationRequested, Cancelling) == CancellationRequested) {
 						beginCancellation();
 						return;
 					}
@@ -388,8 +515,7 @@ abstract class AbstractTask implements ICancellationToken {
 	}
 
 	function setInternalException(reason:String) {
-		error.store(new TaskException(reason));
-		cancel();
+		fail(new TaskException(reason));
 	}
 
 	/**
@@ -410,16 +536,16 @@ abstract class AbstractTask implements ICancellationToken {
 	abstract function reportCallbackError(error:Exception):Void;
 
 	/**
-		Called when `child` fails with `cause`, which is not a `CancellationException`. Supervisors
-		ignore the failure, all other tasks inherit it.
+		Called when `child` fails with `error`. Supervisors ignore the failure, all other tasks inherit
+		it, also while they are already cancelling.
 	**/
-	function childErrors(child:AbstractTask, cause:Exception) {
+	function childErrors(child:AbstractTask, error:Exception) {
 		switch (kind) {
 			case Concurrent | Sequential:
 				switch (state.load()) {
-					case Created | Running | Completing:
-						doCancel(cause);
-					case CancellationRequested | Cancelling | Completed | Cancelled:
+					case Created | Running | Completing | CancellationRequested | Cancelling:
+						fail(error);
+					case Completed | Cancelled:
 				}
 			case SequentialSupervisor:
 		}
@@ -443,11 +569,13 @@ abstract class AbstractTask implements ICancellationToken {
 			switch (child.state.load()) {
 				case Completed:
 				case Cancelled:
-					@:nullSafety(Off) final childError:Exception = child.getError();
-					if (childError is CancellationException) {
-						childCancels(child, cast childError);
-					} else {
-						childErrors(child, childError);
+					switch (child.stopCause.load()) {
+						case Cancellation(cause):
+							childCancels(child, cause);
+						case Failure(error, _):
+							childErrors(child, error);
+						case null:
+							return setInternalException('No cause on cancelled child in childCompletes');
 					}
 				case state:
 					return setInternalException('Invalid state $state in childCompletes');
