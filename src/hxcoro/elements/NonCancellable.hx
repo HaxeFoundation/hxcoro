@@ -9,8 +9,8 @@ import haxe.coro.context.IElement;
 	meant for cleanup that has to run to completion, e.g. in a task that is already cancelling.
 
 	The boundary protects only the task that introduced the element. Tasks created inside it inherit
-	the element, but are ordinary tasks that `cancel()`, `cancelChildren()` and `timeout` affect as
-	usual. Adding a new `NonCancellable` element inside the boundary starts another boundary.
+	the element, but can be cancelled as usual. Adding a new `NonCancellable` element inside the
+	boundary starts another boundary.
 
 	Failures are not cancellation and are never prevented: a failing child fails the task, and the
 	error reaches awaiters and the task's parent.

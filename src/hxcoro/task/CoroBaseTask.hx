@@ -54,9 +54,6 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 
 	final awaitingContinuations:TaskContinuationManager;
 	final awaitingChildContinuation:AtomicObject<Null<IContinuation<Any>>>;
-	// `true` if this task introduced a `NonCancellable` element, which makes it a boundary against
-	// cancellation: see `doCancel`. Children inherit the element and are not boundaries themselves.
-	final nonCancellableBoundary:Bool;
 	var result:Null<T>;
 
 	/**
@@ -72,8 +69,6 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 		callFrameLocked = false;
 		#end
 		this.context = context.clone().with(this).set(CancellationToken, this);
-		final nonCancellable = context.get(NonCancellable);
-		nonCancellableBoundary = nonCancellable != null && (parent == null || parent.context.get(NonCancellable) != nonCancellable);
 		super(parent, kind);
 	}
 
@@ -204,16 +199,16 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 	}
 
 	/**
-		A `NonCancellable` boundary ignores cancellation, whether it is requested on the task directly
-		or comes from its parent. Everything created inside the boundary is cancelled as usual, by
-		`cancel()`, `cancelChildren()` or a `timeout`, because the children inherit the element from
-		this task rather than introducing it. A failure is never ignored, see `fail`.
+		A task that introduced a `NonCancellable` element, i.e. one that its parent's context does not
+		hold, is a boundary against cancellation. Its children inherit the element and stay cancellable.
 	**/
-	override function doCancel(cause:CancellationException) {
-		if (nonCancellableBoundary) {
-			return;
+	override function ignoresCancellation() {
+		final nonCancellable = context.get(NonCancellable);
+		if (nonCancellable == null) {
+			return false;
 		}
-		super.doCancel(cause);
+		final parent = Std.downcast(parent, CoroBaseTask);
+		return parent == null || parent.context.get(NonCancellable) != nonCancellable;
 	}
 
 	public function onCompletion(callback:(result:T, error:Exception)->Void) {

@@ -178,23 +178,25 @@ abstract class AbstractTask implements ICancellationToken {
 
 		If the task cannot be cancelled or has already been cancelled, this function only checks if the
 		task has completed and initiates the appropriate behavior.
-	**/
-	public function cancel(?cause:CancellationException) {
-		cause ??= new CancellationException();
-		doCancel(cause);
-	}
-
-	/**
-		Requests cancellation of this task with `cause`. Unlike `fail`, this can be prevented, which
-		is what `NonCancellable` does by overriding it.
 
 		The state is the authority on whether the task is cancelling. The cause is only meaningful once
 		the state says so, which is why it is recorded before any transition to a cancelling state. A
 		cancellation never replaces a cause that is already recorded.
 	**/
-	function doCancel(cause:CancellationException) {
-		stopCause.compareExchange(null, Cancellation(cause));
+	public function cancel(?cause:CancellationException) {
+		if (ignoresCancellation()) {
+			return;
+		}
+		stopCause.compareExchange(null, Cancellation(cause ?? new CancellationException()));
 		requestStop();
+	}
+
+	/**
+		Returns `true` if `cancel` has no effect on this task. Unlike cancellation, a failure can never
+		be prevented, see `fail`.
+	**/
+	function ignoresCancellation() {
+		return false;
 	}
 
 	/**
@@ -215,19 +217,6 @@ abstract class AbstractTask implements ICancellationToken {
 	}
 
 	/**
-		Reports `failure`, which has just become this task's cause, to the parent. Only concurrent tasks
-		do this: a sequential task delivers its outcome to the creator that waits for it instead.
-
-		This happens as soon as the failure is recorded and not only once this task has completed, so
-		that the parent can cancel its other children while this task is still winding down.
-	**/
-	function reportFailure(failure:StopCause) {
-		if (kind == Concurrent && parent != null) {
-			parent.childErrors(this, failure);
-		}
-	}
-
-	/**
 		Creates the `CancellationException` that the children of a task failing with `error` are
 		cancelled with. It is always a new exception, so that a child does not mistake the parent's
 		failure for its own cancellation cause, e.g. a `TimeoutException`. It carries `error`'s stack
@@ -242,15 +231,14 @@ abstract class AbstractTask implements ICancellationToken {
 	}
 
 	/**
-		Records `failure` as this task's cause and reports it to the parent. Returns `true` if it is now
-		the cause, or `false` if a failure was recorded before, which is kept.
+		Records `failure` as this task's cause, unless a failure was recorded before, which is kept.
 	**/
 	function recordFailure(failure:StopCause) {
 		while (true) {
 			final current = stopCause.load();
 			final next = switch (current) {
 				case Failure(_, _):
-					return false;
+					return;
 				case null:
 					failure;
 				case Cancellation(cause):
@@ -258,8 +246,13 @@ abstract class AbstractTask implements ICancellationToken {
 					Failure(errorOf(failure), cause);
 			}
 			if (stopCause.compareExchange(current, next) == current) {
-				reportFailure(next);
-				return true;
+				// A concurrent task reports its failure to the parent right away, so that the parent can
+				// cancel its other children while this task is still winding down. A sequential task
+				// delivers its outcome to the creator that waits for it instead.
+				if (kind == Concurrent && parent != null) {
+					parent.childErrors(this, next);
+				}
+				return;
 			}
 			BackOff.backOff();
 		}
@@ -393,8 +386,7 @@ abstract class AbstractTask implements ICancellationToken {
 	final function activate() {
 		if (state.compareExchange(Created, Running) == Created) {
 			// Check if parent is cancelling and attempt to cancel this task before starting.
-			// If the task is a NonCancellable boundary, doCancel() returns early and the task
-			// stays Running, allowing it to start.
+			// If the task ignores cancellation, it stays Running, allowing it to start.
 			if (parent != null && parent.isCancelling()) {
 				cancel();
 			}
@@ -550,8 +542,9 @@ abstract class AbstractTask implements ICancellationToken {
 	}
 
 	/**
-		Called by `child` once it has completed. Its outcome has been dealt with by then: a failure was
-		reported through `childErrors` when it was recorded, and a cancellation is not reported at all.
+		Called by `child` once it has completed. The child's outcome plays no part here: a failure was
+		already reported through `childErrors` when it was recorded, and a cancellation only concerns
+		whoever awaits the child.
 	**/
 	function childCompletes(child:AbstractTask) {
 		switch (lockChildren()) {
