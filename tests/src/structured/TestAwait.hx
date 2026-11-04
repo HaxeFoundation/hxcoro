@@ -97,7 +97,11 @@ class TestAwait extends atest.Test {
 	function testOnCompletionHandleClose() {
 		var called = false;
 		final task = VirtualRun.run(node -> {
-			final other = node.async(_ -> delay(10));
+			// The task has a result, because hxcpp cannot type a callback with a Void parameter.
+			final other = node.async(_ -> {
+				delay(10);
+				42;
+			});
 			final handle = other.onCompletion((_, _) -> called = true);
 			Assert.notNull(handle);
 			handle.close();
