@@ -6,21 +6,19 @@ package hxcoro.task;
 **/
 enum abstract TaskKind(Int) {
 	/**
-		A task created by `async` or `lazy`. Its outcome is reported to its parent, and it is
-		cancelled when one of its children fails or is cancelled.
+		Reports its outcome to its parent, and is cancelled when one of its children fails or is
+		cancelled.
 	**/
 	final Child;
 
 	/**
-		A task created by `Coro.scope` or `Coro.timeout`, or the root task of a run. Its outcome is
-		not reported to its parent but to whoever awaits it, which for `Coro.scope` is the suspended
-		caller. It is cancelled when one of its children fails, but not when one is cancelled.
+		Does not report its outcome to its parent; whoever awaits the task receives it. Is cancelled
+		when one of its children fails, but not when one is cancelled.
 	**/
 	final Scope;
 
 	/**
-		A task created by `Coro.supervisor`. Like `Scope`, but the outcomes of its children are
-		ignored.
+		Like `Scope`, but the outcomes of its children are ignored.
 	**/
 	final Supervisor;
 }
