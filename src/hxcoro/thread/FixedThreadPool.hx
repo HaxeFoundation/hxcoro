@@ -212,7 +212,17 @@ private class Worker {
 	}
 
 	public function start() {
-		Thread.create(threadEntry);
+		var completed = false;
+		// The exit callback is registered here, before the thread runs, so it is called after
+		// every exit callback that code running on this thread registers with
+		// `Thread.addCurrentCallbacks`, such as those of `ThreadAwareScheduler` and
+		// `TrampolineDispatcher`. Only then does the thread count as gone for `shutDown`.
+		Thread.create(null, () -> {
+			threadEntry();
+			completed = true;
+		}, {
+			onExit: () -> onThreadExit(completed)
+		});
 	}
 
 	public function shutDown(shutdownSemaphore:Semaphore) {
@@ -273,15 +283,21 @@ private class Worker {
 
 	function threadEntry() {
 		queueTls.value = queue;
-		try {
-			loop();
-		} catch (e:Dynamic) {
-			queueTls.value = null;
-			start();
-			throw e;
-		}
+		loop();
 		state = Terminated;
+	}
+
+	function onThreadExit(completed:Bool) {
 		queueTls.value = null;
-		shutdownSemaphore?.release();
+		if (completed) {
+			shutdownSemaphore?.release();
+		} else {
+			// An uncaught exception aborted the thread, and the thread's abort handler has
+			// reported it. Replace the thread only now, once the old one has finished its
+			// abort handling and exit callbacks, so that it cannot outlive the replacement.
+			// If the pool is shutting down, the replacement drains the queues and releases
+			// the shutdown semaphore in its own exit callback.
+			start();
+		}
 	}
 }
