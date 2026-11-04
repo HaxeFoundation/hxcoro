@@ -123,7 +123,7 @@ class Runner {
 						}
 						totalPassed.add(1);
 						printTestEnd(true, null);
-					} catch (e:hxcoro.exceptions.TimeoutException) {
+					} catch (e:hxcoro.TimeoutException) {
 						totalFailed.add(1);
 						final detail = 'timeout after ${t.timeout}ms';
 						printTestEnd(false, detail);

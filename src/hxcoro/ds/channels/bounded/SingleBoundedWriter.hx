@@ -6,7 +6,7 @@ import haxe.atomic.AtomicObject;
 import haxe.coro.IContinuation;
 import hxcoro.ds.Out;
 import hxcoro.ds.channels.Channel;
-import hxcoro.ds.channels.exceptions.ChannelClosedException;
+import hxcoro.ds.channels.ChannelClosedException;
 
 using hxcoro.util.Convenience;
 

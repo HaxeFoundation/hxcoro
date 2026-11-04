@@ -4,7 +4,7 @@ import haxe.exceptions.CancellationException;
 import hxcoro.concurrent.CoroLatch;
 import hxcoro.elements.CoroName;
 import hxcoro.elements.NonCancellable;
-import hxcoro.exceptions.TimeoutException;
+import hxcoro.TimeoutException;
 import hxcoro.task.CoroBaseTask;
 import hxcoro.task.ICoroTask;
 

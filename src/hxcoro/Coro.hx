@@ -8,7 +8,7 @@ import haxe.exceptions.CancellationException;
 import hxcoro.continuations.CancellingContinuation;
 import hxcoro.continuations.RacingContinuation;
 import hxcoro.continuations.TimeoutContinuation;
-import hxcoro.exceptions.TimeoutException;
+import hxcoro.TimeoutException;
 import hxcoro.task.CoroTask;
 import hxcoro.task.TaskKind;
 import hxcoro.task.NodeLambda;
@@ -108,7 +108,7 @@ class Coro {
 	/**
 		Like `scope`, executes `lambda` in a new task and returns its result once the task and
 		all its children have completed. If this takes longer than `ms` milliseconds, the task
-		is cancelled and a `hxcoro.exceptions.TimeoutException` is thrown from this call.
+		is cancelled and a `hxcoro.TimeoutException` is thrown from this call.
 
 		A timeout of 0 throws the `TimeoutException` immediately without running `lambda`,
 		and a negative timeout throws a `haxe.exceptions.ArgumentException`.

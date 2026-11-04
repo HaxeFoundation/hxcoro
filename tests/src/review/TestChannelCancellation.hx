@@ -2,7 +2,7 @@ package review;
 
 import hxcoro.ds.Out;
 import hxcoro.ds.channels.Channel;
-import hxcoro.ds.channels.exceptions.ChannelClosedException;
+import hxcoro.ds.channels.ChannelClosedException;
 import hxcoro.task.ICoroTask;
 
 /**

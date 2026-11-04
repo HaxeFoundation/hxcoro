@@ -4,7 +4,7 @@ import Tcp;
 import haxe.coro.Coroutine;
 import haxe.exceptions.CancellationException;
 import hxcoro.Coro.*;
-import hxcoro.exceptions.TimeoutException;
+import hxcoro.TimeoutException;
 
 using hxcoro.util.Convenience;
 

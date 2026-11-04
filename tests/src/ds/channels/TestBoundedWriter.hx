@@ -10,7 +10,7 @@ import hxcoro.ds.PagedDeque;
 import hxcoro.ds.CircularBuffer;
 import hxcoro.ds.channels.bounded.BoundedWriter;
 import hxcoro.ds.channels.bounded.AtomicChannelState;
-import hxcoro.ds.channels.exceptions.ChannelClosedException;
+import hxcoro.ds.channels.ChannelClosedException;
 import hxcoro.schedulers.VirtualTimeScheduler;
 
 using hxcoro.util.Convenience;

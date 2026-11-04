@@ -5,7 +5,7 @@ import sys.thread.Mutex;
 import haxe.coro.IContinuation;
 import hxcoro.ds.Out;
 import hxcoro.ds.PagedDeque;
-import hxcoro.ds.channels.exceptions.ChannelClosedException;
+import hxcoro.ds.channels.ChannelClosedException;
 
 using hxcoro.util.Convenience;
 using hxcoro.util.MutexExtensions;
