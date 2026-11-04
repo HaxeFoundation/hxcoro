@@ -37,7 +37,19 @@ interface ICoroTask<T> {
 	/**
 		Returns the task's error, or `null` if there is none. A cancelled task reports its cancellation cause here.
 	**/
-	function getError():Exception;
+	function getError():Null<Exception>;
+
+	/**
+		Returns `true` if the task has completed because it was cancelled.
+	**/
+	function isCancelled():Bool;
+
+	/**
+		Returns `true` if the task has completed because its own work or one of its children failed.
+		A `haxe.exceptions.CancellationException` that nobody requested counts as a failure, for example
+		an escaped timeout.
+	**/
+	function isFailed():Bool;
 
 	/**
 		Returns `true` if the task has not yet completed or been cancelled. A task that was created but not

@@ -78,7 +78,7 @@ class CoroTask<T> extends CoroBaseTask<T> implements IContinuation<T> {
 		Sys.println('\tfirstChild: ${firstChild}');
 		Sys.println('\tnumActiveChildren: ${numActiveChildren.load()}');
 		Sys.println('\tresult: $result');
-		Sys.println('\terror: ${error.load()}');
+		Sys.println('\tstopCause: ${stopCause.load()}');
 	}
 	#end
 }
