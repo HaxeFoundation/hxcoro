@@ -7,6 +7,7 @@ import haxe.coro.cancellation.ICancellationToken;
 import haxe.exceptions.CancellationException;
 import haxe.atomic.AtomicInt;
 import haxe.atomic.AtomicObject;
+import hxcoro.concurrent.AtomicRef;
 import hxcoro.concurrent.AtomicState;
 import hxcoro.concurrent.BackOff;
 import hxcoro.task.StopCause;
@@ -98,7 +99,7 @@ abstract class AbstractTask implements ICancellationToken {
 	final parent:Null<AbstractTask>;
 
 	final cancellationManager:TaskCancellationManager;
-	final stopCause:AtomicObject<Null<StopCause>>;
+	final stopCause:AtomicRef<Null<StopCause>>;
 	final suppressed:AtomicObject<Null<SuppressedError>>;
 	final state:AtomicState<TaskState>;
 	final kind:TaskKind;
@@ -142,7 +143,7 @@ abstract class AbstractTask implements ICancellationToken {
 		this.parent = parent;
 		this.kind = kind;
 		state = new AtomicState(Created);
-		stopCause = new AtomicObject(null);
+		stopCause = new AtomicRef(null);
 		suppressed = new AtomicObject(null);
 		cancellationManager = @:nullSafety(Off) new TaskCancellationManager(this);
 		numActiveChildren = new AtomicInt(0);
