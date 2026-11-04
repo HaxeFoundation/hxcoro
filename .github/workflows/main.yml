@@ -1,5 +1,9 @@
 name: CI
-on: [push, pull_request]
+# Temporarily not run on pushes to the crash-hunt branch (HaxeFoundation/hxcoro#219). Do not merge.
+on:
+  push:
+    branches-ignore: [claude/awesome-ride-6o3lsd]
+  pull_request:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}

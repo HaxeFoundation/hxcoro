@@ -1,0 +1,61 @@
+name: Crash hunt
+# Temporary workflow for HaxeFoundation/hxcoro#219. Do not merge.
+on:
+  push:
+    branches: [claude/awesome-ride-6o3lsd]
+
+jobs:
+  hunt:
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: HaxeFoundation/setup-haxe@v2
+        with:
+          haxe-version: "latest"
+
+      - name: Setup haxelib
+        run: |
+          haxelib newrepo
+          haxelib git hxcpp https://github.com/HaxeFoundation/hxcpp.git
+          haxe --cwd .haxelib/hxcpp/git/tools/hxcpp compile.hxml
+          haxelib git hxcpp_luv_io https://github.com/Aidan63/hxcpp_luv_io
+          haxelib dev hxcoro .
+          haxelib list
+          haxe -version
+
+      - name: Configure hxcpp compile cache
+        id: hxcpp-cache
+        shell: bash
+        run: |
+          echo "HXCPP_COMPILE_CACHE=$RUNNER_TEMP/hxcpp-cache" >> "$GITHUB_ENV"
+          echo "HXCPP_CACHE_MB=2500" >> "$GITHUB_ENV"
+          echo "key=hxcpp-${{ runner.os }}-${{ runner.arch }}-$(git -C .haxelib/hxcpp/git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Restore hxcpp compile cache
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ runner.temp }}/hxcpp-cache
+          key: ${{ steps.hxcpp-cache.outputs.key }}-crash-hunt
+          restore-keys: ${{ steps.hxcpp-cache.outputs.key }}-
+
+      - name: Install gdb and enable core dumps
+        run: |
+          sudo apt-get install -y gdb
+          sudo sysctl -w kernel.core_pattern=/tmp/cores/core.%p
+
+      # Each build also runs its binary once; a crash there is reported but does not stop the hunt.
+      - name: Build the debug and release test binaries
+        shell: bash
+        run: |
+          haxe --cwd tests -debug -D coro.stack-traces build-cpp.hxml || echo "::warning::debug build or run failed"
+          haxe --cwd tests build-cpp.hxml || echo "::warning::release build or run failed"
+          ls -la tests/bin/cpp/Main tests/bin/cpp/Main-debug
+
+      - name: Loop the test binaries
+        working-directory: tests
+        run: bash ../.github/crash-hunt.sh 1500 bin/cpp/Main-debug bin/cpp/Main
