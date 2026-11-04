@@ -197,22 +197,31 @@ abstract class AbstractTask implements ICancellationToken {
 		was requested before, but not an earlier failure.
 	**/
 	function fail(error:Exception) {
-		recordFailure(error);
+		recordFailure(error, Failure(error, error.orCancellationException()));
 		requestStop();
 	}
 
 	/**
-		Records `error` as this task's cause. Returns `true` if it is now the cause, or `false` if a
-		failure was recorded before, which is kept.
+		Fails this task with the `failure` of one of its children, which is reused as this task's cause
+		so that the children of both are cancelled with the same cause.
 	**/
-	function recordFailure(error:Exception) {
+	function inheritFailure(error:Exception, failure:StopCause) {
+		recordFailure(error, failure);
+		requestStop();
+	}
+
+	/**
+		Records `failure`, a `Failure` carrying `error`, as this task's cause. Returns `true` if it is now
+		the cause, or `false` if a failure was recorded before, which is kept.
+	**/
+	function recordFailure(error:Exception, failure:StopCause) {
 		while (true) {
 			final current = stopCause.load();
 			switch (current) {
 				case Failure(_, _):
 					return false;
 				case null:
-					if (stopCause.compareExchange(current, Failure(error, error.orCancellationException())) == current) {
+					if (stopCause.compareExchange(current, failure) == current) {
 						return true;
 					}
 				case Cancellation(cause):
@@ -297,14 +306,14 @@ abstract class AbstractTask implements ICancellationToken {
 			final current = state.load();
 			switch (current) {
 				case Running:
-					recordFailure(error);
+					recordFailure(error, Failure(error, error.orCancellationException()));
 					if (state.compareExchange(Running, Cancelling) == Running) {
 						beginCancellation();
 						return;
 					}
 				case CancellationRequested:
 					if (!(error is CancellationException)) {
-						recordFailure(error);
+						recordFailure(error, Failure(error, error.orCancellationException()));
 					}
 					if (state.compareExchange(CancellationRequested, Cancelling) == CancellationRequested) {
 						beginCancellation();
@@ -484,15 +493,15 @@ abstract class AbstractTask implements ICancellationToken {
 	abstract function reportCallbackError(error:Exception):Void;
 
 	/**
-		Called when `child` fails with `error`. Supervisors ignore the failure, all other tasks inherit
-		it, also while they are already cancelling.
+		Called when `child` fails with `error`, whose stop cause is `failure`. Supervisors ignore the
+		failure, all other tasks inherit it, also while they are already cancelling.
 	**/
-	function childErrors(child:AbstractTask, error:Exception) {
+	function childErrors(child:AbstractTask, error:Exception, failure:StopCause) {
 		switch (kind) {
 			case Concurrent | Sequential:
 				switch (state.load()) {
 					case Created | Running | Completing | CancellationRequested | Cancelling:
-						fail(error);
+						inheritFailure(error, failure);
 					case Completed | Cancelled:
 				}
 			case SequentialSupervisor:
@@ -520,8 +529,8 @@ abstract class AbstractTask implements ICancellationToken {
 					switch (child.stopCause.load()) {
 						case Cancellation(cause):
 							childCancels(child, cause);
-						case Failure(error, _):
-							childErrors(child, error);
+						case failure = Failure(error, _):
+							childErrors(child, error, failure);
 						case null:
 							return setInternalException('No cause on cancelled child in childCompletes');
 					}
