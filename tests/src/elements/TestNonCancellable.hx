@@ -15,8 +15,8 @@ import hxcoro.task.ICoroTask;
 	  is already cancelling, which is the cleanup use case.
 	- Everything created inside it is an ordinary task: `timeout` fires, children can be cancelled
 	  with `cancel()` and `cancelChildren()`, and that cancellation reaches their own children.
-	- Only a new element starts a new boundary. A child that inherits the element from its
-	  parent is not protected against that parent.
+	- The element is not inherited: a child of a `NonCancellable` task is not protected against
+	  that parent, and only a new element starts a new boundary.
 	- Failures are not cancellation. A failing child fails the task, cancels its siblings, and
 	  the error reaches awaiters and the task's parent.
 **/
@@ -181,7 +181,7 @@ class TestNonCancellable extends atest.Test {
 			});
 		});
 		Assert.isFalse(task.isActive(), "the run never completed");
-		Assert.isFalse(plainActive, "the child that inherited the element was not cancelled");
+		Assert.isFalse(plainActive, "the plain child of a NonCancellable task was not cancelled");
 		Assert.isTrue(protectedRan, "the child with its own element was cancelled");
 	}
 

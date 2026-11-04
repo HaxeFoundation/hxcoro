@@ -8,9 +8,9 @@ import haxe.coro.context.IElement;
 	task is not cancelled when its parent is cancelled, and `cancel()` on it has no effect. This is
 	meant for cleanup that has to run to completion, e.g. in a task that is already cancelling.
 
-	The boundary protects only the task that introduced the element. Tasks created inside it inherit
-	the element, but can be cancelled as usual. Adding a new `NonCancellable` element inside the
-	boundary starts another boundary.
+	The element marks the task that is created with it and is not inherited: tasks created inside
+	the boundary can be cancelled as usual, and adding a new `NonCancellable` element inside it starts
+	another boundary.
 
 	Failures are not cancellation and are never prevented: a failing child fails the task, and the
 	error reaches awaiters and the task's parent.

@@ -54,6 +54,7 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 
 	final awaitingContinuations:TaskContinuationManager;
 	final awaitingChildContinuation:AtomicObject<Null<IContinuation<Any>>>;
+	final nonCancellable:Bool;
 	var result:Null<T>;
 
 	/**
@@ -68,7 +69,10 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 		this.startPos = startPos;
 		callFrameLocked = false;
 		#end
-		this.context = context.clone().with(this).set(CancellationToken, this);
+		// A NonCancellable element marks the task it creates and goes no further: like the task itself,
+		// which replaces the one of its parent in the context, it is consumed here rather than inherited.
+		nonCancellable = context.get(NonCancellable) != null;
+		this.context = context.clone().without(NonCancellable.key).with(this).set(CancellationToken, this);
 		super(parent, kind);
 	}
 
@@ -198,17 +202,8 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 		}
 	}
 
-	/**
-		A task that introduced a `NonCancellable` element, i.e. one that its parent's context does not
-		hold, is a boundary against cancellation. Its children inherit the element and stay cancellable.
-	**/
 	override function ignoresCancellation() {
-		final nonCancellable = context.get(NonCancellable);
-		if (nonCancellable == null) {
-			return false;
-		}
-		final parent = Std.downcast(parent, CoroBaseTask);
-		return parent == null || parent.context.get(NonCancellable) != nonCancellable;
+		return nonCancellable;
 	}
 
 	public function onCompletion(callback:(result:T, error:Exception)->Void) {
