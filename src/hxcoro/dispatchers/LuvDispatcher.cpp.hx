@@ -33,7 +33,32 @@ class LuvDispatcher extends Dispatcher
 		return s;
 	}
 
+	static final libuvShutdownRegistered = new AtomicInt(0);
+
+	/**
+		Makes sure that libuv's thread pool is shut down before the process destroys its static
+		objects on exit.
+
+		Haxe code that runs on a libuv pool thread registers that thread with hxcpp, which gives
+		it a thread-local object whose destructor removes a GC root. libuv only joins its pool
+		threads at exit, from a destructor that runs after the C++ static objects have been
+		destroyed, hxcpp's set of GC roots included. The pool threads then remove their roots
+		from the destroyed set, which corrupts the heap or crashes the process after `main`
+		has returned (#219). On Windows, libuv does not join its pool threads at exit at all.
+
+		A handler registered with `atexit` at run time runs before the destructors of static
+		objects constructed at startup, so shutting libuv down from it lets the pool threads
+		exit while hxcpp's state is still intact.
+	**/
+	static function registerLibuvShutdown() {
+		if (libuvShutdownRegistered.exchange(1) == 0) {
+			// A lambda without captures, so that no Haxe code runs during exit.
+			untyped __cpp__("::atexit([]() { ::cpp::luv::shutdown(); })");
+		}
+	}
+
 	public function new(loop:LuvLoop, ?scheduler:IScheduler) {
+		registerLibuvShutdown();
 		this.loop = loop;
 		numPending = new AtomicInt(0);
 
