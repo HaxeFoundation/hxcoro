@@ -3,7 +3,6 @@ package hxcoro.run;
 import haxe.Timer;
 import haxe.coro.context.Context;
 import hxcoro.schedulers.ILoop;
-import hxcoro.task.CoroTask;
 import hxcoro.task.ICoroTask;
 import hxcoro.task.NodeLambda;
 
@@ -23,7 +22,7 @@ class LoopRun {
 		events in such a way that the loop processes them.
 	**/
 	static public function runTask<T>(loop:ILoop, context:Context, lambda:NodeLambda<T>#if coro.stack_traces, ?callPos:haxe.PosInfos#end):ICoroTask<T> {
-		final task = @:privateAccess ContextRun.createEntryTask(context, lambda, CoroTask.CoroScopeStrategy, true#if coro.stack_traces, callPos#end);
+		final task = @:privateAccess ContextRun.createEntryTask(context, lambda, true#if coro.stack_traces, callPos#end);
 		awaitTaskCompletion(loop, task);
 		return task;
 	}

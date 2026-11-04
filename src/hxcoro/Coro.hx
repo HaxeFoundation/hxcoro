@@ -10,6 +10,7 @@ import hxcoro.continuations.RacingContinuation;
 import hxcoro.continuations.TimeoutContinuation;
 import hxcoro.exceptions.TimeoutException;
 import hxcoro.task.CoroTask;
+import hxcoro.task.TaskKind;
 import hxcoro.task.NodeLambda;
 
 private typedef SuspendCancellableFunc<T> = IContinuation<T> -> Null<(CancellationException -> Void)>;
@@ -74,8 +75,8 @@ class Coro {
 	}
 
 	/**
-		Executes `lambda` in a new task and returns its result once the task and all its
-		children have completed.
+		Executes `lambda` in a new `Sequential` task and returns its result once the task and all
+		its children have completed. The task runs in place of the caller, which waits for it.
 
 		If `lambda` or one of the children raises an exception, the remaining children are
 		cancelled and the exception is thrown from this call.
@@ -83,7 +84,7 @@ class Coro {
 	@:coroutine static public function scope<T>(lambda:NodeLambda<T>#if coro.stack_traces, ?startPos:haxe.PosInfos#end):T {
 		return suspend(cont -> {
 			final context = cont.context;
-			final scope = new CoroTaskWithLambda(context, lambda, CoroTask.CoroScopeStrategy#if coro.stack_traces, startPos#end);
+			final scope = new CoroTaskWithLambda(context, lambda, Sequential#if coro.stack_traces, startPos#end);
 			// The scope has our context, so we already run on its dispatcher and can activate it ourselves.
 			scope.onDispatch();
 			scope.awaitContinuation(cont#if coro.stack_traces, startPos#end);
@@ -91,17 +92,14 @@ class Coro {
 	}
 
 	/**
-		Executes `lambda` in a new task and returns its result once the task and all its
-		children have completed.
-
-		Exceptions raised by children are ignored, but calling `await` on such a child still
-		throws its exception. If `lambda` raises an exception, the remaining children are
-		cancelled and the exception is thrown from this call.
+		Like `scope`, but the task is a `SequentialSupervisor`: exceptions raised by children are
+		ignored, but calling `await` on such a child still throws its exception. If `lambda` raises
+		an exception, the remaining children are cancelled and the exception is thrown from this call.
 	**/
 	@:coroutine static public function supervisor<T>(lambda:NodeLambda<T>#if coro.stack_traces, ?startPos:haxe.PosInfos#end):T {
 		return suspend(cont -> {
 			final context = cont.context;
-			final scope = new CoroTaskWithLambda(context, lambda, CoroTask.CoroSupervisorStrategy#if coro.stack_traces, startPos#end);
+			final scope = new CoroTaskWithLambda(context, lambda, SequentialSupervisor#if coro.stack_traces, startPos#end);
 			scope.onDispatch();
 			scope.awaitContinuation(cont#if coro.stack_traces, startPos#end);
 		});
@@ -125,7 +123,7 @@ class Coro {
 		}
 		return suspend(cont -> {
 			final context = cont.context;
-			final scope = new CoroTaskWithLambda(context, lambda, CoroTask.CoroScopeStrategy#if coro.stack_traces, startPos#end);
+			final scope = new CoroTaskWithLambda(context, lambda, Sequential#if coro.stack_traces, startPos#end);
 			scope.onDispatch();
 			final handle = context.scheduleFunction(ms, () -> {
 				#if coro.stack_traces

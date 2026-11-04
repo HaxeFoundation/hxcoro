@@ -7,10 +7,6 @@ import haxe.coro.dispatchers.Dispatcher;
 import haxe.coro.dispatchers.IDispatchObject;
 import hxcoro.task.AbstractTask;
 import hxcoro.task.ICoroTask;
-import hxcoro.task.node.CoroChildStrategy;
-import hxcoro.task.node.CoroScopeStrategy;
-import hxcoro.task.node.CoroSupervisorStrategy;
-import hxcoro.task.node.INodeStrategy;
 
 @:using(CoroTask.ResumeStatusTools)
 private enum abstract ResumeStatus(Int) to Int {
@@ -33,16 +29,12 @@ private class ResumeStatusTools {
 	A task that is completed by resuming it as an `IContinuation` with its result or error.
 **/
 class CoroTask<T> extends CoroBaseTask<T> implements IContinuation<T> {
-	static public final CoroChildStrategy = new CoroChildStrategy();
-	static public final CoroScopeStrategy = new CoroScopeStrategy();
-	static public final CoroSupervisorStrategy = new CoroSupervisorStrategy();
-
 	/**
 		Creates a new task using the provided `context`. The creator of the task does its work and
 		completes it by calling `resume`, after starting it with `start`.
 	**/
-	public function new(context:Context, nodeStrategy:INodeStrategy#if coro.stack_traces, ?startPos:haxe.PosInfos#end) {
-		super(context, nodeStrategy#if coro.stack_traces, startPos#end);
+	public function new(context:Context, kind:TaskKind#if coro.stack_traces, ?startPos:haxe.PosInfos#end) {
+		super(context, kind#if coro.stack_traces, startPos#end);
 	}
 
 	/**
@@ -101,9 +93,9 @@ class CoroTaskWithLambda<T> extends CoroTask<T> implements IDispatchObject imple
 		Creates a new task using the provided `context` in order to execute `lambda`. The task doesn't
 		run until it is started.
 	**/
-	public function new(context:Context, lambda:NodeLambda<T>, nodeStrategy:INodeStrategy#if coro.stack_traces, ?startPos:haxe.PosInfos#end) {
+	public function new(context:Context, lambda:NodeLambda<T>, kind:TaskKind#if coro.stack_traces, ?startPos:haxe.PosInfos#end) {
 		this.lambda = lambda;
-		super(context, nodeStrategy#if coro.stack_traces,startPos#end);
+		super(context, kind#if coro.stack_traces, startPos#end);
 	}
 
 	/**

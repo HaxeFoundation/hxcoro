@@ -13,6 +13,7 @@ import haxe.coro.dispatchers.Dispatcher;
 import haxe.coro.dispatchers.IDispatchObject;
 import haxe.exceptions.CancellationException;
 import hxcoro.task.CoroTask;
+import hxcoro.task.TaskKind;
 import hxcoro.task.ICoroTask;
 import hxcoro.task.NodeLambda;
 
@@ -168,7 +169,7 @@ class ContextConvenience {
 		the new task becomes its child.
 	**/
 	static public function async<T>(context:Context, lambda:NodeLambda<T>):ICoroTask<T> {
-		final task = new CoroTaskWithLambda<T>(context, lambda, CoroTask.CoroChildStrategy);
+		final task = new CoroTaskWithLambda<T>(context, lambda, Concurrent);
 		task.requestActivation();
 		return task;
 	}
@@ -177,7 +178,7 @@ class ContextConvenience {
 		Like `async`, but the task does not run `lambda` until it is started.
 	**/
 	static public function lazy<T>(context:Context, lambda:NodeLambda<T>):IStartableCoroTask<T> {
-		return new CoroTaskWithLambda(context, lambda, CoroTask.CoroChildStrategy);
+		return new CoroTaskWithLambda(context, lambda, Concurrent);
 	}
 
 	/**
