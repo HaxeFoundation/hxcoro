@@ -59,6 +59,8 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 
 	/**
 		Creates a new task using the provided `context`. The task doesn't run until it is started.
+
+		Throws `InvalidTaskStateException` if the task in `context`, the parent, has already completed.
 	**/
 	@:nullSafety(Off)
 	public function new(context:Context, kind:TaskKind#if coro.stack_traces, ?startPos:haxe.PosInfos#end) {
@@ -124,24 +126,35 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 		Creates a lazy `Concurrent` child task to execute `lambda`. The child task does not execute until its `start`
 		method is called. This occurs automatically once this task has finished execution, or right away if
 		it already has.
+
+		Throws `InvalidTaskStateException` if this task has already completed.
 	**/
 	public function lazy<T>(lambda:NodeLambda<T>#if coro.stack_traces, ?startPos:haxe.PosInfos#end):IStartableCoroTask<T> {
 		final task = new CoroTaskWithLambda(context, lambda, Concurrent#if coro.stack_traces, startPos#end);
-		// The task is already registered as a child here, so if this task's own work finishes after this
-		// check, startChildren or cancelChildren still sees it.
+		startLateLazyChild(task);
+		return task;
+	}
+
+	/**
+		Starts `child`, a lazy child that was just created, if this task has already finished its own work.
+	**/
+	@:allow(hxcoro.util)
+	function startLateLazyChild(child:AbstractTask) {
+		// startChildren and cancelChildren have run by then and no longer will. If this task is
+		// cancelling, activate cancels the child. The child is already registered here, so if this
+		// task's own work finishes after the check, startChildren or cancelChildren still sees it.
 		switch (state.load()) {
 			case Completing | Cancelling:
-				// This task has already started or cancelled its children, so start the child like `async`
-				// does. If this task is cancelling, activate cancels it.
-				task.requestActivation();
+				child.requestActivation();
 			case Created | Running | CancellationRequested | Completed | Cancelled:
 		}
-		return task;
 	}
 
 	/**
 		Creates a `Concurrent` child task to execute `lambda` and starts it automatically. It runs beside
 		this task, and its outcome is reported to this task.
+
+		Throws `InvalidTaskStateException` if this task has already completed.
 	**/
 	public function async<T>(lambda:NodeLambda<T>#if coro.stack_traces, ?startPos:haxe.PosInfos#end):ICoroTask<T> {
 		final task = new CoroTaskWithLambda<T>(context, lambda, Concurrent#if coro.stack_traces, startPos#end);

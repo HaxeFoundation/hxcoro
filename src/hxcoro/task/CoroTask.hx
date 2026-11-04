@@ -32,6 +32,8 @@ class CoroTask<T> extends CoroBaseTask<T> implements IContinuation<T> {
 	/**
 		Creates a new task using the provided `context`. The creator of the task does its work and
 		completes it by calling `resume`, after starting it with `start`.
+
+		Throws `InvalidTaskStateException` if the task in `context`, the parent, has already completed.
 	**/
 	public function new(context:Context, kind:TaskKind#if coro.stack_traces, ?startPos:haxe.PosInfos#end) {
 		super(context, kind#if coro.stack_traces, startPos#end);
@@ -92,6 +94,8 @@ class CoroTaskWithLambda<T> extends CoroTask<T> implements IDispatchObject imple
 	/**
 		Creates a new task using the provided `context` in order to execute `lambda`. The task doesn't
 		run until it is started.
+
+		Throws `InvalidTaskStateException` if the task in `context`, the parent, has already completed.
 	**/
 	public function new(context:Context, lambda:NodeLambda<T>, kind:TaskKind#if coro.stack_traces, ?startPos:haxe.PosInfos#end) {
 		this.lambda = lambda;

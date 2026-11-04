@@ -324,4 +324,30 @@ class TestStopCause extends atest.Test {
 		Assert.isTrue(t.isFailed());
 		Assert.equals("boom", t.getError().message);
 	}
+
+	/**
+		A child started while its parent is already cancelling is cancelled with the parent's cause,
+		so a child created inside a timed-out scope reports the `TimeoutException`.
+	**/
+	function testCancelBeforeStartKeepsParentCause() {
+		var child:Null<ICoroTask<Any>> = null;
+		var parentCause:Null<CancellationException> = null;
+		VirtualRun.run(node -> {
+			try {
+				timeout(10, n -> {
+					try {
+						delay(100);
+					} catch (_:CancellationException) {
+						final parent:CoroBaseTask<Any> = cast n;
+						parentCause = parent.cancellationException;
+						child = n.async(_ -> {});
+					}
+				});
+			} catch (_:TimeoutException) {}
+		});
+		Assert.notNull(child);
+		Assert.isTrue(child.isCancelled());
+		Assert.isOfType(parentCause, TimeoutException);
+		Assert.isTrue(child.getError() == parentCause, "the child's cause is not the parent's");
+	}
 }
