@@ -8,7 +8,7 @@ import haxe.exceptions.CancellationException;
 	happens, before the task's state changes, and the state decides when it is visible.
 
 	A `Cancellation` can be upgraded to a `Failure` if a failure happens while the task is
-	cancelling. A `Failure` is never replaced; later failures are kept as suppressed errors.
+	cancelling. A `Failure` is never replaced.
 **/
 enum StopCause {
 	/**

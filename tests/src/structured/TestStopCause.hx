@@ -23,7 +23,6 @@ class TestStopCause extends atest.Test {
 		Assert.isTrue(t.isCancelled());
 		Assert.isFalse(t.isFailed());
 		Assert.isOfType(t.getError(), CancellationException);
-		Assert.equals(0, t.getSuppressedErrors().length);
 	}
 
 	function testFailedTask() {
@@ -43,7 +42,6 @@ class TestStopCause extends atest.Test {
 		Assert.isTrue(t.isFailed());
 		Assert.isFalse(t.isCancelled());
 		Assert.equals("boom", t.getError().message);
-		Assert.equals(0, t.getSuppressedErrors().length);
 	}
 
 	/**
@@ -144,9 +142,9 @@ class TestStopCause extends atest.Test {
 	}
 
 	/**
-		A second failure does not replace the first, it is kept as a suppressed error.
+		A second failure does not replace the first.
 	**/
-	function testSecondFailureIsSuppressed() {
+	function testFirstFailureWins() {
 		var t:Null<ICoroTask<Any>> = null;
 		final a = new Exception("a");
 		final b = new Exception("b");
@@ -170,8 +168,6 @@ class TestStopCause extends atest.Test {
 		});
 		Assert.isTrue(t.isFailed());
 		Assert.equals(a, t.getError());
-		Assert.equals(1, t.getSuppressedErrors().length);
-		Assert.equals(b, t.getSuppressedErrors()[0]);
 	}
 
 	/**

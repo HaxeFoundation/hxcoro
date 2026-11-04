@@ -74,19 +74,6 @@ private class TaskStateTools {
 class TaskException extends Exception {}
 
 /**
-	A node of a task's list of suppressed errors.
-**/
-private class SuppressedError {
-	public final error:Exception;
-	public final next:Null<SuppressedError>;
-
-	public function new(error:Exception, next:Null<SuppressedError>) {
-		this.error = error;
-		this.next = next;
-	}
-}
-
-/**
 	AbstractTask is the base class for tasks which manages its `TaskState` and children.
 
 	Developer note: it should have no knowledge of any asynchronous behavior or anything related to coroutines,
@@ -100,7 +87,6 @@ abstract class AbstractTask implements ICancellationToken {
 
 	final cancellationManager:TaskCancellationManager;
 	final stopCause:AtomicRef<Null<StopCause>>;
-	final suppressed:AtomicObject<Null<SuppressedError>>;
 	final state:AtomicState<TaskState>;
 	final kind:TaskKind;
 
@@ -144,7 +130,6 @@ abstract class AbstractTask implements ICancellationToken {
 		this.kind = kind;
 		state = new AtomicState(Created);
 		stopCause = new AtomicRef(null);
-		suppressed = new AtomicObject(null);
 		cancellationManager = @:nullSafety(Off) new TaskCancellationManager(this);
 		numActiveChildren = new AtomicInt(0);
 		if (parent != null) {
@@ -183,22 +168,6 @@ abstract class AbstractTask implements ICancellationToken {
 	}
 
 	/**
-		Returns the errors that were reported to this task after its error was set, oldest first.
-		Cancellation exceptions and duplicates are not kept. The list is complete once the task is no
-		longer active.
-	**/
-	public function getSuppressedErrors():Array<Exception> {
-		final errors = [];
-		var node = suppressed.load();
-		while (node != null) {
-			errors.push(node.error);
-			node = node.next;
-		}
-		errors.reverse();
-		return errors;
-	}
-
-	/**
 		Initiates cancellation of this task and all its children.
 
 		If `cause` is provided, it is set as this task's error value and used to cancel all children.
@@ -226,7 +195,7 @@ abstract class AbstractTask implements ICancellationToken {
 
 	/**
 		Fails this task with `error`, which cannot be prevented. A failure replaces a cancellation that
-		was requested before, but not an earlier failure, which keeps `error` as a suppressed error.
+		was requested before, but not an earlier failure.
 	**/
 	function fail(error:Exception) {
 		recordFailure(error);
@@ -235,14 +204,13 @@ abstract class AbstractTask implements ICancellationToken {
 
 	/**
 		Records `error` as this task's cause. Returns `true` if it is now the cause, or `false` if a
-		failure was recorded before, in which case `error` is kept as a suppressed error.
+		failure was recorded before, which is kept.
 	**/
 	function recordFailure(error:Exception) {
 		while (true) {
 			final current = stopCause.load();
 			switch (current) {
-				case Failure(winner, _):
-					addSuppressed(error, winner);
+				case Failure(_, _):
 					return false;
 				case null:
 					if (stopCause.compareExchange(current, Failure(error, error.orCancellationException())) == current) {
@@ -253,26 +221,6 @@ abstract class AbstractTask implements ICancellationToken {
 					if (stopCause.compareExchange(current, Failure(error, cause)) == current) {
 						return true;
 					}
-			}
-			BackOff.backOff();
-		}
-	}
-
-	function addSuppressed(error:Exception, winner:Exception) {
-		if (error == winner || error is CancellationException) {
-			return;
-		}
-		while (true) {
-			final head = suppressed.load();
-			var node = head;
-			while (node != null) {
-				if (node.error == error) {
-					return;
-				}
-				node = node.next;
-			}
-			if (suppressed.compareExchange(head, new SuppressedError(error, head)) == head) {
-				return;
 			}
 			BackOff.backOff();
 		}

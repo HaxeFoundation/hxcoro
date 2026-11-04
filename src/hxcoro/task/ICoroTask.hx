@@ -52,12 +52,6 @@ interface ICoroTask<T> {
 	function isFailed():Bool;
 
 	/**
-		Returns the errors that were reported to the task after its error was set, oldest first,
-		for example the failure of a second child. Cancellation exceptions are not kept.
-	**/
-	function getSuppressedErrors():Array<Exception>;
-
-	/**
 		Returns `true` if the task has not yet completed or been cancelled. A task that was created but not
 		started yet is considered active.
 	**/
