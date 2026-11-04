@@ -31,6 +31,23 @@ class TaskContinuationManager extends ThreadSafeCallbacks<IContinuation<Any>, IC
 }
 
 /**
+	A callback registered with `CoroBaseTask.onCompletion`, which is unregistered by closing the handle.
+**/
+private class CompletionHandle implements ICompletionHandle {
+	final manager:TaskContinuationManager;
+	final cont:IContinuation<Any>;
+
+	public function new(manager:TaskContinuationManager, cont:IContinuation<Any>) {
+		this.manager = manager;
+		this.cont = cont;
+	}
+
+	public function close() {
+		manager.remove(cont);
+	}
+}
+
+/**
 	CoroBaseTask provides the basic functionality for coroutine tasks.
 **/
 abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode implements ICoroTask<T> implements IElement<CoroBaseTask<Any>> implements IStackFrame {
@@ -219,8 +236,9 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 		return nonCancellable;
 	}
 
-	public function onCompletion(callback:(result:T, error:Exception)->Void) {
-		awaitingContinuations.add(new FunctionContinuation(context.clone(), callback));
+	public function onCompletion(callback:(result:T, error:Exception)->Void):Null<ICompletionHandle> {
+		final cont = new FunctionContinuation(context.clone(), callback);
+		return awaitingContinuations.add(cont) == null ? null : new CompletionHandle(awaitingContinuations, cont);
 	}
 
 	/**
@@ -250,11 +268,14 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 	}
 
 	/**
-		Suspends this task until it completes.
+		Suspends the calling task until this task completes. If the caller is cancelled first, it
+		resumes with its `CancellationException` and no longer waits for this task.
 	**/
 	@:coroutine public function await(#if coro.stack_traces ?startPos:haxe.PosInfos #end):T {
-		return Coro.suspend(cont -> {
+		return Coro.suspendCancellable(cont -> {
 			awaitContinuation(cont#if coro.stack_traces, startPos#end);
+			// A cancelled awaiter leaves the awaiters, so that a long-lived task does not accumulate them.
+			return _ -> awaitingContinuations.remove(cont);
 		});
 	}
 
