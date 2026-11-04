@@ -331,12 +331,15 @@ class TestStopCause extends atest.Test {
 	**/
 	function testCancelBeforeStartKeepsParentCause() {
 		var child:Null<ICoroTask<Any>> = null;
+		var parentCause:Null<CancellationException> = null;
 		VirtualRun.run(node -> {
 			try {
 				timeout(10, n -> {
 					try {
 						delay(100);
 					} catch (_:CancellationException) {
+						final parent:CoroBaseTask<Any> = cast n;
+						parentCause = parent.cancellationException;
 						child = n.async(_ -> {});
 					}
 				});
@@ -344,6 +347,7 @@ class TestStopCause extends atest.Test {
 		});
 		Assert.notNull(child);
 		Assert.isTrue(child.isCancelled());
-		Assert.isOfType(child.getError(), TimeoutException);
+		Assert.isOfType(parentCause, TimeoutException);
+		Assert.isTrue(child.getError() == parentCause, "the child's cause is not the parent's");
 	}
 }

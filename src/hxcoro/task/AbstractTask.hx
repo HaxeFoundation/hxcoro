@@ -581,12 +581,12 @@ abstract class AbstractTask implements ICancellationToken {
 	}
 
 	/**
-		Links `child` into this task's children, unless this task has completed. The check happens
-		under the children lock, which `checkCompletion` holds for the final transition, so a child
-		either attaches to a task that still waits for its children or is refused.
+		Links `child` into this task's children, unless this task has completed.
 	**/
 	function addChild(child:AbstractTask) {
 		final activeChildren = lockChildren();
+		// checkCompletion holds the lock for the final transition, so a child either attaches to a
+		// task that still waits for its children or is refused.
 		switch (state.load()) {
 			case Completed | Cancelled:
 				numActiveChildren.store(activeChildren);

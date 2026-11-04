@@ -59,6 +59,8 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 
 	/**
 		Creates a new task using the provided `context`. The task doesn't run until it is started.
+
+		Throws `InvalidTaskStateException` if the task in `context`, the parent, has already completed.
 	**/
 	@:nullSafety(Off)
 	public function new(context:Context, kind:TaskKind#if coro.stack_traces, ?startPos:haxe.PosInfos#end) {
@@ -134,15 +136,13 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 	}
 
 	/**
-		Starts `child`, a lazy child that was just created, if this task has already started or cancelled
-		its children, because `startChildren` and `cancelChildren` no longer will. If this task is
-		cancelling, `activate` cancels the child.
-
-		The child is already registered here, so if this task's own work finishes after the check,
-		`startChildren` or `cancelChildren` still sees it.
+		Starts `child`, a lazy child that was just created, if this task has already finished its own work.
 	**/
 	@:allow(hxcoro.util)
 	function startLateLazyChild(child:AbstractTask) {
+		// startChildren and cancelChildren have run by then and no longer will. If this task is
+		// cancelling, activate cancels the child. The child is already registered here, so if this
+		// task's own work finishes after the check, startChildren or cancelChildren still sees it.
 		switch (state.load()) {
 			case Completing | Cancelling:
 				child.requestActivation();
