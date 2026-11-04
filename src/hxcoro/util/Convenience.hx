@@ -12,6 +12,7 @@ import haxe.coro.continuations.FunctionContinuation;
 import haxe.coro.dispatchers.Dispatcher;
 import haxe.coro.dispatchers.IDispatchObject;
 import haxe.exceptions.CancellationException;
+import hxcoro.task.CoroBaseTask;
 import hxcoro.task.CoroTask;
 import hxcoro.task.TaskKind;
 import hxcoro.task.ICoroTask;
@@ -166,7 +167,8 @@ class ContextConvenience {
 
 	/**
 		Starts executing `lambda` in a new task using `context`. If `context` contains a task,
-		the new task becomes its child.
+		the new task becomes its child. Throws `InvalidTaskStateException` if that task has
+		already completed.
 	**/
 	static public function async<T>(context:Context, lambda:NodeLambda<T>):ICoroTask<T> {
 		final task = new CoroTaskWithLambda<T>(context, lambda, Concurrent);
@@ -175,10 +177,13 @@ class ContextConvenience {
 	}
 
 	/**
-		Like `async`, but the task does not run `lambda` until it is started.
+		Like `async`, but the task does not run `lambda` until it is started, which happens
+		automatically once the parent task has finished its own work, or right away if it already has.
 	**/
 	static public function lazy<T>(context:Context, lambda:NodeLambda<T>):IStartableCoroTask<T> {
-		return new CoroTaskWithLambda(context, lambda, Concurrent);
+		final task = new CoroTaskWithLambda(context, lambda, Concurrent);
+		context.get(CoroBaseTask)?.startLateLazyChild(task);
+		return task;
 	}
 
 	/**

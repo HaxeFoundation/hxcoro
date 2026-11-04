@@ -116,7 +116,9 @@ abstract class AbstractTask implements ICancellationToken {
 	}
 
 	/**
-		Creates a new task of `kind` in the `Created` state.
+		Creates a new task of `kind` in the `Created` state and attaches it to `parent`, if any.
+
+		Throws `InvalidTaskStateException` if `parent` has already completed.
 	**/
 	public function new(parent:Null<AbstractTask>, kind:TaskKind) {
 		id = atomicId.add(1);
@@ -387,10 +389,11 @@ abstract class AbstractTask implements ICancellationToken {
 	**/
 	final function activate() {
 		if (state.compareExchange(Created, Running) == Created) {
-			// Check if parent is cancelling and attempt to cancel this task before starting.
-			// If the task ignores cancellation, it stays Running, allowing it to start.
+			// A child of a cancelling parent is cancelled with the parent's cause before it starts,
+			// so that it reports e.g. the TimeoutException rather than a plain cancellation. If the
+			// task ignores cancellation, it stays Running, allowing it to start.
 			if (parent != null && parent.isCancelling()) {
-				cancel();
+				cancel(parent.cancellationException);
 			}
 			// Only start if the task wasn't successfully cancelled
 			if (state.load() == Running) {
@@ -577,8 +580,19 @@ abstract class AbstractTask implements ICancellationToken {
 		}
 	}
 
+	/**
+		Links `child` into this task's children, unless this task has completed. The check happens
+		under the children lock, which `checkCompletion` holds for the final transition, so a child
+		either attaches to a task that still waits for its children or is refused.
+	**/
 	function addChild(child:AbstractTask) {
 		final activeChildren = lockChildren();
+		switch (state.load()) {
+			case Completed | Cancelled:
+				numActiveChildren.store(activeChildren);
+				throw new InvalidTaskStateException("Cannot create a child of a task that has completed");
+			case Created | Running | CancellationRequested | Completing | Cancelling:
+		}
 		if (firstChild != null) {
 			child.nextSibling = firstChild;
 			firstChild.previousSibling = child;

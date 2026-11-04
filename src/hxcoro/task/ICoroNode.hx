@@ -17,12 +17,16 @@ interface ICoroNodeWith {
 
 	/**
 		Creates a child task to execute `lambda` and starts it immediately.
+
+		Throws `InvalidTaskStateException` if this node has already completed.
 	**/
 	function async<T>(lambda:NodeLambda<T>#if coro.stack_traces, ?callPos:haxe.PosInfos#end):ICoroTask<T>;
 
 	/**
 		Creates a child task to execute `lambda` without starting it. The task starts when its `start` or
 		`await` method is called, or once this node has finished executing its own lambda or calls `awaitChildren`.
+
+		Throws `InvalidTaskStateException` if this node has already completed.
 	**/
 	function lazy<T>(lambda:NodeLambda<T>#if coro.stack_traces, ?callPos:haxe.PosInfos#end):IStartableCoroTask<T>;
 
