@@ -175,9 +175,9 @@ jobs:
           key: ${{ steps.hxcpp-cache.outputs.key }}-${{ github.run_id }}-${{ github.run_attempt }}
 
   known-failures:
-    # Runs the tests in tests/src/review, which demonstrate known bugs and are expected to
-    # fail. The step is allowed to fail, so this job never fails the workflow. The list of
-    # failing tests is shown in the job summary.
+    # Runs the tests in tests/src/review and thread-tests/src/review, which demonstrate known
+    # bugs and are expected to fail. The steps are allowed to fail, so this job never fails the
+    # workflow. The list of failing tests is shown in the job summary.
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -198,20 +198,35 @@ jobs:
           set -o pipefail
           haxe --cwd tests build-eval.hxml -D hxcoro-known-failures 2>&1 | tee known-failures.log
 
+      - name: Run known thread failures
+        if: always()
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -o pipefail
+          haxe --cwd thread-tests build-eval.hxml -D hxcoro-known-failures 2>&1 | tee known-thread-failures.log
+
       - name: Summarize known failures
         if: always()
         shell: bash
         run: |
+          summarize() {
+            echo "### $1"
+            echo
+            echo '```'
+            if grep -q '^Failures:' "$2"; then
+              sed -n '/^Failures:/,$p' "$2"
+            else
+              tail -n 20 "$2"
+            fi
+            echo '```'
+            echo
+          }
           {
             echo "## Known failures"
             echo
-            echo "These tests in \`tests/src/review\` demonstrate known bugs. Failures here don't fail the workflow."
+            echo "These tests in \`tests/src/review\` and \`thread-tests/src/review\` demonstrate known bugs. Failures here don't fail the workflow."
             echo
-            echo '```'
-            if grep -q '^Failures:' known-failures.log; then
-              sed -n '/^Failures:/,$p' known-failures.log
-            else
-              tail -n 20 known-failures.log
-            fi
-            echo '```'
+            summarize "tests" known-failures.log
+            summarize "thread-tests" known-thread-failures.log
           } >> "$GITHUB_STEP_SUMMARY"
