@@ -54,6 +54,7 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 
 	final awaitingContinuations:TaskContinuationManager;
 	final awaitingChildContinuation:AtomicObject<Null<IContinuation<Any>>>;
+	final nonCancellable:Bool;
 	var result:Null<T>;
 
 	/**
@@ -68,7 +69,10 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 		this.startPos = startPos;
 		callFrameLocked = false;
 		#end
-		this.context = context.clone().with(this).set(CancellationToken, this);
+		// A NonCancellable element marks the task it creates and goes no further: like the task itself,
+		// which replaces the one of its parent in the context, it is consumed here rather than inherited.
+		nonCancellable = context.get(NonCancellable) != null;
+		this.context = context.clone().without(NonCancellable.key).with(this).set(CancellationToken, this);
 		super(parent, kind);
 	}
 
@@ -198,11 +202,8 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 		}
 	}
 
-	override function doCancel(cause:CancellationException) {
-		if (context.get(NonCancellable) != null) {
-			return;
-		}
-		super.doCancel(cause);
+	override function ignoresCancellation() {
+		return nonCancellable;
 	}
 
 	public function onCompletion(callback:(result:T, error:Exception)->Void) {
@@ -269,9 +270,7 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 	}
 
 	function complete() {
-		// Only concurrent tasks report their outcome to the parent. Sequential tasks deliver it to
-		// the creator that waits for them.
-		parent?.childCompletes(this, kind == Concurrent);
+		parent?.childCompletes(this);
 		handleAwaitingContinuations();
 	}
 }

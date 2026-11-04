@@ -64,7 +64,7 @@ class TestCallbackExceptions extends atest.Test {
 	}
 
 	/**
-		`doCancel` runs the cancellation callbacks before it cancels the children and checks for
+		`beginCancellation` runs the cancellation callbacks before it cancels the children and checks for
 		completion, so an exception escaping a callback used to skip both.
 	**/
 	function testThrowingCancellationCallbackDoesNotStopCancellation() {

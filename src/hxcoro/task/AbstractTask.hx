@@ -175,26 +175,26 @@ abstract class AbstractTask implements ICancellationToken {
 		Initiates cancellation of this task and all its children.
 
 		If `cause` is provided, it is set as this task's error value and used to cancel all children.
-
-		If the task cannot be cancelled or has already been cancelled, this function only checks if the
-		task has completed and initiates the appropriate behavior.
-	**/
-	public function cancel(?cause:CancellationException) {
-		cause ??= new CancellationException();
-		doCancel(cause);
-	}
-
-	/**
-		Requests cancellation of this task with `cause`. Unlike `fail`, this can be prevented, which
-		is what `NonCancellable` does by overriding it.
+		Has no effect on a task that ignores cancellation, see `ignoresCancellation`.
 
 		The state is the authority on whether the task is cancelling. The cause is only meaningful once
 		the state says so, which is why it is recorded before any transition to a cancelling state. A
 		cancellation never replaces a cause that is already recorded.
 	**/
-	function doCancel(cause:CancellationException) {
-		stopCause.compareExchange(null, Cancellation(cause));
+	public function cancel(?cause:CancellationException) {
+		if (ignoresCancellation()) {
+			return;
+		}
+		stopCause.compareExchange(null, Cancellation(cause ?? new CancellationException()));
 		requestStop();
+	}
+
+	/**
+		Returns `true` if `cancel` has no effect on this task. Unlike cancellation, a failure can never
+		be prevented, see `fail`.
+	**/
+	function ignoresCancellation() {
+		return false;
 	}
 
 	/**
@@ -229,24 +229,28 @@ abstract class AbstractTask implements ICancellationToken {
 	}
 
 	/**
-		Records `failure` as this task's cause. Returns `true` if it is now the cause, or `false` if a
-		failure was recorded before, which is kept.
+		Records `failure` as this task's cause, unless a failure was recorded before, which is kept.
 	**/
 	function recordFailure(failure:StopCause) {
 		while (true) {
 			final current = stopCause.load();
-			switch (current) {
+			final next = switch (current) {
 				case Failure(_, _):
-					return false;
+					return;
 				case null:
-					if (stopCause.compareExchange(current, failure) == current) {
-						return true;
-					}
+					failure;
 				case Cancellation(cause):
 					// The children and the callbacks have received `cause` already, so it stays.
-					if (stopCause.compareExchange(current, Failure(errorOf(failure), cause)) == current) {
-						return true;
-					}
+					Failure(errorOf(failure), cause);
+			}
+			if (stopCause.compareExchange(current, next) == current) {
+				// A concurrent task reports its failure to the parent right away, so that the parent can
+				// cancel its other children while this task is still winding down. A sequential task
+				// delivers its outcome to the creator that waits for it instead.
+				if (kind == Concurrent && parent != null) {
+					parent.childErrors(this, next);
+				}
+				return;
 			}
 			BackOff.backOff();
 		}
@@ -320,18 +324,22 @@ abstract class AbstractTask implements ICancellationToken {
 		The caller is responsible for calling `checkCompletion` afterwards.
 	**/
 	final function ownWorkFails(error:Exception) {
+		// Built at most once. Recording the failure reports it to the parent, whose reaction usually
+		// cancels this task right away, so the loop comes around to `CancellationRequested` and must
+		// not build and drop a second failure there.
+		var failure:Null<StopCause> = null;
 		while (true) {
 			final current = state.load();
 			switch (current) {
 				case Running:
-					recordFailure(Failure(error, cancellationFor(error)));
+					recordFailure(failure ??= Failure(error, cancellationFor(error)));
 					if (state.compareExchange(Running, Cancelling) == Running) {
 						beginCancellation();
 						return;
 					}
 				case CancellationRequested:
 					if (!(error is CancellationException)) {
-						recordFailure(Failure(error, cancellationFor(error)));
+						recordFailure(failure ??= Failure(error, cancellationFor(error)));
 					}
 					if (state.compareExchange(CancellationRequested, Cancelling) == CancellationRequested) {
 						beginCancellation();
@@ -380,8 +388,7 @@ abstract class AbstractTask implements ICancellationToken {
 	final function activate() {
 		if (state.compareExchange(Created, Running) == Created) {
 			// Check if parent is cancelling and attempt to cancel this task before starting.
-			// If the task has NonCancellable context, doCancel() will return early and
-			// the task stays Running, allowing it to start.
+			// If the task ignores cancellation, it stays Running, allowing it to start.
 			if (parent != null && parent.isCancelling()) {
 				cancel();
 			}
@@ -517,8 +524,12 @@ abstract class AbstractTask implements ICancellationToken {
 	abstract function reportCallbackError(error:Exception):Void;
 
 	/**
-		Called when `child` fails with `failure`. Supervisors ignore the failure, all other tasks inherit
-		it, also while they are already cancelling.
+		Called by `child` as soon as it fails with `failure`, which may be before it has completed.
+		Supervisors ignore the failure, all other tasks inherit it, also while they are already
+		cancelling.
+
+		A child that is cancelled never affects its parent: cancellation is an outcome somebody asked
+		for, and it is reported to whoever awaits the child.
 	**/
 	function childErrors(child:AbstractTask, failure:StopCause) {
 		switch (kind) {
@@ -533,35 +544,11 @@ abstract class AbstractTask implements ICancellationToken {
 	}
 
 	/**
-		Called when `child` is cancelled with `cause`. Only concurrent tasks are cancelled along with it.
+		Called by `child` once it has completed. The child's outcome plays no part here: a failure was
+		already reported through `childErrors` when it was recorded, and a cancellation only concerns
+		whoever awaits the child.
 	**/
-	function childCancels(child:AbstractTask, cause:CancellationException) {
-		switch (kind) {
-			case Concurrent:
-				cancel(cause);
-			case Sequential | SequentialSupervisor:
-		}
-	}
-
-	// called from child
-
-	function childCompletes(child:AbstractTask, processResult:Bool) {
-		if (processResult) {
-			switch (child.state.load()) {
-				case Completed:
-				case Cancelled:
-					switch (child.stopCause.load()) {
-						case Cancellation(cause):
-							childCancels(child, cause);
-						case failure = Failure(_, _):
-							childErrors(child, failure);
-						case null:
-							return setInternalException('No cause on cancelled child in childCompletes');
-					}
-				case state:
-					return setInternalException('Invalid state $state in childCompletes');
-			}
-		}
+	function childCompletes(child:AbstractTask) {
 		switch (lockChildren()) {
 			case 0:
 				numActiveChildren.store(0);

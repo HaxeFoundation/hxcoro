@@ -7,8 +7,8 @@ package hxcoro.task;
 **/
 enum abstract TaskKind(Int) {
 	/**
-		Runs beside its creator, which carries on, so the outcome is reported to the parent. Fails
-		when a child fails.
+		Runs beside its creator, which carries on, so a failure is reported to the parent. Fails when
+		a child fails.
 	**/
 	final Concurrent;
 
