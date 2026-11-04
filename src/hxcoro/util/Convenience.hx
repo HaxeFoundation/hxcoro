@@ -180,19 +180,17 @@ class ContextConvenience {
 	/**
 		Executes `lambda` in a new `Sequential` task created with `context` and returns its result once
 		the task and all its children have completed, like `Coro.scope`. If `context` contains a task,
-		as one obtained from the calling node with `node.with(...)` or `node.without(...)` does, the
-		new task becomes its child. This is how to run a block under another `Dispatcher`, with a
-		`CoroName`, or inside a `NonCancellable` boundary. If `context` contains no task, the new task
-		has no parent: the caller still waits for it, but cancelling the caller does not cancel it.
+		the new task becomes its child; otherwise the new task has no parent: the caller still waits
+		for it, but cancelling the caller does not cancel it. This is how to run a block under another
+		`Dispatcher`, with a `CoroName`, or inside a `NonCancellable` boundary.
 
 		If `lambda` or one of the children raises an exception, the remaining children are cancelled
 		and the exception is thrown from this call. The caller waits for the block even if it is
 		cancelled in the meantime, so a `NonCancellable` block runs its cleanup to completion.
 
 		The block runs on the `Dispatcher` of `context`. If that is the caller's own dispatcher, the
-		block starts synchronously, before this call suspends, like `Coro.scope`; otherwise it is
-		dispatched there. In both cases the caller resumes on its own dispatcher once the block has
-		completed.
+		block starts synchronously, before this call suspends; otherwise it is dispatched there. In
+		both cases the caller resumes on its own dispatcher once the block has completed.
 	**/
 	@:coroutine static public function scope<T>(context:Context, lambda:NodeLambda<T>#if coro.stack_traces, ?startPos:haxe.PosInfos#end):T {
 		return Coro.suspend(cont -> {
