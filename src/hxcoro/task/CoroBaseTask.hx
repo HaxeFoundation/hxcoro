@@ -263,7 +263,7 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 
 	function complete() {
 		// Only concurrent tasks report their outcome to the parent. Sequential tasks deliver it to
-		// their waiting creator, which for `Coro.scope` is the suspended caller.
+		// the creator that waits for them.
 		parent?.childCompletes(this, kind == Concurrent);
 		handleAwaitingContinuations();
 	}

@@ -92,12 +92,9 @@ class Coro {
 	}
 
 	/**
-		Executes `lambda` in a new `SequentialSupervisor` task and returns its result once the task
-		and all its children have completed. The task runs in place of the caller, which waits for it.
-
-		Exceptions raised by children are ignored, but calling `await` on such a child still
-		throws its exception. If `lambda` raises an exception, the remaining children are
-		cancelled and the exception is thrown from this call.
+		Like `scope`, but the task is a `SequentialSupervisor`: exceptions raised by children are
+		ignored, but calling `await` on such a child still throws its exception. If `lambda` raises
+		an exception, the remaining children are cancelled and the exception is thrown from this call.
 	**/
 	@:coroutine static public function supervisor<T>(lambda:NodeLambda<T>#if coro.stack_traces, ?startPos:haxe.PosInfos#end):T {
 		return suspend(cont -> {
