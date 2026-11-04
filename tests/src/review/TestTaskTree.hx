@@ -22,11 +22,12 @@ import hxcoro.task.ICoroTask;
 	  `supervisor` (#216).
 
 	Decisions from #215 that the tests below assert:
-	- A child's cancellation never affects its parent (T2). A `CancellationException` that a task's
-	  body throws while no cancellation was requested on that task is a failure, not a cancellation
-	  (1b). The task gets `Failing`/`Failed` states next to `Cancelling`/`Cancelled`, so the tree
-	  no longer infers the kind of outcome from the exception type, and carries `error` (the
-	  outcome) and `cancellationCause` (what children are cancelled with) as separate fields.
+	- A child's cancellation never affects its parent (T2). The kind of a child's outcome comes from
+	  its `StopCause` (`Cancellation` or `Failure`, #218), not from the exception type. A
+	  `CancellationException` thrown while no cancellation was requested is a failure (1b), which
+	  #218 implemented together with "a failure while cancelling replaces the cancellation" and
+	  "only `cancel()` is gated by `NonCancellable`" (T4a); their tests live in
+	  `tests/src/structured/TestStopCause.hx`.
 	- `await()` is cancellable (T3).
 	- `NonCancellable` is a boundary, not an inherited flag (T4, #214).
 	- Creating a child on a task in a final state throws from the task constructor (T6b).
@@ -49,10 +50,9 @@ class TestTaskTree extends atest.Test {
 		passes.
 
 		Decided semantics: a child that ends cancelled never affects its parent, for every `TaskKind`.
-		`childCancels` goes away. What a child reports is decided by its own final state (`Cancelled`
-		or `Failed`), not by `error is CancellationException`, see 1b below. The parent is notified
-		from `beginCancellation` rather than `childCompletes`, so siblings are cancelled as soon as a
-		child fails and not only once its subtree has finished.
+		`childCancels` goes away. `childCompletes` already decides by the child's `StopCause` (#218).
+		The parent is notified from `beginCancellation` rather than `childCompletes`, so siblings are
+		cancelled as soon as a child fails and not only once its subtree has finished.
 	**/
 	function testCancelChildrenDoesNotCancelAsyncNode() {
 		var t:Null<ICoroTask<Int>> = null;
@@ -86,56 +86,6 @@ class TestTaskTree extends atest.Test {
 		Assert.isFalse(t.isActive());
 		Assert.isNull(t.getError());
 		Assert.equals(42, t.get());
-	}
-
-	/**
-		T2, 1b: a `CancellationException` that a task's body throws while no cancellation was requested
-		on that task is a failure, not a cancellation (#215). Here the child's own `timeout` escapes
-		its body, so the child fails and the scope rethrows the `TimeoutException`. Today the child
-		counts as cancelled, the scope ignores that, and the timeout is lost.
-
-		`ownWorkFails` has the information: a throw in state `Running` is a failure, a throw in state
-		`CancellationRequested` is the requested cancellation. Kotlin treats both as cancellation,
-		which is a known footgun (`launch { withTimeout(...) }`), so this deviates on purpose.
-	**/
-	function testEscapedTimeoutFailsScope() {
-		var caught:Null<haxe.Exception> = null;
-		final task = VirtualRun.run(node -> {
-			try {
-				scope(n -> {
-					n.async(_ -> timeout(10, _ -> delay(100)));
-					n.awaitChildren();
-				});
-			} catch (e:TimeoutException) {
-				caught = e;
-			}
-		});
-		Assert.isFalse(task.isActive());
-		Assert.notNull(caught, "the escaped TimeoutException was swallowed");
-	}
-
-	/**
-		T2, 1b: awaiting a task that was cancelled throws its `CancellationException` into the awaiter.
-		Nobody requested the awaiter's cancellation, so under the same rule the awaiter fails and the
-		scope rethrows. This is Kotlin's second footgun (awaiting a cancelled `Deferred` silently
-		cancels the awaiter). Today the awaiter counts as cancelled and the scope ignores it.
-	**/
-	function testAwaitingCancelledTaskFailsScope() {
-		var caught:Null<haxe.Exception> = null;
-		final task = VirtualRun.run(node -> {
-			try {
-				scope(n -> {
-					final other = n.async(_ -> awaitCancellation());
-					n.async(_ -> other.await());
-					yield();
-					other.cancel();
-				});
-			} catch (e:CancellationException) {
-				caught = e;
-			}
-		});
-		Assert.isFalse(task.isActive());
-		Assert.notNull(caught, "the awaiter's CancellationException was swallowed");
 	}
 
 	/**
@@ -188,40 +138,6 @@ class TestTaskTree extends atest.Test {
 		});
 		Assert.isFalse(awaiterActive, "the awaiter didn't react to cancellation");
 		Assert.isFalse(task.isActive());
-	}
-
-	/**
-		T4a: `NonCancellable` swallows child failures. Decided in #214: a failing child fails the task.
-
-		`src/hxcoro/task/CoroBaseTask.hx:201-206`: `override function doCancel(error)` returns early if
-		`context.get(NonCancellable) != null`. `doCancel` is also the path for child errors
-		(`AbstractTask.childErrors`, for every kind but `SequentialSupervisor`) and for `setInternalException`
-		(`AbstractTask.hx:388-391`), so a failing child of a NonCancellable task is ignored and "boom"
-		is lost.
-
-		The regular suite already asserts in `tests/src/elements/TestNonCancellable.hx`
-		(`testFailurePropagatesToParent`) that a NonCancellable task's own exception fails it and
-		propagates to its parent, because `ownWorkFails` bypasses `doCancel`. So today a task's own
-		failure counts, but the same failure in a child is dropped.
-
-		Decided fix: `NonCancellable` only ignores cancellation (parent `cancelChildren`, the parent
-		check in `activate`, user `cancel()`). Failures (`childErrors`, internal errors) bypass the
-		check, as the task's own failure already does. For comparison, Kotlin's `NonCancellable`
-		doesn't fail the parent either; the child's exception goes to the uncaught exception handler.
-		`tests/src/elements/TestNonCancellable.hx` on #214 spells out the full semantics.
-	**/
-	function testNonCancellableKeepsChildError() {
-		var t:Null<ICoroTask<Any>> = null;
-		VirtualRun.run(node -> {
-			t = node.with(new NonCancellable()).async(n -> {
-				n.async(_ -> {
-					throw "boom";
-				});
-				delay(10);
-			});
-		});
-		Assert.isFalse(t.isActive());
-		Assert.equals("boom", t.getError()?.message);
 	}
 
 	/**
@@ -288,7 +204,7 @@ class TestTaskTree extends atest.Test {
 		and the `Completing → Completed` CAS, needs real threads and is not covered here.
 
 		Decided fix: the task constructor throws, via `addChild`, if the parent is in a final state
-		(`Completed`, `Cancelled`, later `Failed`). This covers every creation path (`async`, `lazy`,
+		(`Completed`, `Cancelled`). This covers every creation path (`async`, `lazy`,
 		`scope`, `Convenience.async`, `createTask` on a context), not just `async`/`lazy`. Details:
 		- The check runs under the children lock, and `checkCompletion` must do its final CAS while
 		  still holding that lock and call `complete()` after releasing it (T7). Otherwise `addChild`
