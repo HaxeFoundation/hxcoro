@@ -175,9 +175,7 @@ abstract class AbstractTask implements ICancellationToken {
 		Initiates cancellation of this task and all its children.
 
 		If `cause` is provided, it is set as this task's error value and used to cancel all children.
-
-		If the task cannot be cancelled or has already been cancelled, this function only checks if the
-		task has completed and initiates the appropriate behavior.
+		Has no effect on a task that ignores cancellation, see `ignoresCancellation`.
 
 		The state is the authority on whether the task is cancelling. The cause is only meaningful once
 		the state says so, which is why it is recorded before any transition to a cancelling state. A
@@ -326,18 +324,22 @@ abstract class AbstractTask implements ICancellationToken {
 		The caller is responsible for calling `checkCompletion` afterwards.
 	**/
 	final function ownWorkFails(error:Exception) {
+		// Built at most once. Recording the failure reports it to the parent, whose reaction usually
+		// cancels this task right away, so the loop comes around to `CancellationRequested` and must
+		// not build and drop a second failure there.
+		var failure:Null<StopCause> = null;
 		while (true) {
 			final current = state.load();
 			switch (current) {
 				case Running:
-					recordFailure(Failure(error, cancellationFor(error)));
+					recordFailure(failure ??= Failure(error, cancellationFor(error)));
 					if (state.compareExchange(Running, Cancelling) == Running) {
 						beginCancellation();
 						return;
 					}
 				case CancellationRequested:
 					if (!(error is CancellationException)) {
-						recordFailure(Failure(error, cancellationFor(error)));
+						recordFailure(failure ??= Failure(error, cancellationFor(error)));
 					}
 					if (state.compareExchange(CancellationRequested, Cancelling) == CancellationRequested) {
 						beginCancellation();
