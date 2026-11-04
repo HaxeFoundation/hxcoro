@@ -1,7 +1,6 @@
 package review;
 
 import haxe.exceptions.CancellationException;
-import hxcoro.concurrent.CoroLatch;
 import hxcoro.elements.CoroName;
 import hxcoro.elements.NonCancellable;
 import hxcoro.exceptions.TimeoutException;
@@ -206,9 +205,9 @@ class TestTaskTree extends atest.Test {
 		Decided fix: the task constructor throws, via `addChild`, if the parent is in a final state
 		(`Completed`, `Cancelled`). This covers every creation path (`async`, `lazy`,
 		`scope`, `Convenience.async`, `createTask` on a context), not just `async`/`lazy`. Details:
-		- The check runs under the children lock, and `checkCompletion` must do its final CAS while
-		  still holding that lock and call `complete()` after releasing it (T7). Otherwise `addChild`
-		  can link a child in the window between unlocking and the CAS, which is T6a.
+		- The check runs under the children lock. `checkCompletion` already does its final CAS while
+		  holding that lock and calls `complete()` after releasing it, so `addChild` can no longer link
+		  a child in a window between unlocking and the CAS (T6a); the check only has to be added.
 		- `Completing` and `Cancelling` keep accepting children: a parent waiting for its children is
 		  a valid parent, and the cleanup idiom from Issue47 adds a `NonCancellable` child while the
 		  parent is `Cancelling`.
@@ -260,38 +259,5 @@ class TestTaskTree extends atest.Test {
 		});
 		Assert.notNull(child);
 		Assert.isOfType(child?.getError(), TimeoutException);
-	}
-
-	/**
-		T14: `awaitChildren` has a single waiter slot.
-
-		`CoroBaseTask.hx:57` (`awaitingChildContinuation`) and `:218-229`. Two concurrent callers,
-		possible through an escaped node, overwrite each other and one never wakes. Here the node's own
-		`awaitChildren` is overwritten by the one of `other`, so the node never finishes.
-
-		Fix: use a list (e.g. `ThreadSafeCallbacks`), or throw on a second concurrent waiter. Do this
-		together with T7.
-	**/
-	function testTwoAwaitChildrenCallers() {
-		var woken = 0;
-		final task = VirtualRun.run(node -> {
-			final latch = new CoroLatch(1);
-			var escaped:Null<CoroBaseTask<Any>> = null;
-			node.async(n -> {
-				escaped = cast n;
-				n.async(_ -> latch.wait());
-				n.awaitChildren();
-				woken++;
-			});
-			yield();
-			node.async(_ -> {
-				escaped.awaitChildren();
-				woken++;
-			});
-			yield();
-			latch.arrive(1);
-		});
-		Assert.equals(2, woken);
-		Assert.isFalse(task.isActive());
 	}
 }

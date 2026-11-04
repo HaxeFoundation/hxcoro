@@ -1,6 +1,7 @@
 package hxcoro.task;
 
 import haxe.Exception;
+import haxe.atomic.AtomicObject;
 import haxe.coro.IContinuation;
 import haxe.coro.IStackFrame;
 import haxe.coro.cancellation.CancellationToken;
@@ -11,6 +12,7 @@ import haxe.coro.continuations.FunctionContinuation;
 import haxe.exceptions.CancellationException;
 import hxcoro.concurrent.ThreadSafeCallbacks;
 import hxcoro.elements.NonCancellable;
+import hxcoro.exceptions.InvalidTaskStateException;
 import hxcoro.task.AbstractTask;
 import hxcoro.task.CoroTask;
 import hxcoro.task.ICoroNode;
@@ -52,7 +54,7 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 	#end
 
 	final awaitingContinuations:TaskContinuationManager;
-	var awaitingChildContinuation:Null<IContinuation<Any>>;
+	final awaitingChildContinuation:AtomicObject<Null<IContinuation<Any>>>;
 	var result:Null<T>;
 
 	/**
@@ -62,6 +64,7 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 	public function new(context:Context, kind:TaskKind#if coro.stack_traces, ?startPos:haxe.PosInfos#end) {
 		final parent = context.get(CoroBaseTask);
 		awaitingContinuations = new TaskContinuationManager(this);
+		awaitingChildContinuation = new AtomicObject(null);
 		#if coro.stack_traces
 		this.startPos = startPos;
 		callFrameLocked = false;
@@ -208,21 +211,27 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 	}
 
 	/**
-		Suspends this task until all its current children complete.
+		Starts any lazy children and suspends this task until all its current children complete.
+		Children can still be created after this function resumes and are not affected by this call.
 
-		Children can still be created after this function resumes and are not
-		affected by this call.
+		This is meant to be called by the node's own coroutine. Only one call can be in progress at a
+		time: a second concurrent call, which is only possible through a node that was passed to
+		another task, throws `hxcoro.exceptions.InvalidTaskStateException`.
 	**/
 	@:coroutine public function awaitChildren() {
 		startChildren();
 		Coro.suspend(cont -> {
 			switch (lockChildren()) {
 				case 0:
-					cont.callAsync();
 					numActiveChildren.store(0);
+					cont.callAsync();
 				case activeChildren:
-					awaitingChildContinuation = cont;
+					// Register under the lock, so that the last child to complete sees the waiter.
+					final registered = awaitingChildContinuation.compareExchange(null, cont) == null;
 					numActiveChildren.store(activeChildren);
+					if (!registered) {
+						throw new InvalidTaskStateException("awaitChildren is already in progress on this task");
+					}
 			}
 		});
 	}
@@ -253,10 +262,9 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 	}
 
 	function childrenCompleted() {
-		// The numActiveChildren lock is active while we're here, so this modification is safe
-		final cont = awaitingChildContinuation;
+		// Called after the children lock was released, so the waiter may take the lock again right away.
+		final cont = awaitingChildContinuation.exchange(null);
 		if (cont != null) {
-			awaitingChildContinuation = null;
 			cont.callAsync();
 		}
 	}

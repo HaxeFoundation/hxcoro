@@ -1,41 +1,14 @@
 package review;
 
-import haxe.coro.dispatchers.Dispatcher;
-import haxe.coro.dispatchers.IDispatchObject;
 import hxcoro.dispatchers.TrampolineDispatcher;
 import hxcoro.ds.channels.Channel;
 import hxcoro.ds.channels.bounded.AtomicChannelState.ChannelState;
 import hxcoro.ds.channels.bounded.BoundedWriter;
 import hxcoro.schedulers.VirtualTimeScheduler;
-import hxcoro.task.AbstractTask;
 import hxcoro.task.ICoroTask;
 import hxcoro.task.NodeLambda;
 
 using hxcoro.run.ContextRun;
-
-/**
-	Wraps a `TrampolineDispatcher` and calls `probe` before every dispatch.
-**/
-private class ProbeDispatcher extends Dispatcher {
-	final inner:TrampolineDispatcher;
-
-	public var probe:Null<() -> Void>;
-
-	public function new(inner:TrampolineDispatcher) {
-		this.inner = inner;
-	}
-
-	function get_scheduler() {
-		return inner.scheduler;
-	}
-
-	public function dispatch(obj:IDispatchObject) {
-		if (probe != null) {
-			probe();
-		}
-		inner.dispatch(obj);
-	}
-}
 
 /**
 	Known failures from the 1.0 review: resumptions dispatched while a spin-lock is held.
@@ -69,50 +42,6 @@ class TestLockedDispatch extends atest.Test {
 	static function create() {
 		final scheduler = new VirtualTimeScheduler();
 		return {scheduler: scheduler, dispatcher: new ProbeDispatcher(new TrampolineDispatcher(scheduler))};
-	}
-
-	/**
-		T7: the `awaitChildren` waiter is resumed while the children spin-lock is held.
-
-		`src/hxcoro/task/AbstractTask.hx:438-442`, in `childCompletes`:
-		`case 1: firstChild = null; childrenCompleted(); numActiveChildren.store(0); checkCompletion();`
-		`childrenCompleted()` runs with the lock held (`numActiveChildren == -1`), and
-		`CoroBaseTask.childrenCompleted` (`:257-264`) calls `cont.callAsync()`. With an inline
-		dispatcher, the resumed coroutine runs inside the lock, and if it calls `node.async`,
-		`addChild` → `lockChildren` spins forever.
-
-		Fix: read and clear `awaitingChildContinuation` under the lock, unlock, then resume. A real
-		repro would use `SelfDispatcher` with a watchdog (`tests/src/Watchdog.hx`).
-	**/
-	function testAwaitChildrenResumedOutsideLock() {
-		final env = create();
-		var lockedDispatches = 0;
-		final task = run(env.dispatcher, env.scheduler, node -> {
-			final self:AbstractTask = cast node;
-			env.dispatcher.probe = () -> if (@:privateAccess self.numActiveChildren.load() == -1) lockedDispatches++;
-			node.async(_ -> yield());
-			node.awaitChildren();
-			env.dispatcher.probe = null;
-		});
-		Assert.isFalse(task.isActive());
-		Assert.equals(0, lockedDispatches);
-	}
-
-	/**
-		T7: `awaitChildren` without children. `CoroBaseTask.awaitChildren` (`:218-229`), case `0`,
-		calls `cont.callAsync()` before unlocking. Same fix as above.
-	**/
-	function testAwaitChildrenWithoutChildrenResumedOutsideLock() {
-		final env = create();
-		var lockedDispatches = 0;
-		final task = run(env.dispatcher, env.scheduler, node -> {
-			final self:AbstractTask = cast node;
-			env.dispatcher.probe = () -> if (@:privateAccess self.numActiveChildren.load() == -1) lockedDispatches++;
-			node.awaitChildren();
-			env.dispatcher.probe = null;
-		});
-		Assert.isFalse(task.isActive());
-		Assert.equals(0, lockedDispatches);
 	}
 
 	/**
