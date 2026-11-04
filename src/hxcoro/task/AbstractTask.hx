@@ -197,7 +197,7 @@ abstract class AbstractTask implements ICancellationToken {
 		was requested before, but not an earlier failure.
 	**/
 	function fail(error:Exception) {
-		recordFailure(error, Failure(error, error.orCancellationException()));
+		recordFailure(error, Failure(error, cancellationFor(error)));
 		requestStop();
 	}
 
@@ -208,6 +208,20 @@ abstract class AbstractTask implements ICancellationToken {
 	function inheritFailure(error:Exception, failure:StopCause) {
 		recordFailure(error, failure);
 		requestStop();
+	}
+
+	/**
+		Creates the `CancellationException` that the children of a task failing with `error` are
+		cancelled with. It is always a new exception, so that a child does not mistake the parent's
+		failure for its own cancellation cause, e.g. a `TimeoutException`. It carries `error`'s stack
+		where supported.
+	**/
+	static function cancellationFor(error:Exception):CancellationException {
+		final cause = new CancellationException();
+		#if !js
+		cause.stack = error.stack;
+		#end
+		return cause;
 	}
 
 	/**
@@ -306,14 +320,14 @@ abstract class AbstractTask implements ICancellationToken {
 			final current = state.load();
 			switch (current) {
 				case Running:
-					recordFailure(error, Failure(error, error.orCancellationException()));
+					recordFailure(error, Failure(error, cancellationFor(error)));
 					if (state.compareExchange(Running, Cancelling) == Running) {
 						beginCancellation();
 						return;
 					}
 				case CancellationRequested:
 					if (!(error is CancellationException)) {
-						recordFailure(error, Failure(error, error.orCancellationException()));
+						recordFailure(error, Failure(error, cancellationFor(error)));
 					}
 					if (state.compareExchange(CancellationRequested, Cancelling) == CancellationRequested) {
 						beginCancellation();
