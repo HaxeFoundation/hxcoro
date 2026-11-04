@@ -22,7 +22,7 @@ class CoroChannelTask<T> extends CoroTask<haxe.Unit> implements IReceiver<T> imp
 	final channel:Channel<T>;
 
 	public function new(context:Context, channel:Channel<T>) {
-		super(context, Scope);
+		super(context, Sequential);
 		this.channel = channel;
 	}
 

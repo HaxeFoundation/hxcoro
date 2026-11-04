@@ -75,8 +75,8 @@ class Coro {
 	}
 
 	/**
-		Executes `lambda` in a new task and returns its result once the task and all its
-		children have completed.
+		Executes `lambda` in a new `Sequential` task and returns its result once the task and all
+		its children have completed. The task runs in place of the caller, which waits for it.
 
 		If `lambda` or one of the children raises an exception, the remaining children are
 		cancelled and the exception is thrown from this call.
@@ -84,7 +84,7 @@ class Coro {
 	@:coroutine static public function scope<T>(lambda:NodeLambda<T>#if coro.stack_traces, ?startPos:haxe.PosInfos#end):T {
 		return suspend(cont -> {
 			final context = cont.context;
-			final scope = new CoroTaskWithLambda(context, lambda, Scope#if coro.stack_traces, startPos#end);
+			final scope = new CoroTaskWithLambda(context, lambda, Sequential#if coro.stack_traces, startPos#end);
 			// The scope has our context, so we already run on its dispatcher and can activate it ourselves.
 			scope.onDispatch();
 			scope.awaitContinuation(cont#if coro.stack_traces, startPos#end);
@@ -92,8 +92,8 @@ class Coro {
 	}
 
 	/**
-		Executes `lambda` in a new task and returns its result once the task and all its
-		children have completed.
+		Executes `lambda` in a new `SequentialSupervisor` task and returns its result once the task
+		and all its children have completed. The task runs in place of the caller, which waits for it.
 
 		Exceptions raised by children are ignored, but calling `await` on such a child still
 		throws its exception. If `lambda` raises an exception, the remaining children are
@@ -102,7 +102,7 @@ class Coro {
 	@:coroutine static public function supervisor<T>(lambda:NodeLambda<T>#if coro.stack_traces, ?startPos:haxe.PosInfos#end):T {
 		return suspend(cont -> {
 			final context = cont.context;
-			final scope = new CoroTaskWithLambda(context, lambda, Supervisor#if coro.stack_traces, startPos#end);
+			final scope = new CoroTaskWithLambda(context, lambda, SequentialSupervisor#if coro.stack_traces, startPos#end);
 			scope.onDispatch();
 			scope.awaitContinuation(cont#if coro.stack_traces, startPos#end);
 		});
@@ -126,7 +126,7 @@ class Coro {
 		}
 		return suspend(cont -> {
 			final context = cont.context;
-			final scope = new CoroTaskWithLambda(context, lambda, Scope#if coro.stack_traces, startPos#end);
+			final scope = new CoroTaskWithLambda(context, lambda, Sequential#if coro.stack_traces, startPos#end);
 			scope.onDispatch();
 			final handle = context.scheduleFunction(ms, () -> {
 				#if coro.stack_traces

@@ -115,12 +115,12 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 	}
 
 	/**
-		Creates a lazy child task to execute `lambda`. The child task does not execute until its `start`
+		Creates a lazy `Concurrent` child task to execute `lambda`. The child task does not execute until its `start`
 		method is called. This occurs automatically once this task has finished execution, or right away if
 		it already has.
 	**/
 	public function lazy<T>(lambda:NodeLambda<T>#if coro.stack_traces, ?startPos:haxe.PosInfos#end):IStartableCoroTask<T> {
-		final task = new CoroTaskWithLambda(context, lambda, Child#if coro.stack_traces, startPos#end);
+		final task = new CoroTaskWithLambda(context, lambda, Concurrent#if coro.stack_traces, startPos#end);
 		// The task is already registered as a child here, so if this task's own work finishes after this
 		// check, startChildren or cancelChildren still sees it.
 		switch (state.load()) {
@@ -134,10 +134,11 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 	}
 
 	/**
-		Creates a child task to execute `lambda` and starts it automatically.
+		Creates a `Concurrent` child task to execute `lambda` and starts it automatically. It runs beside
+		this task, and its outcome is reported to this task.
 	**/
 	public function async<T>(lambda:NodeLambda<T>#if coro.stack_traces, ?startPos:haxe.PosInfos#end):ICoroTask<T> {
-		final task = new CoroTaskWithLambda<T>(context, lambda, Child#if coro.stack_traces, startPos#end);
+		final task = new CoroTaskWithLambda<T>(context, lambda, Concurrent#if coro.stack_traces, startPos#end);
 		task.requestActivation();
 		return task;
 	}
@@ -261,9 +262,9 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 	}
 
 	function complete() {
-		// Only child tasks report their outcome to the parent. Scopes and supervisors deliver it to
-		// whoever awaits them, which for `Coro.scope` is the suspended caller.
-		parent?.childCompletes(this, kind == Child);
+		// Only concurrent tasks report their outcome to the parent. Sequential tasks deliver it to
+		// their waiting creator, which for `Coro.scope` is the suspended caller.
+		parent?.childCompletes(this, kind == Concurrent);
 		handleAwaitingContinuations();
 	}
 }

@@ -410,29 +410,29 @@ abstract class AbstractTask implements ICancellationToken {
 	abstract function reportCallbackError(error:Exception):Void;
 
 	/**
-		Called when `child` fails with `cause`, which is not a `CancellationException`. Child and
-		scope tasks inherit the failure, supervisors ignore it.
+		Called when `child` fails with `cause`, which is not a `CancellationException`. Supervisors
+		ignore the failure, all other tasks inherit it.
 	**/
 	function childErrors(child:AbstractTask, cause:Exception) {
 		switch (kind) {
-			case Child | Scope:
+			case Concurrent | Sequential:
 				switch (state.load()) {
 					case Created | Running | Completing:
 						doCancel(cause);
 					case CancellationRequested | Cancelling | Completed | Cancelled:
 				}
-			case Supervisor:
+			case SequentialSupervisor:
 		}
 	}
 
 	/**
-		Called when `child` is cancelled with `cause`. Only child tasks are cancelled along with it.
+		Called when `child` is cancelled with `cause`. Only concurrent tasks are cancelled along with it.
 	**/
 	function childCancels(child:AbstractTask, cause:CancellationException) {
 		switch (kind) {
-			case Child:
+			case Concurrent:
 				cancel(cause);
-			case Scope | Supervisor:
+			case Sequential | SequentialSupervisor:
 		}
 	}
 

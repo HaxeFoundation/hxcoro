@@ -1,24 +1,25 @@
 package hxcoro.task;
 
 /**
-	Decides how a task relates to its parent: whether its own outcome is reported to the parent as
-	a child outcome, and how the outcomes of its children affect it.
+	Decides how a task relates to its parent, on two axes: whether it runs concurrently with its
+	creator or in its place, which decides where its outcome goes, and whether a failing child
+	fails it.
 **/
 enum abstract TaskKind(Int) {
 	/**
-		Reports its outcome to its parent, and is cancelled when one of its children fails or is
-		cancelled.
+		Runs beside its creator, which carries on, so the outcome is reported to the parent. Fails
+		when a child fails.
 	**/
-	final Child;
+	final Concurrent;
 
 	/**
-		Does not report its outcome to its parent; whoever awaits the task receives it. Is cancelled
-		when one of its children fails, but not when one is cancelled.
+		Runs in place of its creator, which waits for it and receives the outcome. Fails when a
+		child fails.
 	**/
-	final Scope;
+	final Sequential;
 
 	/**
-		Like `Scope`, but the outcomes of its children are ignored.
+		Like `Sequential`, but a child's failure is left to whoever awaits the child.
 	**/
-	final Supervisor;
+	final SequentialSupervisor;
 }

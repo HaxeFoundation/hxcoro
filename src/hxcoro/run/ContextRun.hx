@@ -21,11 +21,11 @@ class ContextRun {
 		final exceptionHandler = context.get(ExceptionHandler);
 		final task = if (exceptionHandler != null) {
 			@:nullSafety(Off) final run = exceptionHandler.startSynchronousRun(context, callPos);
-			final task = new CoroTaskWithLambda(run.context, lambda, Scope, callPos);
+			final task = new CoroTaskWithLambda(run.context, lambda, Sequential, callPos);
 			task.onCompletion((_, _) -> run.complete());
 			task;
 		} else {
-			new CoroTaskWithLambda(context, lambda, Scope, callPos);
+			new CoroTaskWithLambda(context, lambda, Sequential, callPos);
 		}
 		if (start) {
 			task.requestActivation();
@@ -36,7 +36,7 @@ class ContextRun {
 	#else
 
 	static function createEntryTask<T>(context:Context, lambda:NodeLambda<T>, start:Bool) {
-		final task = new CoroTaskWithLambda(context, lambda, Scope);
+		final task = new CoroTaskWithLambda(context, lambda, Sequential);
 		if (start) {
 			task.requestActivation();
 		}
