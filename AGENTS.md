@@ -82,7 +82,7 @@ src/
     ├── Coro.hx            # Core suspend functions: suspend, suspendCancellable, delay, yield, scope, supervisor, timeout
     ├── CoroRun.hx         # Entry points for running coroutines (run, with, JS promise integration)
     ├── run/               # Run/setup helpers (Setup, ContextRun, LoopRun)
-    ├── task/              # Task tree: CoroTask, AbstractTask, cancellation, node strategies (child/scope/supervisor)
+    ├── task/              # Task tree: CoroTask, AbstractTask, cancellation, TaskKind
     ├── dispatchers/       # TrampolineDispatcher, ThreadPoolDispatcher, LuvDispatcher (.cpp.hx / .eval.hx)
     ├── schedulers/        # Real-time, virtual-time, thread-aware, Haxe timer and libuv schedulers
     ├── continuations/     # Cancelling, racing, timeout, stack-frame continuations
