@@ -33,6 +33,8 @@ class WorkStealingQueue<T> {
 	final read:AtomicInt;
 	final write:AtomicInt;
 	final storage:AtomicObject<Slots<T>>;
+	// Only used by the producer: the slots below this index don't hold a consumed value anymore.
+	var cleared:Int;
 
 	/**
 		Creates a new work-stealing queue.
@@ -41,6 +43,7 @@ class WorkStealingQueue<T> {
 		read = new AtomicInt(0);
 		write = new AtomicInt(0);
 		storage = new AtomicObject(new Slots(CircularVector.create(16)));
+		cleared = 0;
 	}
 
 	function resize(slots:CircularVector<T>, from:Int, to:Int) {
@@ -64,9 +67,28 @@ class WorkStealingQueue<T> {
 		if (w - r >= slots.length) {
 			slots = resize(slots, r, w);
 			storage.store(new Slots(slots));
+			// The new storage only holds the live slots.
+			cleared = r;
+		} else {
+			clearConsumed(slots, r);
 		}
 		slots[w] = value;
 		write.add(1);
+	}
+
+	// Drops the references to the values below `r`, which have been stolen, so that they can be
+	// collected. A consumer only advances `read` after it has read its slot, so nobody reads these
+	// slots again: a consumer that loaded an index below `r` fails its compare-and-exchange and
+	// discards the value.
+	// The cleared slots can't hold a live value: `cleared` is the `read` of the previous `add`, at
+	// which `w - cleared < slots.length` held, so now `w - cleared <= slots.length`. The only slot
+	// they can share with `[r, w]` is the one of `w`, which is written right after this.
+	@:nullSafety(Off)
+	function clearConsumed(slots:CircularVector<T>, r:Int) {
+		for (i in cleared...r) {
+			slots[i] = null;
+		}
+		cleared = r;
 	}
 
 	/**
