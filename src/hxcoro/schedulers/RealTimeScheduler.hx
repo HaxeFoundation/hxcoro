@@ -1,13 +1,45 @@
 package hxcoro.schedulers;
 
+import haxe.Int64;
+import haxe.coro.IContinuation;
+import haxe.coro.schedulers.ISchedulerHandle;
 import hxcoro.concurrent.BackOff;
 import hxcoro.schedulers.ILoop;
+#if target.threaded
+import haxe.atomic.AtomicInt;
+#end
 
 /**
 	A scheduler driven by `loop` calls that dispatches events based on the time returned
 	by `haxe.Timer.milliseconds`.
 **/
 class RealTimeScheduler extends HeapScheduler implements ILoop {
+	#if target.threaded
+	final wakeUpFlag:WakeUpFlag;
+	// Set by `wakeUp`, so that `loop(Once)` returns although nothing was dispatched.
+	final wakeUpRequested:AtomicInt;
+	#end
+
+	public function new() {
+		super();
+		#if target.threaded
+		wakeUpFlag = new WakeUpFlag();
+		wakeUpRequested = new AtomicInt(0);
+		#end
+	}
+
+	/**
+		Schedules `cont` to run after `ms` milliseconds. This may be called from any thread.
+	**/
+	override public function schedule(ms:Int64, cont:IContinuation<Any>):ISchedulerHandle {
+		final handle = super.schedule(ms, cont);
+		#if target.threaded
+		// The event may be due before the one the loop is waiting for.
+		wakeUpFlag.set();
+		#end
+		return handle;
+	}
+
 	function loopOnce() {
 		final currentTime = now();
 		var didSomething = false;
@@ -29,25 +61,71 @@ class RealTimeScheduler extends HeapScheduler implements ILoop {
 		return didSomething;
 	}
 
+	function nextDueTime():Null<Int64> {
+		futureMutex.acquire();
+		final minimum = heap.minimum();
+		futureMutex.release();
+		return minimum?.runTime;
+	}
+
 	/**
-		Dispatches the events that are due. In `Once` mode, this busy-waits with back-off
-		until at least one event has been dispatched.
+		Dispatches the events that are due. In `Once` mode, if no event is due, this blocks until
+		an event has been dispatched or `wakeUp` is called.
+
+		This must not be called from multiple threads at the same time.
 	**/
 	public function loop(runMode:RunMode) {
 		switch (runMode) {
 			case NoWait:
 				loopOnce();
 			case Once:
-				while (!loopOnce()) {
-					BackOff.backOff();
+				while (true) {
+					#if target.threaded
+					// Clear the flag before looking at the heap. An event scheduled or a wake-up
+					// requested from now on sets it again, so the wait below can't miss it.
+					wakeUpFlag.clear();
+					if (loopOnce() || wakeUpRequested.exchange(0) == 1) {
+						return;
+					}
+					wakeUpFlag.waitUntil(nextDueTime(), now());
+					#else
+					if (loopOnce()) {
+						return;
+					}
+					wait();
+					#end
 				}
 		}
 	}
 
+	#if !target.threaded
+	// Nothing can schedule an event while the loop waits, so it can sleep until the earliest one
+	// is due. Without `Sys.sleep`, or without any event, this busy-waits.
+	function wait() {
+		#if (sys && !lua_vanilla)
+		final dueTime = nextDueTime();
+		if (dueTime != null) {
+			final timeout = Int64.toInt(dueTime - now()) / 1000;
+			if (timeout > 0) {
+				Sys.sleep(timeout);
+			}
+			return;
+		}
+		#end
+		BackOff.backOff();
+	}
+	#end
+
 	/**
-		Has no effect, because `loop` busy-waits instead of blocking.
+		Makes the current or next `loop(Once)` call return. This may be called from any thread.
+		Has no effect on targets without threads.
 	**/
-	public function wakeUp() {}
+	public function wakeUp() {
+		#if target.threaded
+		wakeUpRequested.store(1);
+		wakeUpFlag.set();
+		#end
+	}
 
 	/**
 		Returns a string representation of this scheduler.
