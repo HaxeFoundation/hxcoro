@@ -77,6 +77,9 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 	final nonCancellable:Bool;
 	var result:Null<T>;
 
+	// The same as `parent`, typed as what every task is.
+	final parentTask:Null<CoroBaseTask<Any>>;
+
 	// Called with each failed child that this task ignores as a supervisor.
 	@:allow(hxcoro.Coro)
 	var onChildFailure:Null<(child:ICoroTask<Any>, error:Exception) -> Void>;
@@ -89,6 +92,7 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 	@:nullSafety(Off)
 	public function new(context:Context, kind:TaskKind#if coro.stack_traces, ?startPos:haxe.PosInfos#end) {
 		final parent = context.get(CoroBaseTask);
+		parentTask = parent;
 		awaitingContinuations = new TaskContinuationManager(this);
 		awaitingChildContinuation = new AtomicObject(null);
 		#if coro.stack_traces
@@ -306,18 +310,17 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 		context.scheduleFunction(0, () -> throw error);
 	}
 
-	function childFailureIgnored(child:AbstractTask, error:Exception) {
-		final handler = onChildFailure;
-		if (handler == null) {
+	function failureIgnored(error:Exception) {
+		final supervisor = parentTask;
+		final handler = supervisor?.onChildFailure;
+		if (supervisor == null || handler == null) {
 			return;
 		}
-		// Every task is a CoroBaseTask, AbstractTask only keeps the tree.
-		final task:ICoroTask<Any> = cast child;
-		traceTask("onChildFailure", child);
+		supervisor.traceTask("onChildFailure", this);
 		try {
-			handler(task, error);
+			handler(this, error);
 		} catch (e:Exception) {
-			reportCallbackError(e);
+			supervisor.reportCallbackError(e);
 		}
 	}
 

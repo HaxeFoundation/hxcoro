@@ -677,8 +677,8 @@ abstract class AbstractTask implements ICancellationToken {
 	}
 
 	/**
-		Reports `child` to `childFailureIgnored` if it is a concurrent child that failed. A sequential
-		child is not reported, because its failure goes to the creator that waits for it.
+		Tells `child` that its failure was ignored if it is a concurrent child that failed. A sequential
+		child is not told, because its failure goes to the creator that waits for it.
 	**/
 	function reportChildFailure(child:AbstractTask) {
 		if (child.kind != Concurrent) {
@@ -686,15 +686,16 @@ abstract class AbstractTask implements ICancellationToken {
 		}
 		switch (child.stopCause.load()) {
 			case Failure(error, _):
-				childFailureIgnored(child, error);
+				child.failureIgnored(error);
 			case Cancellation(_) | null:
 		}
 	}
 
 	/**
-		Called by a supervisor once `child`, whose failure with `error` it ignored, has completed.
+		Called once this task has completed with `error`, a failure that its parent, a supervisor,
+		ignored.
 	**/
-	abstract function childFailureIgnored(child:AbstractTask, error:Exception):Void;
+	abstract function failureIgnored(error:Exception):Void;
 
 	/**
 		Links `child` into this task's children, unless this task has completed.
