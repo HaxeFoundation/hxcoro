@@ -5,6 +5,7 @@ import haxe.exceptions.CancellationException;
 import hxcoro.elements.NonCancellable;
 import hxcoro.TimeoutException;
 import hxcoro.task.CoroBaseTask;
+import hxcoro.task.FailureCancellationException;
 import hxcoro.task.ICoroTask;
 
 /**
@@ -195,6 +196,8 @@ class TestStopCause extends atest.Test {
 		Assert.isTrue(c1.getError() == c2.getError(), "the children have different cancellation causes");
 		final parent:CoroBaseTask<Any> = cast t;
 		Assert.isTrue(c1.getError() == parent.cancellationException, "the children's cause is not the parent's");
+		Assert.isOfType(c1.getError(), FailureCancellationException);
+		Assert.isTrue((cast c1.getError() : FailureCancellationException).error == t.getError(), "the children's cause doesn't carry the parent's error");
 	}
 
 	/**

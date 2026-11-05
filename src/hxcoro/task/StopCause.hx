@@ -18,8 +18,9 @@ enum StopCause {
 	Cancellation(cause:CancellationException);
 
 	/**
-		The task's own work or one of its children failed with `error`. `cause` is what the task's
-		children are cancelled with and what cancellation callbacks receive.
+		The task's own work or one of its children failed with `error`. `cause` is the
+		`FailureCancellationException` that the task's children are cancelled with and that
+		cancellation callbacks receive.
 	**/
 	Failure(error:Exception, cause:CancellationException);
 }

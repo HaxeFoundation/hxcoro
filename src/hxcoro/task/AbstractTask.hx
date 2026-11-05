@@ -219,11 +219,11 @@ abstract class AbstractTask implements ICancellationToken {
 	/**
 		Creates the `CancellationException` that the children of a task failing with `error` are
 		cancelled with. It is always a new exception, so that a child does not mistake the parent's
-		failure for its own cancellation cause, e.g. a `TimeoutException`. It carries `error`'s stack
-		where supported.
+		failure for its own cancellation cause, e.g. a `TimeoutException`. It carries `error`, and
+		`error`'s stack where supported.
 	**/
 	static function cancellationFor(error:Exception):CancellationException {
-		final cause = new CancellationException();
+		final cause = new FailureCancellationException(error);
 		#if !js
 		cause.stack = error.stack;
 		#end

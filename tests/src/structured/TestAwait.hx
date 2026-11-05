@@ -1,9 +1,11 @@
 package structured;
 
+import haxe.Exception;
 import haxe.exceptions.CancellationException;
 import hxcoro.TimeoutException;
 import hxcoro.concurrent.CoroLatch;
 import hxcoro.task.CoroBaseTask;
+import hxcoro.task.FailureCancellationException;
 import hxcoro.task.ICoroTask;
 
 /**
@@ -81,6 +83,36 @@ class TestAwait extends atest.Test {
 		Assert.isFalse(task.isActive());
 		Assert.isTrue(awaiterCancelled);
 		Assert.equals(42, result);
+	}
+
+	/**
+		A parent awaiting its own failing child is cancelled by the failure before the child's error
+		arrives. The cancellation it catches carries that error.
+	**/
+	function testAwaitOnFailingChildThrowsFailureCancellation() {
+		var caught:Null<FailureCancellationException> = null;
+		var t:Null<ICoroTask<Any>> = null;
+		final task = VirtualRun.run(node -> {
+			supervisor(s -> {
+				t = s.async(p -> {
+					final child = p.async(_ -> {
+						yield();
+						throw new Exception("boom");
+					});
+					try {
+						child.await();
+					} catch (e:FailureCancellationException) {
+						caught = e;
+						throw e;
+					}
+				});
+			});
+		});
+		Assert.isFalse(task.isActive());
+		Assert.notNull(caught, "await didn't throw a FailureCancellationException");
+		Assert.equals("boom", caught.error.message);
+		Assert.isTrue(t.isFailed());
+		Assert.equals("boom", t.getError().message);
 	}
 
 	function testAwaitOnCompletedTask() {
