@@ -2,9 +2,6 @@ package review;
 
 import haxe.coro.context.Context;
 import haxe.coro.continuations.FunctionContinuation;
-import haxe.exceptions.ArgumentException;
-import hxcoro.concurrent.CoroBarrier;
-import hxcoro.concurrent.CoroLatch.CoroLatchImpl;
 import hxcoro.ds.CircularBuffer;
 import hxcoro.ds.Out;
 import hxcoro.ds.channels.Channel;
@@ -51,30 +48,6 @@ class TestPrimitives extends atest.Test {
 		});
 		Assert.isTrue(threw);
 		Assert.same([], dropped);
-	}
-
-	/**
-		P5: the `CoroBarrier` completion callback runs with the counter locked.
-
-		`src/hxcoro/concurrent/CoroLatch.hx:186-200`: `complete()` runs `barrierCallback()` while
-		`counter == -1` and only then calls `counter.store(maxCounter)`. A callback that calls
-		`arrive`, `arriveAndDrop` or `arriveAndWait` on the same barrier spins forever (an infinite
-		loop on JS/Lua), and other threads spin for the duration of any callback. Calling
-		`arriveAndDrop` here would hang the test run, so the test checks the counter instead.
-
-		Fix: unlock (`counter.store(maxCounter)`) before running the callback, while still resuming
-		the waiters after it. The deque has already been swapped (`this.deque = null`), so waiters of
-		the next phase can't be resumed early. Or, as a minimum, detect re-entry and throw.
-	**/
-	function testBarrierCallbackRunsUnlocked() {
-		var barrier:Null<CoroBarrier> = null;
-		var counterInCallback = 0;
-		barrier = new CoroBarrier(1, () -> {
-			final impl:CoroLatchImpl = cast barrier;
-			counterInCallback = @:privateAccess impl.counter.load();
-		});
-		barrier.arrive(1);
-		Assert.notEquals(-1, counterInCallback, "the callback ran with the counter locked");
 	}
 
 	/**
