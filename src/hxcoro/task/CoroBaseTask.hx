@@ -78,6 +78,7 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 	var result:Null<T>;
 
 	// The same as `parent`, typed as what every task is.
+	@:allow(hxcoro.debug)
 	final parentTask:Null<CoroBaseTask<Any>>;
 
 	// Called with each failed child that this task ignores as a supervisor.
@@ -129,11 +130,8 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 		#if coro.stack_traces
 		if (callerTask != null) {
 			return callerTask;
-		} else if (parent is IStackFrame) {
-			return cast parent;
-		} else {
-			return null;
 		}
+		return parentTask;
 		#else
 		return null;
 		#end

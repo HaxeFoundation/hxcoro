@@ -82,7 +82,7 @@ class SequenceDiagram {
 		if (name == null) {
 			return 'task';
 		}
-		final parent = Std.downcast(@:privateAccess task.parent, CoroBaseTask);
+		final parent = coroTask.parentTask;
 		if (parent != null && parent.context.get(CoroName) == name) {
 			return 'scope of ${name.name}';
 		}
