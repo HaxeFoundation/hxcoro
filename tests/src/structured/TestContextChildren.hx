@@ -1,6 +1,6 @@
 package structured;
 
-import haxe.exceptions.ArgumentException;
+import haxe.exceptions.CoroutineException;
 import hxcoro.elements.CoroName;
 import hxcoro.run.Setup;
 
@@ -10,12 +10,12 @@ import hxcoro.run.Setup;
 class TestContextChildren extends atest.Test {
 	function testAsyncWithoutTaskThrows() {
 		final context = Setup.createTrampoline().createContext();
-		Assert.raises(() -> context.async(_ -> 1), ArgumentException);
+		Assert.raises(() -> context.async(_ -> 1), CoroutineException);
 	}
 
 	function testLazyWithoutTaskThrows() {
 		final context = Setup.createTrampoline().createContext();
-		Assert.raises(() -> context.lazy(_ -> 1), ArgumentException);
+		Assert.raises(() -> context.lazy(_ -> 1), CoroutineException);
 	}
 
 	function testAsyncWithTaskCreatesChild() {
