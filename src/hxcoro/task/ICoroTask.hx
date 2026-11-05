@@ -28,7 +28,8 @@ interface ICoroTask<T> {
 		it has not been started yet.
 
 		Throws a `CancellationException` instead if the awaiting task is cancelled. This includes a parent
-		awaiting a child that fails, because the failure cancels the parent first.
+		awaiting a child that fails, because the failure cancels the parent first, with a
+		`FailureCancellationException` that carries the error.
 	**/
 	@:coroutine function await(#if coro.stack_traces ?startPos:haxe.PosInfos #end):T;
 
