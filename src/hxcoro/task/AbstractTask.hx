@@ -78,6 +78,7 @@ abstract class AbstractTask implements ICancellationToken {
 	static final atomicId = new AtomicInt(1); // start with 1 so we can use 0 for "no task" situations
 
 	final parent:Null<AbstractTask>;
+	final activationRequested:AtomicInt;
 
 	final cancellationManager:TaskCancellationManager;
 	final stopCause:AtomicRef<Null<StopCause>>;
@@ -125,6 +126,7 @@ abstract class AbstractTask implements ICancellationToken {
 		this.parent = parent;
 		this.kind = kind;
 		state = new AtomicState(Created);
+		activationRequested = new AtomicInt(0);
 		stopCause = new AtomicRef(null);
 		cancellationManager = @:nullSafety(Off) new TaskCancellationManager(this);
 		numActiveChildren = new AtomicInt(0);
@@ -407,10 +409,22 @@ abstract class AbstractTask implements ICancellationToken {
 
 	/**
 		Arranges for `activate` to be called where this task is supposed to run, which may be right away.
-
-		Calling this more than once is harmless, because `activate` only starts a created task.
+		Only the first call does anything.
 	**/
-	abstract function requestActivation():Void;
+	@:allow(hxcoro)
+	final function requestActivation() {
+		// `start` and the parent's `startChildren` may both request the activation of a lazy task, and
+		// `start` may be called more than once. The dispatch happens once regardless.
+		if (activationRequested.compareExchange(0, 1) == 0) {
+			dispatchActivation();
+		}
+	}
+
+	/**
+		Arranges for `activate` to be called where this task is supposed to run, which may be right away.
+		Called at most once.
+	**/
+	abstract function dispatchActivation():Void;
 
 	function lockChildren() {
 		while (true) {
