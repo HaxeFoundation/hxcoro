@@ -70,11 +70,13 @@ class CoroRun {
 	**/
 	@:coroutine
 	static public function await<T>(p:js.lib.Promise<T>) {
-		return suspend(cont -> {
+		return suspendCancellable(cont -> {
 			p.then(
 				r -> cont.resume(r, null),
 				e -> cont.resume(null, e)
 			);
+			// A promise cannot be cancelled; a settlement after the caller was cancelled is ignored.
+			return null;
 		});
 	}
 

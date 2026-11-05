@@ -83,12 +83,16 @@ class TestAwaitChildren extends atest.Test {
 				firstWoken = true;
 			});
 			yield();
-			final second = node.async(_ -> escaped.awaitChildren());
-			try {
-				second.await();
-			} catch (e:haxe.Exception) {
-				secondError = e;
-			}
+			// Under a supervisor, so that the second task's failure doesn't cancel this task, whose
+			// await would then throw the cancellation instead of delivering the second task's error.
+			supervisor(s -> {
+				final second = s.async(_ -> escaped.awaitChildren());
+				try {
+					second.await();
+				} catch (e:haxe.Exception) {
+					secondError = e;
+				}
+			});
 			latch.arrive(1);
 		});
 		Assert.isFalse(task.isActive());
