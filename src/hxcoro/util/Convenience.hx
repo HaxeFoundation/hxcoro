@@ -11,6 +11,7 @@ import haxe.coro.context.ExceptionHandler;
 import haxe.coro.continuations.FunctionContinuation;
 import haxe.coro.dispatchers.Dispatcher;
 import haxe.coro.dispatchers.IDispatchObject;
+import haxe.exceptions.ArgumentException;
 import haxe.exceptions.CancellationException;
 import hxcoro.Coro;
 import hxcoro.task.CoroBaseTask;
@@ -167,11 +168,13 @@ class ContextConvenience {
 	}
 
 	/**
-		Starts executing `lambda` in a new task using `context`. If `context` contains a task,
-		the new task becomes its child. Throws `InvalidTaskStateException` if that task has
-		already completed.
+		Starts executing `lambda` in a new child task of the task in `context`.
+
+		Throws `ArgumentException` if `context` contains no task, and `InvalidTaskStateException` if
+		that task has already completed.
 	**/
 	static public function async<T>(context:Context, lambda:NodeLambda<T>):ICoroTask<T> {
+		requireTask(context);
 		final task = new CoroTaskWithLambda<T>(context, lambda, Concurrent);
 		task.requestActivation();
 		return task;
@@ -208,9 +211,16 @@ class ContextConvenience {
 		automatically once the parent task has finished its own work, or right away if it already has.
 	**/
 	static public function lazy<T>(context:Context, lambda:NodeLambda<T>):IStartableCoroTask<T> {
+		final parent = requireTask(context);
 		final task = new CoroTaskWithLambda(context, lambda, Concurrent);
-		context.get(CoroBaseTask)?.startLateLazyChild(task);
+		parent.startLateLazyChild(task);
 		return task;
+	}
+
+	// A task without a parent would be held by nobody, so its failure would go unnoticed. Tasks
+	// without a parent are created through `ContextRun`, which hands them to the caller.
+	static function requireTask(context:Context) {
+		return context.get(CoroBaseTask) ?? throw new ArgumentException("context", "context contains no task");
 	}
 
 	/**
