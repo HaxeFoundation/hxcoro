@@ -23,7 +23,6 @@ sequenceDiagram
     T1->>T2: new
     T1->>T2: dispatch
     T1->>T2: await
-    T1->>T2: dispatch
     deactivate T1
     deactivate T1
     code->>T2: activate
@@ -212,7 +211,6 @@ sequenceDiagram
     T2->>T3: new
     T2->>T3: dispatch
     T2->>T3: await
-    T2->>T3: dispatch
     deactivate T2
     deactivate T2
     T1->>T2: await
@@ -226,7 +224,6 @@ sequenceDiagram
     T3->>T4: new
     T3->>T4: dispatch
     T3->>T4: await
-    T3->>T4: dispatch
     deactivate T3
     deactivate T3
     code->>T4: activate
