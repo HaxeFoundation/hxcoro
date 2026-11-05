@@ -10,6 +10,9 @@ import hxcoro.concurrent.AtomicRef;
 import hxcoro.concurrent.AtomicState;
 import hxcoro.concurrent.BackOff;
 import hxcoro.task.StopCause;
+#if hxcoro.trace_tasks
+import hxcoro.debug.TaskTrace;
+#end
 
 /**
 	The lifecycle state of a task.
@@ -78,6 +81,9 @@ abstract class AbstractTask implements ICancellationToken {
 	static final atomicId = new AtomicInt(1); // start with 1 so we can use 0 for "no task" situations
 
 	final parent:Null<AbstractTask>;
+	#if hxcoro.trace_tasks
+	final taskTrace:Null<TaskTrace>;
+	#end
 
 	final cancellationManager:TaskCancellationManager;
 	final stopCause:AtomicRef<Null<StopCause>>;
@@ -115,15 +121,21 @@ abstract class AbstractTask implements ICancellationToken {
 		return id;
 	}
 
-	// Lifecycle tracing, see TaskTrace. Both compile to nothing without -D hxcoro.trace_tasks.
+	// Lifecycle tracing, see hxcoro.debug.TaskTrace. Both compile to nothing without -D hxcoro.trace_tasks.
 
 	inline function traceTask(method:String, ?other:AbstractTask, ?info:String, ?enter:Bool) {
-		TaskTrace.log(this, method, other, info, enter);
+		#if hxcoro.trace_tasks
+		if (taskTrace != null) {
+			taskTrace.log(this, method, other, info, enter);
+		}
+		#end
 	}
 
 	inline function traceState(from:TaskState, to:TaskState) {
 		#if hxcoro.trace_tasks
-		TaskTrace.log(this, "state", null, from.toString() + " → " + to.toString());
+		if (taskTrace != null) {
+			taskTrace.log(this, "state", null, from.toString() + " → " + to.toString());
+		}
 		#end
 	}
 
@@ -132,7 +144,10 @@ abstract class AbstractTask implements ICancellationToken {
 
 		Throws `InvalidTaskStateException` if `parent` has already completed.
 	**/
-	public function new(parent:Null<AbstractTask>, kind:TaskKind) {
+	public function new(parent:Null<AbstractTask>, kind:TaskKind#if hxcoro.trace_tasks, taskTrace:Null<TaskTrace>#end) {
+		#if hxcoro.trace_tasks
+		this.taskTrace = taskTrace;
+		#end
 		id = atomicId.add(1);
 		this.parent = parent;
 		this.kind = kind;

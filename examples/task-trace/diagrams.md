@@ -1,6 +1,6 @@
 # Task lifecycles
 
-Sequence diagrams of the lifecycle method calls of hxcoro tasks, recorded with `-D hxcoro.trace_tasks` and rendered by this example. Regenerate this file with `haxe --cwd examples/task-trace build-eval.hxml`.
+Sequence diagrams of the lifecycle method calls of hxcoro tasks, recorded with `hxcoro.debug.TaskTrace` and rendered with `hxcoro.debug.SequenceDiagram`. Regenerate this file with `haxe --cwd examples/task-trace build-eval.hxml`.
 
 An arrow is a method call on the target task, from the task whose method is running, or from `code` when none is. A bar is the time a method is active. A note is a state change or the result of a method.
 

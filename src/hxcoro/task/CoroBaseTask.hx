@@ -11,6 +11,9 @@ import haxe.coro.context.Key;
 import haxe.coro.continuations.FunctionContinuation;
 import haxe.exceptions.CancellationException;
 import hxcoro.concurrent.ThreadSafeCallbacks;
+#if hxcoro.trace_tasks
+import hxcoro.debug.TaskTrace;
+#end
 import hxcoro.elements.NonCancellable;
 import hxcoro.task.AbstractTask;
 import hxcoro.task.CoroTask;
@@ -92,7 +95,7 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 		// which replaces the one of its parent in the context, it is consumed here rather than inherited.
 		nonCancellable = context.get(NonCancellable) != null;
 		this.context = context.clone().without(NonCancellable.key).with(this).set(CancellationToken, this);
-		super(parent, kind);
+		super(parent, kind#if hxcoro.trace_tasks, context.get(TaskTrace)#end);
 	}
 
 	inline function get_context() {

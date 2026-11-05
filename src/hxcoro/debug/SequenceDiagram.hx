@@ -1,10 +1,13 @@
+package hxcoro.debug;
+
+#if hxcoro.trace_tasks
+import hxcoro.debug.TaskTrace.TaskTraceEvent;
 import hxcoro.elements.CoroName;
 import hxcoro.task.AbstractTask;
 import hxcoro.task.CoroBaseTask;
-import hxcoro.task.TaskTrace;
 
 /**
-	Renders the events recorded by `TaskTrace` as a Mermaid sequence diagram.
+	Renders the events recorded by a `TaskTrace` as a Mermaid sequence diagram.
 
 	Each task is a participant, named after its `CoroName` if it introduced one, and `scope of X`
 	if it inherited the name of its parent `X`. Entering a method draws an arrow from the task whose
@@ -14,7 +17,7 @@ import hxcoro.task.TaskTrace;
 class SequenceDiagram {
 	static public function render(events:Array<TaskTraceEvent>):String {
 		final ids = new Map<Int, String>();
-		final labels = [];
+		final labels:Array<String> = [];
 		function participant(task:AbstractTask):String {
 			final id = ids.get(task.id);
 			if (id != null) {
@@ -25,7 +28,7 @@ class SequenceDiagram {
 			labels.push('participant $id as ${label(task)}');
 			return id;
 		}
-		final lines = [];
+		final lines:Array<String> = [];
 		final stack:Array<AbstractTask> = [];
 		var usesCode = false;
 		for (event in events) {
@@ -42,10 +45,11 @@ class SequenceDiagram {
 				lines.push('deactivate $target');
 				continue;
 			}
+			final other = event.other;
 			final source = if (stack.length > 0) {
 				participant(stack[stack.length - 1]);
-			} else if (event.other != null) {
-				participant(event.other);
+			} else if (other != null) {
+				participant(other);
 			} else {
 				usesCode = true;
 				"code";
@@ -80,3 +84,4 @@ class SequenceDiagram {
 		return name.name;
 	}
 }
+#end

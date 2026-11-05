@@ -1,14 +1,15 @@
 import haxe.Exception;
 import haxe.coro.IContinuation;
 import haxe.exceptions.CancellationException;
+import hxcoro.debug.SequenceDiagram;
+import hxcoro.debug.TaskTrace;
 import hxcoro.elements.CoroName;
 import hxcoro.elements.NonCancellable;
-import hxcoro.task.TaskTrace;
 
 typedef Scenario = {
 	final title:String;
 	final description:String;
-	final run:() -> Void;
+	final run:(trace:TaskTrace) -> Void;
 }
 
 /**
@@ -24,7 +25,7 @@ class Scenarios {
 		{
 			title: "A child completes",
 			description: "The root creates a child that yields once and returns a value, and awaits it.",
-			run: () -> VirtualRun.run(node -> {
+			run: trace -> VirtualRun.run(trace, node -> {
 				final child = node.with(new CoroName("child")).async(_ -> {
 					yield();
 					42;
@@ -35,7 +36,7 @@ class Scenarios {
 		{
 			title: "A child is cancelled",
 			description: "The root creates a child that waits for cancellation, cancels it, and awaits it.",
-			run: () -> VirtualRun.run(node -> {
+			run: trace -> VirtualRun.run(trace, node -> {
 				final child = node.with(new CoroName("child")).async(_ -> awaitCancellation());
 				yield();
 				child.cancel();
@@ -47,7 +48,7 @@ class Scenarios {
 		{
 			title: "A child fails",
 			description: "Under a supervisor, a parent creates a child that throws, and awaits it. The failure is reported to the parent while the child is still winding down, and the parent's cancellation interrupts the await.",
-			run: () -> VirtualRun.run(node -> {
+			run: trace -> VirtualRun.run(trace, node -> {
 				supervisor(s -> {
 					final parent = s.with(new CoroName("parent")).async(p -> {
 						final child = p.with(new CoroName("child")).async(_ -> {
@@ -65,7 +66,7 @@ class Scenarios {
 		{
 			title: "A NonCancellable cleanup block",
 			description: "A cancelled child runs a cleanup block in a `NonCancellable` scope before it rethrows. The parent's cancellation does not reach the block.",
-			run: () -> VirtualRun.run(node -> {
+			run: trace -> VirtualRun.run(trace, node -> {
 				final child = node.with(new CoroName("child")).async(n -> {
 					try {
 						awaitCancellation();
@@ -85,9 +86,7 @@ class Scenarios {
 
 	static public function record(scenario:Scenario):Array<TaskTraceEvent> {
 		final events = [];
-		TaskTrace.start(event -> events.push(event));
-		scenario.run();
-		TaskTrace.stop();
+		scenario.run(new TaskTrace(event -> events.push(event)));
 		return events;
 	}
 
@@ -95,7 +94,7 @@ class Scenarios {
 		final out = [
 			"# Task lifecycles",
 			"",
-			"Sequence diagrams of the lifecycle method calls of hxcoro tasks, recorded with `-D hxcoro.trace_tasks` and rendered by this example. Regenerate this file with `haxe --cwd examples/task-trace build-eval.hxml`.",
+			"Sequence diagrams of the lifecycle method calls of hxcoro tasks, recorded with `hxcoro.debug.TaskTrace` and rendered with `hxcoro.debug.SequenceDiagram`. Regenerate this file with `haxe --cwd examples/task-trace build-eval.hxml`.",
 			"",
 			"An arrow is a method call on the target task, from the task whose method is running, or from `code` when none is. A bar is the time a method is active. A note is a state change or the result of a method.",
 			"",

@@ -9,7 +9,7 @@ The [wiki](https://github.com/HaxeFoundation/hxcoro/wiki) explains the API with 
 | [generators](generators/) | Synchronous generators in Haxe, ES6 and C# style, and an asynchronous generator |
 | [http-server](http-server/) | An HTTP server with a task per connection, request timeouts, graceful shutdown and request-scoped context |
 | [json-parser](json-parser/) | A streaming JSON parser built from a `Pipe` of bytes and a `Channel` of tokens |
-| [task-trace](task-trace/) | Sequence diagrams of task lifecycles, generated from the lifecycle tracing of `-D hxcoro.trace_tasks` |
+| [task-trace](task-trace/) | Sequence diagrams of task lifecycles, recorded with `hxcoro.debug.TaskTrace` under `-D hxcoro.trace_tasks` |
 
 
 ## Layout
