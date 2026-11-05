@@ -3,6 +3,7 @@ package cases;
 import haxe.atomic.AtomicInt;
 import haxe.coro.dispatchers.IDispatchObject;
 import hxcoro.thread.FixedThreadPool;
+import hxcoro.thread.ThreadPoolException;
 import sys.thread.Lock;
 import sys.thread.Thread;
 
@@ -15,6 +16,35 @@ private class Increment implements IDispatchObject {
 
 	public function onDispatch() {
 		counter.add(1);
+	}
+}
+
+// Dispatches itself again from the pool thread until it has run `remaining` times.
+private class Redispatch implements IDispatchObject {
+	final pool:FixedThreadPool;
+	final counter:AtomicInt;
+	final started:Lock;
+	var remaining:Int;
+	public var error:Null<haxe.Exception>;
+
+	public function new(pool:FixedThreadPool, counter:AtomicInt, started:Lock, remaining:Int) {
+		this.pool = pool;
+		this.counter = counter;
+		this.started = started;
+		this.remaining = remaining;
+	}
+
+	public function onDispatch() {
+		if (counter.add(1) == 0) {
+			started.release();
+		}
+		if (--remaining > 0) {
+			try {
+				pool.run(this);
+			} catch (e:haxe.Exception) {
+				error = e;
+			}
+		}
 	}
 }
 
@@ -62,5 +92,72 @@ class TestFixedThreadPool extends atest.Test {
 			}
 		}
 		Assert.pass();
+	}
+
+	/**
+		While `shutDown(true)` ran, `run` from other threads was still accepted after the workers had
+		exited, so the work was lost without an exception. Work from outside the pool is now
+		rejected once the shutdown has started.
+	**/
+	function testWorkAcceptedDuringShutdownRuns() {
+		final rounds = 50;
+		for (round in 0...rounds) {
+			final pool = new FixedThreadPool(4);
+			final accepted = new AtomicInt(0);
+			final executed = new AtomicInt(0);
+			final started = new Lock();
+			final stopped = new Lock();
+			Thread.create(() -> {
+				started.release();
+				while (true) {
+					try {
+						pool.run(new Increment(executed));
+					} catch (_:ThreadPoolException) {
+						break;
+					}
+					accepted.add(1);
+				}
+				stopped.release();
+			});
+			started.wait();
+			pool.shutDown(true);
+			Assert.isTrue(stopped.wait(10.0), "the producer was never rejected");
+			final deadline = Sys.time() + 1.0;
+			while (executed.load() < accepted.load() && Sys.time() < deadline) {
+				Sys.sleep(0.01);
+			}
+			if (executed.load() != accepted.load()) {
+				Assert.fail('round $round: ${accepted.load() - executed.load()} of ${accepted.load()} accepted dispatches never ran');
+				return;
+			}
+		}
+		Assert.pass();
+	}
+
+	/**
+		`shutDown(false)` marked the pool as shut down right away, while the workers were still
+		draining, so a dispatch from a pool thread was rejected and its work lost.
+	**/
+	function testPoolThreadsDispatchDuringShutdown() {
+		final count = 1000;
+		final pool = new FixedThreadPool(2);
+		final counter = new AtomicInt(0);
+		final started = new Lock();
+		final obj = new Redispatch(pool, counter, started, count);
+		pool.run(obj);
+		Assert.isTrue(started.wait(5.0), "the pool never ran the first dispatch");
+		pool.shutDown(false);
+		final deadline = Sys.time() + 10.0;
+		while (counter.load() < count && obj.error == null && Sys.time() < deadline) {
+			Sys.sleep(0.01);
+		}
+		Assert.isNull(obj.error, "a dispatch from a pool thread was rejected during shutdown");
+		Assert.equals(count, counter.load());
+	}
+
+	function testRejectsWorkAfterShutdown() {
+		final pool = new FixedThreadPool(2);
+		pool.shutDown(true);
+		Assert.raises(() -> pool.run(new Increment(new AtomicInt(0))), ThreadPoolException);
 	}
 }

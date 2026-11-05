@@ -16,17 +16,19 @@ interface IThreadPool {
 	/**
 		Submit a task to run in a thread.
 
-		Throws an exception if the pool is shut down.
+		Throws an exception if the pool is shut down. While it is shutting down, only tasks
+		submitted from the pool's own threads are accepted.
 	**/
 	function run(obj:IDispatchObject):Void;
 
 	/**
 		Initiates a shutdown.
-		All previousely submitted tasks will be executed, but no new tasks will
-		be accepted.
+		All previously submitted tasks will be executed, as well as the tasks they
+		submit. Tasks from other threads are rejected.
 
 		If `block == true`, the calling thread blocks until all threads in the pool
-		have shut down.
+		have shut down, which includes running the tasks that the pool's tasks keep
+		submitting.
 
 		Multiple calls to this method have no effect.
 
