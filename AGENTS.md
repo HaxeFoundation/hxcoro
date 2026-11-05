@@ -89,6 +89,7 @@ src/
     ├── concurrent/        # CoroMutex, CoroSemaphore, CoroLatch, CoroBarrier, AtomicState, BackOff
     ├── ds/                # Data structures, channels/ and pipelines/
     ├── elements/          # Context elements (CoroName, NonCancellable, DefaultExceptionHandler)
+    ├── debug/             # Task lifecycle tracing, only with -D hxcoro.trace_tasks
     ├── thread/            # Thread pool and work-stealing queue
     ├── exceptions/        # TimeoutException, etc.
     └── util/
@@ -110,6 +111,11 @@ Files with a target suffix such as `Foo.cpp.hx` or `Foo.eval.hx` are only used o
 1. **Coroutines** are functions marked with `@:coroutine`. They can call other coroutines and suspend functions from `hxcoro.Coro`.
 2. **Structured concurrency:** coroutines run inside a task tree. `CoroRun.run(node -> ...)` starts a root task. `node.async(...)` and `node.lazy(...)` create child tasks. `scope`, `supervisor` and `timeout` create nested scopes with defined lifetimes. Cancellation propagates through the tree as `CancellationException`.
 3. **Dispatchers and schedulers** decide where and when continuations resume. `hxcoro.run.Setup` contains factory helpers such as `createTrampoline` and `createThreadPool`.
+4. **Task tree semantics** follow Kotlin coroutines where hxcoro doesn't say otherwise; when behaviour is in doubt, check what Kotlin does. The invariants that are easy to break when touching `hxcoro.task`:
+   - A cancelled child never affects its parent. A failing `Concurrent` child reports to its parent right away, before it completes, so the parent can cancel its other children while the child winds down. A parent awaiting that child is cancelled first and catches a `FailureCancellationException` from `await`.
+   - The cancellation cause is created once per failure or cancellation and shared with the children and the cancellation callbacks.
+   - `NonCancellable` applies to the task created with it and is not inherited.
+   - A task in a final state refuses new children; a child of a cancelling parent is cancelled with the parent's cause before it starts. A task is dispatched once, however often its start is requested.
 
 ## Code Style and Conventions
 
@@ -119,6 +125,7 @@ Files with a target suffix such as `Foo.cpp.hx` or `Foo.eval.hx` are only used o
 - Stack-trace bookkeeping (`?startPos:haxe.PosInfos` parameters and similar) is gated on `#if coro.stack_traces`, not `#if debug`.
 - Use conditional compilation (`#if target.threaded`, `#if cpp`, `#if lua_vanilla`, ...) or target-suffixed files for target-specific code. `-D lua-vanilla` has no `Sys.sleep` or `Sys.time`.
 - Busy loops such as CAS retry loops should use `hxcoro.concurrent.BackOff`. This avoids GC deadlocks on some targets.
+- Doc comments are brief and say what a function does and what it throws. Don't list use cases, and don't refer to other API functions from a doc comment. How something works internally goes into line comments at the code, not into the doc comment.
 
 ### Writing Tests
 
@@ -129,6 +136,12 @@ Files with a target suffix such as `Foo.cpp.hx` or `Foo.eval.hx` are only used o
 - A task that is cancelled before it starts never runs its body. To have tasks reach a certain point before cancelling them, let them arrive at a `CoroLatch` first and wait for it.
 - Tests that create threads, thread pools or thread-aware schedulers themselves go to `thread-tests/src/cases/`, where they are discovered automatically. Give every wait a deadline, so that a bug fails the test instead of hanging the run.
 - For callstack tests, add `callstack-tests/cases/<name>/Test.hx`. It is discovered automatically. See `callstack-tests/README.md` for the per-target stack quirks.
+- Before pushing a fix with a regression test, check that the test fails without the fix (stash `src/`, run the suite, unstash).
+- `tests/src/review/` and `thread-tests/src/review/` hold tests for known bugs from the 1.0 review, each documented in the test's doc comment. They are expected to fail and only run with `-D hxcoro-known-failures`, in a CI job that doesn't fail the workflow. When fixing one of these bugs, move its test out of the `review` package into the regular suite.
+
+### Debugging
+
+With `-D hxcoro.trace_tasks`, the task classes report every lifecycle call to the `hxcoro.debug.TaskTrace` element of their context, and `hxcoro.debug.SequenceDiagram` renders a recording as a Mermaid sequence diagram. Put `new TaskTrace(event -> events.push(event))` into the root context to trace everything, or into `node.with(...)` to trace one subtree. `examples/task-trace/diagrams.md` shows the common lifecycles; its test regenerates it, so commit the new version after changing the task classes.
 
 ## Notes for Agents
 
@@ -136,3 +149,4 @@ Files with a target suffix such as `Foo.cpp.hx` or `Foo.eval.hx` are only used o
 - Targets differ in subtle ways, especially in threading, stack traces and timers. Run eval first, then at least one threaded target (cpp, jvm or hl) and js for anything concurrency-related.
 - Code that shows how to use hxcoro but shouldn't become API belongs in `examples/`, not `src/`.
 - Don't commit build output: `bin/`, `dump/`, `.hxb` files, `.haxelib/` and `benchmarks/results/`.
+- Keep unrelated changes in separate pull requests. Pull requests are squash-merged, so a branch stacked on another pull request keeps that one's commits after the merge; rebuild it on master then, so that the pull request shows only its own commits.
