@@ -74,8 +74,11 @@ class FixedThreadPool implements IThreadPool {
 		queueTls.value = ownerQueue;
 		sharedQueueMutex = new Mutex();
 		sharedQueue = queues[1];
-		// The workers only read the fields that are set above.
-		pool = @:nullSafety(Off) [for(i in 0...threadsCount) new Worker(this, queues, i + 2)];
+		// Assigned before the workers are created, so that all fields are set when they get `this`.
+		pool = [];
+		for (i in 0...threadsCount) {
+			pool.push(new Worker(this, queues, i + 2));
+		}
 		for (worker in pool) {
 			worker.start();
 		}
