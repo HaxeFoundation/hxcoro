@@ -224,9 +224,8 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 			this.startPos = startPos;
 		}
 		#end
-		// A task that is no longer `Created` has started already. A task whose start was dispatched
-		// but hasn't run yet is still `Created` and gets dispatched again, but `activate` only starts
-		// it once.
+		// A task that is no longer `Created` has started already. One that is still `Created` may have
+		// been dispatched already too, which `requestActivation` takes care of.
 		if (state.load() == Created) {
 			requestActivation();
 		}
