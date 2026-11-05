@@ -5,8 +5,8 @@ import hxcoro.thread.WorkStealingQueue;
 class TestWorkStealingQueue extends atest.Test {
 	// Read as `Dynamic`, because on the JVM the storage of a type parameter is an `Object[]`.
 	static function slot(queue:WorkStealingQueue<Array<Int>>, i:Int):Dynamic {
-		final slots:haxe.ds.Vector<Dynamic> = cast @:privateAccess queue.storage.load().slots;
-		return slots[i & (slots.length - 1)];
+		final slots:hxcoro.ds.CircularVector<Dynamic> = cast @:privateAccess queue.storage.load().slots;
+		return slots[i];
 	}
 
 	/**
