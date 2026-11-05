@@ -2,7 +2,7 @@
 
 Sequence diagrams of the lifecycle method calls of hxcoro tasks, recorded with `hxcoro.debug.TaskTrace` and rendered with `hxcoro.debug.SequenceDiagram`. Regenerate this file with `haxe --cwd examples/task-trace build-eval.hxml`.
 
-An arrow is a method call on the target task, from the task whose method is running, or from `code` when none is. A bar is the time a method is active. A note is a state change or the result of a method.
+An arrow is a method call on the target task, from the task whose method or body is running, or from `outside` when none is. A bar is the time a method is active, or the time a body runs after a suspension (`run`). A note is a state change or the result of a method.
 
 ## A child completes
 
@@ -10,12 +10,12 @@ The root creates a child that yields once and returns a value, and awaits it.
 
 ```mermaid
 sequenceDiagram
-    participant code
+    participant outside
     participant T1 as root
     participant T2 as child
-    code->>T1: new
-    code->>T1: dispatch
-    code->>T1: activate
+    outside->>T1: new
+    outside->>T1: dispatch
+    outside->>T1: activate
     activate T1
     Note over T1: Created → Running
     T1->>T1: runOwnWork
@@ -25,14 +25,17 @@ sequenceDiagram
     T1->>T2: await
     deactivate T1
     deactivate T1
-    code->>T2: activate
+    outside->>T2: activate
     activate T2
     Note over T2: Created → Running
     T2->>T2: runOwnWork
     activate T2
     deactivate T2
     deactivate T2
-    code->>T2: resume
+    outside->>T2: run
+    activate T2
+    deactivate T2
+    outside->>T2: resume
     activate T2
     T2->>T2: ownWorkSucceeds
     activate T2
@@ -60,7 +63,9 @@ sequenceDiagram
     Note over T2: completed
     deactivate T2
     deactivate T2
-    code->>T1: resume
+    outside->>T1: run
+    activate T1
+    T1->>T1: resume
     activate T1
     T1->>T1: ownWorkSucceeds
     activate T1
@@ -81,6 +86,7 @@ sequenceDiagram
     Note over T1: completed
     deactivate T1
     deactivate T1
+    deactivate T1
 ```
 
 ## A child is cancelled
@@ -89,12 +95,12 @@ The root creates a child that waits for cancellation, cancels it, and awaits it.
 
 ```mermaid
 sequenceDiagram
-    participant code
+    participant outside
     participant T1 as root
     participant T2 as child
-    code->>T1: new
-    code->>T1: dispatch
-    code->>T1: activate
+    outside->>T1: new
+    outside->>T1: dispatch
+    outside->>T1: activate
     activate T1
     Note over T1: Created → Running
     T1->>T1: runOwnWork
@@ -103,14 +109,16 @@ sequenceDiagram
     T1->>T2: dispatch
     deactivate T1
     deactivate T1
-    code->>T2: activate
+    outside->>T2: activate
     activate T2
     Note over T2: Created → Running
     T2->>T2: runOwnWork
     activate T2
     deactivate T2
     deactivate T2
-    code->>T2: cancel
+    outside->>T1: run
+    activate T1
+    T1->>T2: cancel
     activate T2
     T2->>T2: requestStop
     activate T2
@@ -129,7 +137,11 @@ sequenceDiagram
     deactivate T2
     deactivate T2
     T1->>T2: await
-    code->>T2: resume
+    deactivate T1
+    outside->>T2: run
+    activate T2
+    deactivate T2
+    outside->>T2: resume
     activate T2
     T2->>T2: ownWorkFails
     activate T2
@@ -161,7 +173,10 @@ sequenceDiagram
     Note over T2: completed
     deactivate T2
     deactivate T2
-    code->>T1: resume
+    outside->>T1: run
+    activate T1
+    deactivate T1
+    outside->>T1: resume
     activate T1
     T1->>T1: ownWorkSucceeds
     activate T1
@@ -190,14 +205,14 @@ Under a supervisor, a parent creates a child that throws, and awaits it. The fai
 
 ```mermaid
 sequenceDiagram
-    participant code
+    participant outside
     participant T1 as root
     participant T2 as scope of root
     participant T3 as parent
     participant T4 as child
-    code->>T1: new
-    code->>T1: dispatch
-    code->>T1: activate
+    outside->>T1: new
+    outside->>T1: dispatch
+    outside->>T1: activate
     activate T1
     Note over T1: Created → Running
     T1->>T1: runOwnWork
@@ -216,7 +231,7 @@ sequenceDiagram
     T1->>T2: await
     deactivate T1
     deactivate T1
-    code->>T3: activate
+    outside->>T3: activate
     activate T3
     Note over T3: Created → Running
     T3->>T3: runOwnWork
@@ -226,14 +241,17 @@ sequenceDiagram
     T3->>T4: await
     deactivate T3
     deactivate T3
-    code->>T4: activate
+    outside->>T4: activate
     activate T4
     Note over T4: Created → Running
     T4->>T4: runOwnWork
     activate T4
     deactivate T4
     deactivate T4
-    code->>T4: resume
+    outside->>T4: run
+    activate T4
+    deactivate T4
+    outside->>T4: resume
     activate T4
     T4->>T4: ownWorkFails
     activate T4
@@ -311,7 +329,9 @@ sequenceDiagram
     Note over T4: completed
     deactivate T4
     deactivate T4
-    code->>T3: resume
+    outside->>T3: run
+    activate T3
+    T3->>T3: resume
     activate T3
     T3->>T3: ownWorkFails
     activate T3
@@ -343,7 +363,11 @@ sequenceDiagram
     Note over T3: completed
     deactivate T3
     deactivate T3
-    code->>T2: resume
+    deactivate T3
+    outside->>T2: run
+    activate T2
+    deactivate T2
+    outside->>T2: resume
     activate T2
     T2->>T2: ownWorkSucceeds
     activate T2
@@ -371,7 +395,10 @@ sequenceDiagram
     Note over T2: completed
     deactivate T2
     deactivate T2
-    code->>T1: resume
+    outside->>T1: run
+    activate T1
+    deactivate T1
+    outside->>T1: resume
     activate T1
     T1->>T1: ownWorkSucceeds
     activate T1
@@ -400,13 +427,13 @@ A cancelled child runs a cleanup block in a `NonCancellable` scope before it ret
 
 ```mermaid
 sequenceDiagram
-    participant code
+    participant outside
     participant T1 as root
     participant T2 as child
     participant T3 as cleanup
-    code->>T1: new
-    code->>T1: dispatch
-    code->>T1: activate
+    outside->>T1: new
+    outside->>T1: dispatch
+    outside->>T1: activate
     activate T1
     Note over T1: Created → Running
     T1->>T1: runOwnWork
@@ -415,14 +442,16 @@ sequenceDiagram
     T1->>T2: dispatch
     deactivate T1
     deactivate T1
-    code->>T2: activate
+    outside->>T2: activate
     activate T2
     Note over T2: Created → Running
     T2->>T2: runOwnWork
     activate T2
     deactivate T2
     deactivate T2
-    code->>T2: cancel
+    outside->>T1: run
+    activate T1
+    T1->>T2: cancel
     activate T2
     T2->>T2: requestStop
     activate T2
@@ -441,8 +470,11 @@ sequenceDiagram
     deactivate T2
     deactivate T2
     T1->>T2: await
+    deactivate T1
+    outside->>T2: run
+    activate T2
     T2->>T3: new
-    code->>T3: activate
+    T2->>T3: activate
     activate T3
     Note over T3: Created → Running
     T3->>T3: cancel
@@ -454,7 +486,11 @@ sequenceDiagram
     deactivate T3
     deactivate T3
     T2->>T3: await
-    code->>T3: resume
+    deactivate T2
+    outside->>T3: run
+    activate T3
+    deactivate T3
+    outside->>T3: resume
     activate T3
     T3->>T3: ownWorkSucceeds
     activate T3
@@ -482,7 +518,10 @@ sequenceDiagram
     Note over T3: completed
     deactivate T3
     deactivate T3
-    code->>T2: resume
+    outside->>T2: run
+    activate T2
+    deactivate T2
+    outside->>T2: resume
     activate T2
     T2->>T2: ownWorkFails
     activate T2
@@ -514,7 +553,10 @@ sequenceDiagram
     Note over T2: completed
     deactivate T2
     deactivate T2
-    code->>T1: resume
+    outside->>T1: run
+    activate T1
+    deactivate T1
+    outside->>T1: resume
     activate T1
     T1->>T1: ownWorkSucceeds
     activate T1

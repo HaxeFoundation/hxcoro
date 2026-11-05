@@ -5,6 +5,10 @@ import haxe.coro.IContinuation;
 import haxe.coro.IStackFrame;
 import haxe.coro.SuspensionResult;
 import haxe.coro.context.Context;
+#if hxcoro.trace_tasks
+import hxcoro.debug.TaskTrace;
+import hxcoro.task.CoroBaseTask;
+#end
 
 /**
 	Abstract base class for continuation wrappers (`RacingContinuation`,
@@ -35,4 +39,16 @@ abstract class StackFrameContinuation<T> extends SuspensionResult<T> implements 
 	public function getStackItem(): Null<CoroStackItem> {
 		return null;
 	}
+
+	#if hxcoro.trace_tasks
+	// The wrapped coroutine body runs inside `onDispatch`, from its resumption to its next suspension,
+	// which this reports to the task's TaskTrace as the `run` method.
+	inline function traceRun(enter:Bool) {
+		final task = context.get(CoroBaseTask);
+		final trace = context.get(TaskTrace);
+		if (task != null && trace != null) {
+			trace.log(task, "run", null, null, enter);
+		}
+	}
+	#end
 }

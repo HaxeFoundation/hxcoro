@@ -1,7 +1,11 @@
+import haxe.coro.context.Context;
 import hxcoro.Coro.*;
 import hxcoro.CoroRun;
+import hxcoro.debug.SequenceDiagram;
 import hxcoro.debug.TaskTrace;
 import hxcoro.dispatchers.TrampolineDispatcher;
+import hxcoro.elements.CoroName;
+import hxcoro.run.Setup;
 import hxcoro.schedulers.VirtualTimeScheduler;
 import sys.FileSystem;
 import sys.io.File;
@@ -48,6 +52,35 @@ class TestTaskTrace extends atest.Test {
 			Assert.isTrue(events.length > 0, '${scenario.title} produced no events');
 			Assert.isTrue(events.filter(e -> e.method == "state").length > 0, '${scenario.title} produced no state changes');
 		}
+	}
+
+	/**
+		On a thread pool, a call made by a task's body is attributed to that task, and the frames of
+		the threads don't get mixed up.
+	**/
+	function testCallsFromABodyOnAThreadPoolComeFromItsTask() {
+		final events = [];
+		final trace = new TaskTrace(event -> events.push(event));
+		final setup = Setup.createDefault();
+		setup.adaptContext(Context.create(trace, new CoroName("main"))).runTask(node -> {
+			final child = node.with(new CoroName("child")).async(_ -> {
+				while (true) {
+					delay(1);
+				}
+			});
+			delay(5);
+			child.cancel();
+		});
+		setup.close();
+		final diagram = SequenceDiagram.render(events);
+		final lines = diagram.split("\n").map(StringTools.trim);
+		Assert.contains("participant T1 as main", lines);
+		Assert.contains("participant T2 as child", lines);
+		// main's body cancels the child after a delay, so the call comes from main's run span.
+		Assert.contains("T1->>T2: cancel", lines, diagram);
+		// The child's body throws the cancellation, which its own resume reports.
+		Assert.contains("T2->>T2: ownWorkFails", lines, diagram);
+		Assert.notContains("outside->>T2: cancel", lines, diagram);
 	}
 
 	/**

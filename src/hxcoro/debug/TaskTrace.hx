@@ -4,13 +4,19 @@ package hxcoro.debug;
 import haxe.coro.context.IElement;
 import haxe.coro.context.Key;
 import hxcoro.task.AbstractTask;
+import sys.thread.Tls;
 
 /**
-	A lifecycle method call of a task.
+	A lifecycle method call of a task. The `run` method is not a method of the task but the time its
+	coroutine body runs after a suspension.
 **/
 typedef TaskTraceEvent = {
 	final task:AbstractTask;
 	final method:String;
+	/**
+		Identifies the thread the call happened on: 1 for the first thread the element saw, and so on.
+	**/
+	final threadId:Int;
 	/**
 		The other task involved, e.g. the parent of a new task or the child that completed.
 	**/
@@ -33,6 +39,8 @@ class TaskTrace implements IElement<TaskTrace> {
 	static public final key = new Key<TaskTrace>("TaskTrace");
 
 	final sink:TaskTraceEvent->Void;
+	final threadIds = new Tls<Int>();
+	var nextThreadId = 0;
 	#if target.threaded
 	final mutex = new sys.thread.Mutex();
 	#end
@@ -48,12 +56,17 @@ class TaskTrace implements IElement<TaskTrace> {
 		return key;
 	}
 
-	@:allow(hxcoro.task)
+	@:allow(hxcoro)
 	function log(task:AbstractTask, method:String, ?other:AbstractTask, ?info:String, ?enter:Bool) {
 		#if target.threaded
 		mutex.acquire();
 		#end
-		sink({task: task, method: method, other: other, info: info, enter: enter});
+		var threadId:Null<Int> = threadIds.value;
+		if (threadId == null || threadId == 0) {
+			threadId = ++nextThreadId;
+			threadIds.value = threadId;
+		}
+		sink({task: task, method: method, threadId: threadId, other: other, info: info, enter: enter});
 		#if target.threaded
 		mutex.release();
 		#end

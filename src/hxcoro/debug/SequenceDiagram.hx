@@ -11,8 +11,8 @@ import hxcoro.task.CoroBaseTask;
 
 	Each task is a participant, named after its `CoroName` if it introduced one, and `scope of X`
 	if it inherited the name of its parent `X`. Entering a method draws an arrow from the task whose
-	method is currently running, or from the other task of the event, or from `code` if neither is
-	known; leaving it ends the activation. State changes are notes.
+	method or body is running on the same thread, or from the other task of the event, or from
+	`outside` if neither is known; leaving it ends the activation. State changes are notes.
 **/
 class SequenceDiagram {
 	static public function render(events:Array<TaskTraceEvent>):String {
@@ -29,10 +29,15 @@ class SequenceDiagram {
 			return id;
 		}
 		final lines:Array<String> = [];
-		final stack:Array<AbstractTask> = [];
-		var usesCode = false;
+		final stacks = new Map<Int, Array<AbstractTask>>();
+		var usesOutside = false;
 		for (event in events) {
 			final target = participant(event.task);
+			var stack = stacks.get(event.threadId);
+			if (stack == null) {
+				stack = [];
+				stacks.set(event.threadId, stack);
+			}
 			if (event.method == "state") {
 				lines.push('Note over $target: ${event.info}');
 				continue;
@@ -51,8 +56,8 @@ class SequenceDiagram {
 			} else if (other != null) {
 				participant(other);
 			} else {
-				usesCode = true;
-				"code";
+				usesOutside = true;
+				"outside";
 			}
 			final text = event.info == null ? event.method : '${event.method}: ${event.info}';
 			lines.push('$source->>$target: $text');
@@ -62,8 +67,8 @@ class SequenceDiagram {
 			}
 		}
 		final header = ["sequenceDiagram"];
-		if (usesCode) {
-			header.push("participant code");
+		if (usesOutside) {
+			header.push("participant outside");
 		}
 		return header.concat(labels).concat(lines).map(line -> line == "sequenceDiagram" ? line : '    $line').join("\n");
 	}
