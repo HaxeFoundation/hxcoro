@@ -92,12 +92,13 @@ class TestAwait extends atest.Test {
 	function testAwaitOnFailingChildThrowsFailureCancellation() {
 		var caught:Null<FailureCancellationException> = null;
 		var t:Null<ICoroTask<Any>> = null;
+		final thrown = new Exception("boom");
 		final task = VirtualRun.run(node -> {
 			supervisor(s -> {
 				t = s.async(p -> {
 					final child = p.async(_ -> {
 						yield();
-						throw new Exception("boom");
+						throw thrown;
 					});
 					try {
 						child.await();
@@ -110,9 +111,9 @@ class TestAwait extends atest.Test {
 		});
 		Assert.isFalse(task.isActive());
 		Assert.notNull(caught, "await didn't throw a FailureCancellationException");
-		Assert.equals("boom", caught.error.message);
+		Assert.isTrue(caught.error == thrown);
 		Assert.isTrue(t.isFailed());
-		Assert.equals("boom", t.getError().message);
+		Assert.isTrue(t.getError() == thrown);
 	}
 
 	function testAwaitOnCompletedTask() {
