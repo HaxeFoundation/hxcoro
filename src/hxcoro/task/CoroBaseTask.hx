@@ -202,11 +202,10 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 		This function also starts this task if it has not been started yet.
 	**/
 	public function awaitContinuation(cont:IContinuation<T>#if coro.stack_traces, ?startPos:haxe.PosInfos #end) {
-		#if hxcoro.trace_tasks
-		traceTask("await", cont.context.get(CoroBaseTask));
-		#end
+		final caller = cont.context.get(CoroBaseTask);
+		traceTask("await", caller);
 		awaitingContinuations.add(cont);
-		start(cont.context.get(CoroBaseTask)#if coro.stack_traces, startPos#end);
+		start(caller#if coro.stack_traces, startPos#end);
 	}
 
 	/**

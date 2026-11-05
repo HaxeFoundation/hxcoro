@@ -265,9 +265,7 @@ abstract class AbstractTask implements ICancellationToken {
 					Failure(errorOf(failure), cause);
 			}
 			if (stopCause.compareExchange(current, next) == current) {
-				#if hxcoro.trace_tasks
 				traceTask("recordFailure", null, current == null ? "recorded" : "upgraded the cancellation");
-				#end
 				// A concurrent task reports its failure to the parent right away, so that the parent can
 				// cancel its other children while this task is still winding down. A sequential task
 				// delivers its outcome to the creator that waits for it instead.
