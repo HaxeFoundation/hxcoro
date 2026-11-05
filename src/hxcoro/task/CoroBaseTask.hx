@@ -202,6 +202,9 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 		This function also starts this task if it has not been started yet.
 	**/
 	public function awaitContinuation(cont:IContinuation<T>#if coro.stack_traces, ?startPos:haxe.PosInfos #end) {
+		#if hxcoro.trace_tasks
+		traceTask("await", cont.context.get(CoroBaseTask));
+		#end
 		awaitingContinuations.add(cont);
 		start(cont.context.get(CoroBaseTask)#if coro.stack_traces, startPos#end);
 	}
@@ -250,6 +253,7 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 		another task, throws `InvalidTaskStateException`.
 	**/
 	@:coroutine public function awaitChildren() {
+		traceTask("awaitChildren");
 		startChildren();
 		Coro.suspend(cont -> {
 			switch (lockChildren()) {
@@ -280,7 +284,9 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 	}
 
 	function handleAwaitingContinuations() {
+		traceTask("handleAwaitingContinuations", null, null, true);
 		awaitingContinuations.run();
+		traceTask("handleAwaitingContinuations", null, null, false);
 	}
 
 	/**
@@ -299,12 +305,15 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 		// Called after the children lock was released, so the waiter may take the lock again right away.
 		final cont = awaitingChildContinuation.exchange(null);
 		if (cont != null) {
+			traceTask("childrenCompleted");
 			cont.callAsync();
 		}
 	}
 
 	function complete() {
+		traceTask("complete", null, null, true);
 		parent?.childCompletes(this);
 		handleAwaitingContinuations();
+		traceTask("complete", null, null, false);
 	}
 }

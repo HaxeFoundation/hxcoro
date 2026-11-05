@@ -1,0 +1,6 @@
+--class-path src
+--class-path test
+--class-path ../../libs/atest/src
+--library hxcoro
+-D hxcoro.trace_tasks
+--main Main

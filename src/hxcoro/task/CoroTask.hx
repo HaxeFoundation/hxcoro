@@ -59,6 +59,7 @@ class CoroTask<T> extends CoroBaseTask<T> implements IContinuation<T> {
 		Resumes the task with the provided `result` and `error`.
 	**/
 	public function resume(result:T, error:Exception) {
+		traceTask("resume", null, null, true);
 		if (error == null) {
 			if (ownWorkSucceeds()) {
 				this.result = result;
@@ -68,6 +69,7 @@ class CoroTask<T> extends CoroBaseTask<T> implements IContinuation<T> {
 			ownWorkFails(error);
 		}
 		checkCompletion();
+		traceTask("resume", null, null, false);
 	}
 
 	#if sys
@@ -111,6 +113,7 @@ class CoroTaskWithLambda<T> extends CoroTask<T> implements IDispatchObject imple
 		#if coro.stack_traces
 		callFrameLocked = true;
 		#end
+		traceTask("dispatch");
 		context.dispatchOrCall(this);
 	}
 
@@ -127,6 +130,8 @@ class CoroTaskWithLambda<T> extends CoroTask<T> implements IDispatchObject imple
 		Runs this task's `lambda`.
 	**/
 	override function runOwnWork() {
+		traceTask("runOwnWork", null, null, true);
 		lambda(this, this);
+		traceTask("runOwnWork", null, null, false);
 	}
 }

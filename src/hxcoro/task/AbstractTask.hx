@@ -115,6 +115,18 @@ abstract class AbstractTask implements ICancellationToken {
 		return id;
 	}
 
+	// Lifecycle tracing, see TaskTrace. Both compile to nothing without -D hxcoro.trace_tasks.
+
+	inline function traceTask(method:String, ?other:AbstractTask, ?info:String, ?enter:Bool) {
+		TaskTrace.log(this, method, other, info, enter);
+	}
+
+	inline function traceState(from:TaskState, to:TaskState) {
+		#if hxcoro.trace_tasks
+		TaskTrace.log(this, "state", null, from.toString() + " → " + to.toString());
+		#end
+	}
+
 	/**
 		Creates a new task of `kind` in the `Created` state and attaches it to `parent`, if any.
 
@@ -131,6 +143,7 @@ abstract class AbstractTask implements ICancellationToken {
 		if (parent != null) {
 			parent.addChild(this);
 		}
+		traceTask("new", parent);
 	}
 
 	/**
@@ -184,11 +197,14 @@ abstract class AbstractTask implements ICancellationToken {
 		cancellation never replaces a cause that is already recorded.
 	**/
 	public function cancel(?cause:CancellationException) {
+		traceTask("cancel", null, null, true);
 		if (ignoresCancellation()) {
+			traceTask("cancel", null, "ignored", false);
 			return;
 		}
 		stopCause.compareExchange(null, Cancellation(cause ?? new CancellationException()));
 		requestStop();
+		traceTask("cancel", null, null, false);
 	}
 
 	/**
@@ -212,8 +228,10 @@ abstract class AbstractTask implements ICancellationToken {
 		this task's cause, so that the children of both are cancelled with the same cause.
 	**/
 	function failWith(failure:StopCause) {
+		traceTask("failWith", null, null, true);
 		recordFailure(failure);
 		requestStop();
+		traceTask("failWith", null, null, false);
 	}
 
 	/**
@@ -238,6 +256,7 @@ abstract class AbstractTask implements ICancellationToken {
 			final current = stopCause.load();
 			final next = switch (current) {
 				case Failure(_, _):
+					traceTask("recordFailure", null, "kept the earlier failure");
 					return;
 				case null:
 					failure;
@@ -246,6 +265,9 @@ abstract class AbstractTask implements ICancellationToken {
 					Failure(errorOf(failure), cause);
 			}
 			if (stopCause.compareExchange(current, next) == current) {
+				#if hxcoro.trace_tasks
+				traceTask("recordFailure", null, current == null ? "recorded" : "upgraded the cancellation");
+				#end
 				// A concurrent task reports its failure to the parent right away, so that the parent can
 				// cancel its other children while this task is still winding down. A sequential task
 				// delivers its outcome to the creator that waits for it instead.
@@ -263,6 +285,7 @@ abstract class AbstractTask implements ICancellationToken {
 		succeeds runs `beginCancellation`, so it runs exactly once.
 	**/
 	function requestStop() {
+		traceTask("requestStop", null, null, true);
 		while (true) {
 			final current = state.load();
 			switch (current) {
@@ -270,6 +293,7 @@ abstract class AbstractTask implements ICancellationToken {
 					// A running task has to finish its own work first. A created task never starts it.
 					final next = current == Running ? CancellationRequested : Cancelling;
 					if (state.compareExchange(current, next) == current) {
+						traceState(current, next);
 						beginCancellation();
 						break;
 					}
@@ -279,6 +303,7 @@ abstract class AbstractTask implements ICancellationToken {
 			}
 		}
 		checkCompletion();
+		traceTask("requestStop", null, null, false);
 	}
 
 	/**
@@ -286,8 +311,11 @@ abstract class AbstractTask implements ICancellationToken {
 		which has no effect after the first time, and cancels all current children.
 	**/
 	function beginCancellation() {
+		traceTask("beginCancellation", null, null, true);
+		traceTask("cancellationCallbacks");
 		cancellationManager.run();
 		cancelChildren(cancellationException);
+		traceTask("beginCancellation", null, null, false);
 	}
 
 	/**
@@ -297,19 +325,25 @@ abstract class AbstractTask implements ICancellationToken {
 		The caller is responsible for calling `checkCompletion` afterwards.
 	**/
 	final function ownWorkSucceeds() {
+		traceTask("ownWorkSucceeds", null, null, true);
 		while (true) {
 			switch (state.load()) {
 				case Running:
 					if (state.compareExchange(Running, Completing) == Running) {
+						traceState(Running, Completing);
+						traceTask("ownWorkSucceeds", null, null, false);
 						return true;
 					}
 				case CancellationRequested:
 					if (state.compareExchange(CancellationRequested, Cancelling) == CancellationRequested) {
+						traceState(CancellationRequested, Cancelling);
 						// Cancel children that were created after the cancellation request.
 						beginCancellation();
+						traceTask("ownWorkSucceeds", null, null, false);
 						return false;
 					}
 				case Created | Completing | Cancelling | Completed | Cancelled:
+					traceTask("ownWorkSucceeds", null, null, false);
 					return false;
 			}
 		}
@@ -326,6 +360,7 @@ abstract class AbstractTask implements ICancellationToken {
 		The caller is responsible for calling `checkCompletion` afterwards.
 	**/
 	final function ownWorkFails(error:Exception) {
+		traceTask("ownWorkFails", null, null, true);
 		// Built at most once. Recording the failure reports it to the parent, whose reaction usually
 		// cancels this task right away, so the loop comes around to `CancellationRequested` and must
 		// not build and drop a second failure there.
@@ -336,7 +371,9 @@ abstract class AbstractTask implements ICancellationToken {
 				case Running:
 					recordFailure(failure ??= Failure(error, cancellationFor(error)));
 					if (state.compareExchange(Running, Cancelling) == Running) {
+						traceState(Running, Cancelling);
 						beginCancellation();
+						traceTask("ownWorkFails", null, null, false);
 						return;
 					}
 				case CancellationRequested:
@@ -344,10 +381,13 @@ abstract class AbstractTask implements ICancellationToken {
 						recordFailure(failure ??= Failure(error, cancellationFor(error)));
 					}
 					if (state.compareExchange(CancellationRequested, Cancelling) == CancellationRequested) {
+						traceState(CancellationRequested, Cancelling);
 						beginCancellation();
+						traceTask("ownWorkFails", null, null, false);
 						return;
 					}
 				case Created | Completing | Cancelling | Completed | Cancelled:
+					traceTask("ownWorkFails", null, null, false);
 					return;
 			}
 		}
@@ -389,6 +429,8 @@ abstract class AbstractTask implements ICancellationToken {
 	**/
 	final function activate() {
 		if (state.compareExchange(Created, Running) == Created) {
+			traceTask("activate", null, null, true);
+			traceState(Created, Running);
 			// A child of a cancelling parent is cancelled with the parent's cause before it starts,
 			// so that it reports e.g. the TimeoutException rather than a plain cancellation. If the
 			// task ignores cancellation, it stays Running, allowing it to start.
@@ -400,8 +442,10 @@ abstract class AbstractTask implements ICancellationToken {
 				runOwnWork();
 			} else if (state.compareExchange(CancellationRequested, Cancelling) == CancellationRequested) {
 				// The task's own work never starts.
+				traceState(CancellationRequested, Cancelling);
 				checkCompletion();
 			}
+			traceTask("activate", null, null, false);
 		}
 	}
 
@@ -433,10 +477,10 @@ abstract class AbstractTask implements ICancellationToken {
 		are also not affected by this.
 	**/
 	public function cancelChildren(?cause:CancellationException) {
+		traceTask("cancelChildren", null, null, true);
 		switch (lockChildren()) {
 			case 0:
 				numActiveChildren.store(0);
-				return;
 			case activeChildren:
 				cause ??= new CancellationException();
 				// Collect children, then unlock and cancel them
@@ -446,13 +490,14 @@ abstract class AbstractTask implements ICancellationToken {
 					child.cancel(cause);
 				}
 		}
+		traceTask("cancelChildren", null, null, false);
 	}
 
 	function startChildren() {
+		traceTask("startChildren", null, null, true);
 		switch (lockChildren()) {
 			case 0:
 				numActiveChildren.store(0);
-				return;
 			case activeChildren:
 				// Collect children, then unlock and start them
 				final children = getCurrentChildren();
@@ -461,6 +506,7 @@ abstract class AbstractTask implements ICancellationToken {
 					child.requestActivation();
 				}
 		}
+		traceTask("startChildren", null, null, false);
 	}
 
 	function getCurrentChildren() {
@@ -475,6 +521,7 @@ abstract class AbstractTask implements ICancellationToken {
 	}
 
 	final function checkCompletion() {
+		traceTask("checkCompletion", null, null, true);
 		// The final transition happens while the children lock is held, so that no child can attach
 		// to a task that is about to complete. `complete` runs after the lock is released, because it
 		// resumes other code.
@@ -486,19 +533,33 @@ abstract class AbstractTask implements ICancellationToken {
 						false;
 					case Completing:
 						// If this fails, the task was cancelled concurrently and whoever did that checks again.
-						state.compareExchange(Completing, Completed) == Completing;
+						if (state.compareExchange(Completing, Completed) == Completing) {
+							traceState(Completing, Completed);
+							true;
+						} else {
+							false;
+						}
 					case Cancelling:
-						state.compareExchange(Cancelling, Cancelled) == Cancelling;
+						if (state.compareExchange(Cancelling, Cancelled) == Cancelling) {
+							traceState(Cancelling, Cancelled);
+							true;
+						} else {
+							false;
+						}
 					case Completed | Cancelled:
 						false;
 				}
 			case activeChildren:
 				numActiveChildren.store(activeChildren);
+				traceTask("checkCompletion", null, "children left", false);
 				return;
 		}
 		numActiveChildren.store(0);
 		if (completed) {
 			complete();
+			traceTask("checkCompletion", null, "completed", false);
+		} else {
+			traceTask("checkCompletion", null, "own work not finished", false);
 		}
 	}
 
@@ -535,6 +596,7 @@ abstract class AbstractTask implements ICancellationToken {
 		for, and it is reported to whoever awaits the child.
 	**/
 	function childErrors(child:AbstractTask, failure:StopCause) {
+		traceTask("childErrors", child, null, true);
 		switch (kind) {
 			case Concurrent | Sequential:
 				switch (state.load()) {
@@ -543,7 +605,9 @@ abstract class AbstractTask implements ICancellationToken {
 					case Completed | Cancelled:
 				}
 			case SequentialSupervisor:
+				traceTask("childErrors", child, "ignored by the supervisor");
 		}
+		traceTask("childErrors", child, null, false);
 	}
 
 	/**
@@ -552,6 +616,7 @@ abstract class AbstractTask implements ICancellationToken {
 		whoever awaits the child.
 	**/
 	function childCompletes(child:AbstractTask) {
+		traceTask("childCompletes", child, null, true);
 		switch (lockChildren()) {
 			case 0:
 				numActiveChildren.store(0);
@@ -578,6 +643,7 @@ abstract class AbstractTask implements ICancellationToken {
 				child.previousSibling = null;
 				numActiveChildren.store(activeChildren - 1);
 		}
+		traceTask("childCompletes", child, null, false);
 	}
 
 	/**
