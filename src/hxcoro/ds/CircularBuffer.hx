@@ -70,6 +70,7 @@ final class CircularBuffer<T> {
 		head = decrement(head);
 
 		out.set(storage[head]);
+		clear(head);
 
 		return true;
 	}
@@ -84,6 +85,7 @@ final class CircularBuffer<T> {
 		}
 
 		out.set(storage[tail]);
+		clear(tail);
 
 		tail = increment(tail);
 
@@ -104,6 +106,13 @@ final class CircularBuffer<T> {
 		final nextHead = increment(head);
 
 		return nextHead == tail;
+	}
+
+	// Drops the buffer's reference to a removed item, so that the item can be collected. The slot is
+	// only read again after a push has stored a new item in it.
+	@:nullSafety(Off)
+	function clear(index : Int) {
+		storage[index] = null;
 	}
 
 	inline function increment(v : Int) {
