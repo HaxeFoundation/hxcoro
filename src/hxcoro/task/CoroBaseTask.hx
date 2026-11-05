@@ -77,6 +77,10 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 	final nonCancellable:Bool;
 	var result:Null<T>;
 
+	// Called with each failed child that this task ignores as a supervisor.
+	@:allow(hxcoro.Coro)
+	var onChildFailure:Null<(child:ICoroTask<Any>, error:Exception) -> Void>;
+
 	/**
 		Creates a new task using the provided `context`. The task doesn't run until it is started.
 
@@ -300,6 +304,21 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 	**/
 	function reportCallbackError(error:Exception) {
 		context.scheduleFunction(0, () -> throw error);
+	}
+
+	function childFailureIgnored(child:AbstractTask, error:Exception) {
+		final handler = onChildFailure;
+		if (handler == null) {
+			return;
+		}
+		// Every task is a CoroBaseTask, AbstractTask only keeps the tree.
+		final task:ICoroTask<Any> = cast child;
+		traceTask("onChildFailure", child);
+		try {
+			handler(task, error);
+		} catch (e:Exception) {
+			reportCallbackError(e);
+		}
 	}
 
 	function childrenCompleted() {

@@ -3,6 +3,7 @@ package hxcoro;
 import haxe.coro.IContinuation;
 import haxe.coro.SuspensionResult;
 import haxe.coro.dispatchers.Dispatcher;
+import haxe.Exception;
 import haxe.exceptions.ArgumentException;
 import haxe.exceptions.CancellationException;
 import hxcoro.continuations.CancellingContinuation;
@@ -11,6 +12,7 @@ import hxcoro.continuations.TimeoutContinuation;
 import hxcoro.TimeoutException;
 import hxcoro.task.CoroTask;
 import hxcoro.task.TaskKind;
+import hxcoro.task.ICoroTask;
 import hxcoro.task.NodeLambda;
 
 private typedef SuspendCancellableFunc<T> = IContinuation<T> -> Null<(CancellationException -> Void)>;
@@ -95,11 +97,15 @@ class Coro {
 		Like `scope`, but the task is a `SequentialSupervisor`: exceptions raised by children are
 		ignored, but calling `await` on such a child still throws its exception. If `lambda` raises
 		an exception, the remaining children are cancelled and the exception is thrown from this call.
+
+		If `onChildFailure` is given, it is called for each child whose failure is ignored, with the
+		child and its error, once the child has completed.
 	**/
-	@:coroutine static public function supervisor<T>(lambda:NodeLambda<T>#if coro.stack_traces, ?startPos:haxe.PosInfos#end):T {
+	@:coroutine static public function supervisor<T>(?onChildFailure:(child:ICoroTask<Any>, error:Exception) -> Void, lambda:NodeLambda<T>#if coro.stack_traces, ?startPos:haxe.PosInfos#end):T {
 		return suspend(cont -> {
 			final context = cont.context;
 			final scope = new CoroTaskWithLambda(context, lambda, SequentialSupervisor#if coro.stack_traces, startPos#end);
+			scope.onChildFailure = onChildFailure;
 			scope.onDispatch();
 			scope.awaitContinuation(cont#if coro.stack_traces, startPos#end);
 		});
