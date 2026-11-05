@@ -43,7 +43,7 @@ class CoroTask<T> extends CoroBaseTask<T> implements IContinuation<T> {
 		The creator of this task does its work, so there is nothing to dispatch and the task is
 		activated right away.
 	**/
-	function requestActivation() {
+	function dispatchActivation() {
 		#if coro.stack_traces
 		callFrameLocked = true;
 		#end
@@ -108,8 +108,7 @@ class CoroTaskWithLambda<T> extends CoroTask<T> implements IDispatchObject imple
 		Dispatches this task on its context's dispatcher, which then calls `onDispatch`. Unless `start`
 		set a caller before, this keeps the creation site as the task's call frame.
 	**/
-	@:allow(hxcoro)
-	override function requestActivation() {
+	override function dispatchActivation() {
 		#if coro.stack_traces
 		callFrameLocked = true;
 		#end
