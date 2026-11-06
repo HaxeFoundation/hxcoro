@@ -14,9 +14,13 @@ class RealTimeScheduler extends HeapScheduler implements ILoop {
 	#if target.threaded
 	final wakeUpFlag:WakeUpFlag;
 	#end
+	// The due time of the earliest event that `loopOnce` left in the heap. Only used by the loop
+	// thread. An event that is scheduled later sets the wake-up flag, so this may be outdated.
+	var nextDueTime:Null<Int64>;
 
 	public function new() {
 		super();
+		nextDueTime = null;
 		#if target.threaded
 		wakeUpFlag = new WakeUpFlag();
 		#end
@@ -41,6 +45,7 @@ class RealTimeScheduler extends HeapScheduler implements ILoop {
 			futureMutex.acquire();
 			var minimum = heap.minimum();
 			if (minimum == null || minimum.runTime > currentTime) {
+				nextDueTime = minimum?.runTime;
 				break;
 			}
 
@@ -53,13 +58,6 @@ class RealTimeScheduler extends HeapScheduler implements ILoop {
 
 		futureMutex.release();
 		return didSomething;
-	}
-
-	function nextDueTime():Null<Int64> {
-		futureMutex.acquire();
-		final minimum = heap.minimum();
-		futureMutex.release();
-		return minimum?.runTime;
 	}
 
 	/**
@@ -86,7 +84,7 @@ class RealTimeScheduler extends HeapScheduler implements ILoop {
 					if (loopOnce() || wokenUp) {
 						return;
 					}
-					wokenUp = wakeUpFlag.waitUntil(nextDueTime(), now());
+					wokenUp = wakeUpFlag.waitUntil(nextDueTime, now());
 					#else
 					if (loopOnce()) {
 						return;
@@ -102,7 +100,7 @@ class RealTimeScheduler extends HeapScheduler implements ILoop {
 	// is due. Without `Sys.sleep`, or without any event, this busy-waits.
 	function wait() {
 		#if (sys && !lua_vanilla)
-		final dueTime = nextDueTime();
+		final dueTime = nextDueTime;
 		if (dueTime != null) {
 			final timeout = Int64.toInt(dueTime - now()) / 1000;
 			if (timeout > 0) {
