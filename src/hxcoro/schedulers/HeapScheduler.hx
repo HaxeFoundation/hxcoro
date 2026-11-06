@@ -33,15 +33,15 @@ abstract class HeapScheduler implements IScheduler {
 
 		futureMutex.release();
 
-		eventScheduled();
+		eventScheduled(event);
 
 		return event;
     }
 
 	/**
-		Called on the scheduling thread after `schedule` has added an event.
+		Called on the scheduling thread after `schedule` has added `event`.
 	**/
-	abstract function eventScheduled():Void;
+	abstract function eventScheduled(event:ScheduledEvent):Void;
 
 	public function now():Int64 {
 		#if lua_vanilla

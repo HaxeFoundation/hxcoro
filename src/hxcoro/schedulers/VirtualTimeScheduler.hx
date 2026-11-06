@@ -17,7 +17,7 @@ class VirtualTimeScheduler extends HeapScheduler implements ILoop {
 		currentTime = 0i64;
 	}
 
-	function eventScheduled() {}
+	function eventScheduled(event:ScheduledEvent) {}
 
 	public override function now() {
 		return currentTime;

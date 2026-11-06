@@ -24,7 +24,7 @@ class RealTimeScheduler extends HeapScheduler implements ILoop {
 		#end
 	}
 
-	function eventScheduled() {
+	function eventScheduled(event:ScheduledEvent) {
 		#if target.threaded
 		// The event may be due before the one the loop is waiting for.
 		wakeUpFlag.set();

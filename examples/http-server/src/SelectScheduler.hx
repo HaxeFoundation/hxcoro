@@ -93,7 +93,7 @@ class SelectScheduler extends HeapScheduler implements ILoop {
 	**/
 	public function wakeUp() {}
 
-	function eventScheduled() {}
+	function eventScheduled(event:hxcoro.schedulers.ScheduledEvent) {}
 
 	function runDueEvents() {
 		final currentTime = now();
