@@ -85,16 +85,6 @@ jobs:
           key: ${{ steps.hxcpp-cache.outputs.key }}-${{ github.run_id }}-${{ github.run_attempt }}
           restore-keys: ${{ steps.hxcpp-cache.outputs.key }}-
 
-      # clang validates a precompiled header against the modification times of its headers,
-      # which a fresh hxcpp checkout never matches, so a restored one fails every build on
-      # macOS. The cache action archives the directory as a whole, so the headers can't be kept
-      # out of it; they are dropped here instead and rebuilt in seconds.
-      - name: Drop precompiled headers from the hxcpp compile cache
-        if: matrix.target == 'cpp'
-        shell: bash
-        run: |
-          [ -d "$RUNNER_TEMP/hxcpp-cache" ] && find "$RUNNER_TEMP/hxcpp-cache" -name '*.pch' -delete || true
-
       - name: Run tests
         shell: bash
         run: |
