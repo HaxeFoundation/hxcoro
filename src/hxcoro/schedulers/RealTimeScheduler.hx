@@ -5,9 +5,6 @@ import haxe.coro.IContinuation;
 import haxe.coro.schedulers.ISchedulerHandle;
 import hxcoro.concurrent.BackOff;
 import hxcoro.schedulers.ILoop;
-#if target.threaded
-import haxe.atomic.AtomicInt;
-#end
 
 /**
 	A scheduler driven by `loop` calls that dispatches events based on the time returned
@@ -16,15 +13,12 @@ import haxe.atomic.AtomicInt;
 class RealTimeScheduler extends HeapScheduler implements ILoop {
 	#if target.threaded
 	final wakeUpFlag:WakeUpFlag;
-	// Set by `wakeUp`, so that `loop(Once)` returns although nothing was dispatched.
-	final wakeUpRequested:AtomicInt;
 	#end
 
 	public function new() {
 		super();
 		#if target.threaded
 		wakeUpFlag = new WakeUpFlag();
-		wakeUpRequested = new AtomicInt(0);
 		#end
 	}
 
@@ -79,15 +73,20 @@ class RealTimeScheduler extends HeapScheduler implements ILoop {
 			case NoWait:
 				loopOnce();
 			case Once:
+				#if target.threaded
+				var wokenUp = false;
+				#end
 				while (true) {
 					#if target.threaded
 					// Clear the flag before looking at the heap. An event scheduled or a wake-up
 					// requested from now on sets it again, so the wait below can't miss it.
-					wakeUpFlag.clear();
-					if (loopOnce() || wakeUpRequested.exchange(0) == 1) {
+					if (wakeUpFlag.clear()) {
+						wokenUp = true;
+					}
+					if (loopOnce() || wokenUp) {
 						return;
 					}
-					wakeUpFlag.waitUntil(nextDueTime(), now());
+					wokenUp = wakeUpFlag.waitUntil(nextDueTime(), now());
 					#else
 					if (loopOnce()) {
 						return;
@@ -122,8 +121,7 @@ class RealTimeScheduler extends HeapScheduler implements ILoop {
 	**/
 	public function wakeUp() {
 		#if target.threaded
-		wakeUpRequested.store(1);
-		wakeUpFlag.set();
+		wakeUpFlag.requestWakeUp();
 		#end
 	}
 

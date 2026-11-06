@@ -36,7 +36,6 @@ private class ThreadQueue {
 private enum ThreadQueueEvent {
 	Add(queue:ThreadQueue);
 	Remove(queue:ThreadQueue);
-	WakeUp;
 }
 
 /**
@@ -94,16 +93,13 @@ class ThreadAwareScheduler implements IScheduler implements ILoop {
 	}
 
 	/**
-		Processes the coordination deque and returns whether it contained a `WakeUp`.
+		Processes the coordination deque.
 	**/
 	function consumeQueueDeque() {
-		var wokenUp = false;
 		while (true) {
 			switch (queueDeque.pop(false)) {
 				case null:
-					return wokenUp;
-				case WakeUp:
-					wokenUp = true;
+					return;
 				case Add(queue):
 					// We don't care about the order, so treat it as a stack
 					final first = firstQueue;
@@ -144,7 +140,7 @@ class ThreadAwareScheduler implements IScheduler implements ILoop {
 		final currentTime = now();
 
 		// First we consume the coordination deque so we know all queues.
-		final wokenUp = consumeQueueDeque();
+		consumeQueueDeque();
 
 		// Move the events from the threads' queues into the heap, so that all events are
 		// dispatched from one place, in order of due time.
@@ -157,7 +153,7 @@ class ThreadAwareScheduler implements IScheduler implements ILoop {
 		// Dispatch the due events one at a time, so that the ones after an event whose dispatch
 		// throws stay in the heap. Only this thread touches the heap, and events scheduled while
 		// dispatching go to a thread queue, so this loop ends.
-		var didSomething = wokenUp;
+		var didSomething = false;
 		while (true) {
 			final minimum = heap.minimum();
 			if (minimum == null || minimum.runTime > currentTime) {
@@ -177,16 +173,19 @@ class ThreadAwareScheduler implements IScheduler implements ILoop {
 		This must not be called from multiple threads at the same time.
 	**/
 	public function loop(runMode:RunMode) {
+		var wokenUp = false;
 		while (true) {
 			// Clear the flag before collecting the threads' queues. The events that set it so
 			// far are collected below, and any event scheduled from now on sets it again, so
 			// the wait below can't miss it.
-			wakeUpFlag.clear();
-			if (loopNoWait() || runMode == NoWait) {
+			if (wakeUpFlag.clear()) {
+				wokenUp = true;
+			}
+			if (loopNoWait() || wokenUp || runMode == NoWait) {
 				return;
 			}
 			// Wait until the earliest event is due, or until something happens if there is none.
-			wakeUpFlag.waitUntil(heap.minimum()?.runTime, now());
+			wokenUp = wakeUpFlag.waitUntil(heap.minimum()?.runTime, now());
 		}
 	}
 
@@ -194,10 +193,7 @@ class ThreadAwareScheduler implements IScheduler implements ILoop {
 		Makes the current or next `loop(Once)` call return. This may be called from any thread.
 	**/
 	public function wakeUp() {
-		// This goes through the coordination deque instead of `schedule`, so that it doesn't give
-		// the calling thread an event queue of its own.
-		queueDeque.add(WakeUp);
-		wakeUpFlag.set();
+		wakeUpFlag.requestWakeUp();
 	}
 
 	/**
