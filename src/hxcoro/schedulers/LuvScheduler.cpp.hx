@@ -60,14 +60,16 @@ private enum abstract LuvTimerEventState(Int) to Int {
 }
 
 private class LuvTimerEvent implements ISchedulerHandle implements IDispatchObject {
-	final delayMs:Int64;
 	final closeQueue:AsyncDeque<LuvTimerEvent>;
 	final cont:IContinuation<Any>;
+	// The part of the delay that the current timer doesn't cover yet, see `TimerDelay`.
+	var remainingMs:Int64;
+	var loop:Null<LuvLoop>;
 	var timer:Null<LuvTimer>;
 	var state:AtomicInt;
 
 	public function new(closeQueue:AsyncDeque<LuvTimerEvent>, ms:Int64, cont:IContinuation<Any>) {
-		this.delayMs = ms;
+		this.remainingMs = ms;
 		this.closeQueue = closeQueue;
 		this.cont = cont;
 		state = new AtomicInt(Created);
@@ -80,7 +82,14 @@ private class LuvTimerEvent implements ISchedulerHandle implements IDispatchObje
 			// Probably already cancelled
 			return;
 		}
-		timer = Timer.repeat(loop, Int64.toInt(delayMs), run);
+		this.loop = loop;
+		arm(loop);
+	}
+
+	function arm(loop:LuvLoop) {
+		final ms = TimerDelay.clamp(remainingMs);
+		remainingMs -= ms;
+		timer = Timer.repeat(loop, ms, run);
 	}
 
 	@:nullSafety(Off)
@@ -105,7 +114,14 @@ private class LuvTimerEvent implements ISchedulerHandle implements IDispatchObje
 		return false;
 	}
 
+	@:nullSafety(Off)
 	function run() {
+		if (remainingMs > 0 && state.load() == Started) {
+			timer.stop();
+			timer.close();
+			arm(loop);
+			return;
+		}
 		if (stop()) {
 			cont.context.dispatchOrCall(this);
 		}
