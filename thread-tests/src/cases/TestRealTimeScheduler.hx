@@ -5,6 +5,7 @@ import haxe.coro.continuations.FunctionContinuation;
 import hxcoro.run.LoopRun;
 import hxcoro.run.Setup;
 import hxcoro.schedulers.RealTimeScheduler;
+import haxe.Int64;
 import sys.thread.Lock;
 import sys.thread.Thread;
 
@@ -108,5 +109,43 @@ class TestRealTimeScheduler extends atest.Test {
 		});
 		Assert.isTrue(returned.wait(5.0), "loop(Once) did not return once the event was due");
 		Assert.isTrue(fired);
+	}
+
+	/**
+		The wait until the earliest event converted the time left to an `Int`, which throws for
+		events more than about 24.8 days away.
+	**/
+	function testEventFarInTheFuture() {
+		final scheduler = new RealTimeScheduler();
+		scheduler.schedule(Int64.ofInt(0x7FFFFFFF) * 2, new FunctionContinuation(Context.empty, (_, _) -> {}));
+		final returned = new Lock();
+		var error:Null<haxe.Exception> = null;
+		Thread.create(() -> {
+			try {
+				scheduler.loop(Once);
+			} catch (e:haxe.Exception) {
+				error = e;
+			}
+			returned.release();
+		});
+		Sys.sleep(0.05);
+		scheduler.wakeUp();
+		Assert.isTrue(returned.wait(5.0), "loop(Once) did not return after wakeUp");
+		Assert.isNull(error);
+	}
+
+	/**
+		A wake-up requested before a `loop(NoWait)` is left for the next `loop(Once)`.
+	**/
+	function testWakeUpSurvivesNoWait() {
+		final scheduler = new RealTimeScheduler();
+		final returned = new Lock();
+		Thread.create(() -> {
+			scheduler.wakeUp();
+			scheduler.loop(NoWait);
+			scheduler.loop(Once);
+			returned.release();
+		});
+		Assert.isTrue(returned.wait(5.0), "loop(NoWait) used up the wake-up");
 	}
 }

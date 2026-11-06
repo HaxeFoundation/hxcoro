@@ -173,6 +173,11 @@ class ThreadAwareScheduler implements IScheduler implements ILoop {
 		This must not be called from multiple threads at the same time.
 	**/
 	public function loop(runMode:RunMode) {
+		if (runMode == NoWait) {
+			// The flag stays as it is, so that a requested wake-up is left for the next `loop(Once)`.
+			loopNoWait();
+			return;
+		}
 		var wokenUp = false;
 		while (true) {
 			// Clear the flag before collecting the threads' queues. The events that set it so
@@ -181,7 +186,7 @@ class ThreadAwareScheduler implements IScheduler implements ILoop {
 			if (wakeUpFlag.clear()) {
 				wokenUp = true;
 			}
-			if (loopNoWait() || wokenUp || runMode == NoWait) {
+			if (loopNoWait() || wokenUp) {
 				return;
 			}
 			// Wait until the earliest event is due, or until something happens if there is none.

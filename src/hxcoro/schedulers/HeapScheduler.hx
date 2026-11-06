@@ -39,6 +39,20 @@ abstract class HeapScheduler implements IScheduler {
     }
 
 	/**
+		Returns the time from `now` until `dueTime` in seconds, or 0 if `dueTime` has passed. Times
+		that don't fit in an `Int` of milliseconds, about 24.8 days, are capped; waking up early only
+		makes the caller wait again.
+	**/
+	@:allow(hxcoro.schedulers)
+	static function secondsUntil(dueTime:Int64, now:Int64):Float {
+		final ms = dueTime - now;
+		if (ms <= 0) {
+			return 0;
+		}
+		return (ms > 0x7FFFFFFF ? 0x7FFFFFFF : Int64.toInt(ms)) / 1000;
+	}
+
+	/**
 		Called on the scheduling thread after `schedule` has added `event`.
 	**/
 	abstract function eventScheduled(event:ScheduledEvent):Void;

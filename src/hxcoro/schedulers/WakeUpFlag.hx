@@ -107,7 +107,7 @@ class WakeUpFlag {
 		if (dueTime == null) {
 			return waitAndClear();
 		}
-		final timeout = Int64.toInt(dueTime - now) / 1000;
+		final timeout = HeapScheduler.secondsUntil(dueTime, now);
 		if (timeout > 0) {
 			return tryWaitAndClear(timeout);
 		}
