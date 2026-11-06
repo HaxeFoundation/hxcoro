@@ -76,13 +76,8 @@ class WorkStealingQueue<T> {
 		write.add(1);
 	}
 
-	// Drops the references to the values below `r`, which have been stolen, so that they can be
-	// collected. A consumer only advances `read` after it has read its slot, so nobody reads these
-	// slots again: a consumer that loaded an index below `r` fails its compare-and-exchange and
-	// discards the value.
-	// The cleared slots can't hold a live value: `cleared` is the `read` of the previous `add`, at
-	// which `w - cleared < slots.length` held, so now `w - cleared <= slots.length`. The only slot
-	// they can share with `[r, w]` is the one of `w`, which is written right after this.
+	// Drops the references to the stolen values below `r`, so that they can be collected. A consumer
+	// that still reads one of these slots fails its compare-and-exchange and discards the value.
 	@:nullSafety(Off)
 	function clearConsumed(slots:CircularVector<T>, r:Int) {
 		for (i in cleared...r) {
