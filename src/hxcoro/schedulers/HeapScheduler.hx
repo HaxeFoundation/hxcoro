@@ -45,11 +45,7 @@ abstract class HeapScheduler implements IScheduler {
 	**/
 	@:allow(hxcoro.schedulers)
 	static function secondsUntil(dueTime:Int64, now:Int64):Float {
-		final ms = dueTime - now;
-		if (ms <= 0) {
-			return 0;
-		}
-		return (ms > 0x7FFFFFFF ? 0x7FFFFFFF : Int64.toInt(ms)) / 1000;
+		return TimerDelay.clamp(dueTime - now) / 1000;
 	}
 
 	/**

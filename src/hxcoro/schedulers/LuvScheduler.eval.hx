@@ -80,7 +80,7 @@ private class LuvTimerEvent implements ISchedulerHandle implements IDispatchObje
 			return;
 		}
 		timer = Timer.init(loop).resolve();
-		timer.start(run, Int64.toInt(delayMs));
+		timer.start(run, TimerDelay.clamp(delayMs));
 	}
 
 	@:nullSafety(Off)

@@ -13,7 +13,7 @@ private class TimerEvent implements ISchedulerHandle implements IDispatchObject{
 	final cont:IContinuation<Any>;
 
 	public function new(ms:Int64, cont:IContinuation<Any>) {
-		timer = new Timer(Int64.toInt(ms));
+		timer = new Timer(TimerDelay.clamp(ms));
 		this.cont = cont;
 		timer.run = run;
 	}
@@ -43,7 +43,7 @@ class HaxeTimerScheduler implements IScheduler {
 
 	@:inheritDoc
 	public function schedule(ms:Int64, cont:IContinuation<Any>) {
-		return new TimerEvent(Int64.toInt(ms), cont);
+		return new TimerEvent(ms, cont);
 	}
 
 	@:inheritDoc
