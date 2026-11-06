@@ -1,8 +1,6 @@
 package hxcoro.schedulers;
 
 import haxe.Int64;
-import haxe.coro.IContinuation;
-import haxe.coro.schedulers.ISchedulerHandle;
 import hxcoro.concurrent.BackOff;
 import hxcoro.schedulers.ILoop;
 
@@ -26,16 +24,11 @@ class RealTimeScheduler extends HeapScheduler implements ILoop {
 		#end
 	}
 
-	/**
-		Schedules `cont` to run after `ms` milliseconds. This may be called from any thread.
-	**/
-	override public function schedule(ms:Int64, cont:IContinuation<Any>):ISchedulerHandle {
-		final handle = super.schedule(ms, cont);
+	function eventScheduled() {
 		#if target.threaded
 		// The event may be due before the one the loop is waiting for.
 		wakeUpFlag.set();
 		#end
-		return handle;
 	}
 
 	function loopOnce() {

@@ -11,7 +11,7 @@ import haxe.coro.schedulers.ISchedulerHandle;
 /**
 	Base class for schedulers that keep scheduled events in a `MinimumHeap` ordered by due time.
 **/
-class HeapScheduler implements IScheduler {
+abstract class HeapScheduler implements IScheduler {
 	final futureMutex : Mutex;
 	final heap : MinimumHeap;
 
@@ -33,8 +33,15 @@ class HeapScheduler implements IScheduler {
 
 		futureMutex.release();
 
+		eventScheduled();
+
 		return event;
     }
+
+	/**
+		Called on the scheduling thread after `schedule` has added an event.
+	**/
+	abstract function eventScheduled():Void;
 
 	public function now():Int64 {
 		#if lua_vanilla
