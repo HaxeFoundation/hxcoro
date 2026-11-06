@@ -2,7 +2,6 @@ package hxcoro.schedulers;
 
 #if target.threaded
 import haxe.Int64;
-import haxe.Timer;
 import hxcoro.concurrent.AtomicState;
 import sys.thread.Condition;
 
@@ -63,51 +62,27 @@ class WakeUpFlag {
 	}
 
 	/**
-		Waits until the flag is set, then clears it and returns whether a wake-up was requested.
-	**/
-	public function waitAndClear() {
-		condition.acquire();
-		while (state.load() == Unset) {
-			condition.wait();
-		}
-		condition.release();
-		return clear();
-	}
+		Waits until the flag is set or the time `now` reaches `dueTime`, then clears the flag and
+		returns whether a wake-up was requested. Without a `dueTime`, waits until the flag is set.
 
-	/**
-		Like `waitAndClear`, but gives up after `timeout` seconds, leaves the flag as it is and
-		returns `false`.
-	**/
-	public function tryWaitAndClear(timeout:Float) {
-		final deadline = Timer.stamp() + timeout;
-		var remaining = timeout;
-		condition.acquire();
-		while (state.load() == Unset) {
-			// `timedWait` can wake up spuriously, so wait again for the time that is left.
-			if (remaining <= 0 || !condition.timedWait(remaining)) {
-				condition.release();
-				return false;
-			}
-			remaining = deadline - Timer.stamp();
-		}
-		condition.release();
-		return clear();
-	}
-
-	/**
-		Waits until the flag is set or the time `now` reaches `dueTime`, clears the flag if it was
-		set, and returns whether a wake-up was requested. Without a `dueTime`, waits until the
-		flag is set.
+		This may return earlier, so the caller has to check what it waits for and call it again.
 	**/
 	public function waitUntil(dueTime:Null<Int64>, now:Int64) {
-		if (dueTime == null) {
-			return waitAndClear();
+		final timeout = dueTime == null ? null : HeapScheduler.secondsUntil(dueTime, now);
+		if (timeout == null || timeout > 0) {
+			condition.acquire();
+			if (state.load() == Unset) {
+				// Spurious wake-ups and timeouts cut short by the target just make the caller
+				// look again, like any other early return.
+				if (timeout == null) {
+					condition.wait();
+				} else {
+					condition.timedWait(timeout);
+				}
+			}
+			condition.release();
 		}
-		final timeout = HeapScheduler.secondsUntil(dueTime, now);
-		if (timeout > 0) {
-			return tryWaitAndClear(timeout);
-		}
-		return false;
+		return clear();
 	}
 }
 #end
