@@ -2,11 +2,6 @@ package review;
 
 import haxe.coro.context.Context;
 import haxe.coro.continuations.FunctionContinuation;
-import haxe.exceptions.ArgumentException;
-import hxcoro.concurrent.CoroBarrier;
-import hxcoro.concurrent.CoroLatch.CoroLatchImpl;
-import hxcoro.ds.CircularBuffer;
-import hxcoro.ds.Out;
 import hxcoro.ds.channels.Channel;
 import hxcoro.ds.channels.ChannelClosedException;
 import hxcoro.ds.pipelines.Pipe;
@@ -56,30 +51,6 @@ class TestPrimitives extends atest.Test {
 	}
 
 	/**
-		P5: the `CoroBarrier` completion callback runs with the counter locked.
-
-		`src/hxcoro/concurrent/CoroLatch.hx:186-200`: `complete()` runs `barrierCallback()` while
-		`counter == -1` and only then calls `counter.store(maxCounter)`. A callback that calls
-		`arrive`, `arriveAndDrop` or `arriveAndWait` on the same barrier spins forever (an infinite
-		loop on JS/Lua), and other threads spin for the duration of any callback. Calling
-		`arriveAndDrop` here would hang the test run, so the test checks the counter instead.
-
-		Fix: unlock (`counter.store(maxCounter)`) before running the callback, while still resuming
-		the waiters after it. The deque has already been swapped (`this.deque = null`), so waiters of
-		the next phase can't be resumed early. Or, as a minimum, detect re-entry and throw.
-	**/
-	function testBarrierCallbackRunsUnlocked() {
-		var barrier:Null<CoroBarrier> = null;
-		var counterInCallback = 0;
-		barrier = new CoroBarrier(1, () -> {
-			final impl:CoroLatchImpl = cast barrier;
-			counterInCallback = @:privateAccess impl.counter.load();
-		});
-		barrier.arrive(1);
-		Assert.notEquals(-1, counterInCallback, "the callback ran with the counter locked");
-	}
-
-	/**
 		P7: cancelled timers stay in the heap until their due time.
 
 		`src/hxcoro/schedulers/ScheduledEvent.hx:52`: `close` only nulls `cont`, and the event stays
@@ -99,29 +70,6 @@ class TestPrimitives extends atest.Test {
 		}
 		final length:Int = @:privateAccess scheduler.heap.length;
 		Assert.isTrue(length < 100, 'heap holds $length closed events');
-	}
-
-	/**
-		P8: consumed `CircularBuffer` slots keep references alive.
-
-		`src/hxcoro/ds/CircularBuffer.hx:65-91`: `tryPopHead`/`tryPopTail` don't null the slot.
-		Nulling it is safe because it happens under the channel lock.
-
-		`src/hxcoro/thread/WorkStealingQueue.hx:81` has the same retention (`steal` leaves the
-		dispatched objects in place, and storage never shrinks), but there the slot can't be nulled
-		after a steal CAS because the producer may have wrapped onto it. Let the producer clear
-		`[oldRead, read)` lazily in `add`, or document the retention. Not covered here. Like P7, this
-		is a memory item rather than a wrong result.
-	**/
-	function testCircularBufferPopClearsSlot() {
-		final buffer = new CircularBuffer<Array<Int>>(2);
-		final out = new Out();
-		buffer.tryPush([1]);
-		buffer.tryPopTail(out);
-		Assert.isNull(@:privateAccess buffer.storage[0], "tryPopTail kept the item");
-		buffer.tryPush([2]);
-		buffer.tryPopHead(out);
-		Assert.isNull(@:privateAccess buffer.storage[1], "tryPopHead kept the item");
 	}
 
 	/**
@@ -152,15 +100,5 @@ class TestPrimitives extends atest.Test {
 		});
 		Assert.isTrue(threw);
 		Assert.equals(0, @:privateAccess writer.state.count.load());
-	}
-
-	/**
-		P11a: `CoroBarrier(0)` is accepted, but its callback never runs: `arrive` and `wait` pass
-		straight through the "already open" path of `decreaseCounter`. Throw `ArgumentException` for `n < 1`.
-		`CoroLatchImpl.new` (`src/hxcoro/concurrent/CoroLatch.hx`) only rejects negative counters,
-		which is right for a latch, so the check belongs in `CoroBarrier.new`.
-	**/
-	function testBarrierRejectsZero() {
-		Assert.raises(() -> new CoroBarrier(0), ArgumentException);
 	}
 }

@@ -186,20 +186,19 @@ class CoroLatchImpl {
 	function complete() {
 		final deque = deque;
 		this.deque = null;
+		// Unlock before running the callback, so that it may use the barrier for the next phase and
+		// other threads don't spin while it runs. The waiters of this phase were taken out above, so
+		// they are still resumed after the callback. A latch stays open at 0.
+		final barrierCallback = barrierCallback;
+		counter.store(barrierCallback != null ? maxCounter : 0);
 		var callbackError:Null<haxe.Exception> = null;
 		if (barrierCallback != null) {
-			// In barrier mode we execute the callback and then set the counter back to maxCounter.
-			// If the callback throws, the phase still completes and the exception is rethrown
-			// afterwards, otherwise the counter would stay locked.
+			// If the callback throws, the waiters are still resumed and the exception is rethrown afterwards.
 			try {
 				barrierCallback();
 			} catch (e:haxe.Exception) {
 				callbackError = e;
 			}
-			counter.store(maxCounter);
-		} else {
-			// In latch mode we just store 0.
-			counter.store(0);
 		}
 
 		if (deque != null) {

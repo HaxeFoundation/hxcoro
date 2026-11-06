@@ -88,7 +88,7 @@ src/
     ├── continuations/     # Cancelling, racing, timeout, stack-frame continuations
     ├── concurrent/        # CoroMutex, CoroSemaphore, CoroLatch, CoroBarrier, AtomicState, BackOff
     ├── ds/                # Data structures, channels/ and pipelines/
-    ├── elements/          # Context elements (CoroName, NonCancellable, DefaultExceptionHandler)
+    ├── elements/          # Context elements (CoroName, NonCancellable, DefaultCallStackHandler)
     ├── debug/             # Task lifecycle tracing, only with -D hxcoro.trace_tasks
     ├── thread/            # Thread pool and work-stealing queue
     ├── exceptions/        # TimeoutException, etc.

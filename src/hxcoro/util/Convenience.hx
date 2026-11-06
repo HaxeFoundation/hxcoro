@@ -7,7 +7,7 @@ import haxe.coro.IStackFrame;
 import haxe.coro.cancellation.CancellationToken;
 import haxe.coro.cancellation.ICancellationToken;
 import haxe.coro.context.Context;
-import haxe.coro.context.ExceptionHandler;
+import haxe.coro.context.CallStackHandler;
 import haxe.coro.continuations.FunctionContinuation;
 import haxe.coro.dispatchers.Dispatcher;
 import haxe.coro.dispatchers.IDispatchObject;
@@ -167,11 +167,15 @@ class ContextConvenience {
 	}
 
 	/**
-		Starts executing `lambda` in a new task using `context`. If `context` contains a task,
-		the new task becomes its child. Throws `InvalidTaskStateException` if that task has
-		already completed.
+		Starts executing `lambda` in a new child task of the task in `context`.
+
+		Throws `CoroutineException` if `context` contains no task, and `InvalidTaskStateException` if
+		that task has already completed.
 	**/
 	static public function async<T>(context:Context, lambda:NodeLambda<T>):ICoroTask<T> {
+		// A task without a parent would be held by nobody, so its failure would go unnoticed. Tasks
+		// without a parent are created through `ContextRun`, which hands them to the caller.
+		context.getOrRaise(CoroBaseTask);
 		final task = new CoroTaskWithLambda<T>(context, lambda, Concurrent);
 		task.requestActivation();
 		return task;
@@ -208,17 +212,18 @@ class ContextConvenience {
 		automatically once the parent task has finished its own work, or right away if it already has.
 	**/
 	static public function lazy<T>(context:Context, lambda:NodeLambda<T>):IStartableCoroTask<T> {
+		final parent = context.getOrRaise(CoroBaseTask);
 		final task = new CoroTaskWithLambda(context, lambda, Concurrent);
-		context.get(CoroBaseTask)?.startLateLazyChild(task);
+		parent.startLateLazyChild(task);
 		return task;
 	}
 
 	/**
-		Uses the context's `ExceptionHandler`, if any, to build the coroutine call stack of
+		Uses the context's `CallStackHandler`, if any, to build the coroutine call stack of
 		`exc`, starting at `frame`.
 	**/
 	static public function setExceptionStack(context:Context, frame:IStackFrame, exc:Exception) {
-		final handler = context.get(ExceptionHandler);
+		final handler = context.get(CallStackHandler);
 		if (handler != null) {
 			handler.startException(context, frame, exc);
 			handler.buildCallStack(context, frame);

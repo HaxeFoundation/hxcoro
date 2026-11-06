@@ -1,5 +1,6 @@
 package hxcoro.concurrent;
 
+import haxe.exceptions.ArgumentException;
 import hxcoro.concurrent.CoroLatch;
 
 /**
@@ -15,8 +16,13 @@ abstract CoroBarrier(CoroLatchImpl) {
 		Creates a new `CoroBarrier` instance with the specified `counter` value. If
 		`onCompletion` is provided, it will be called every time the counter reaches 0,
 		before any waiting continuations are resumed.
+
+		Throws an `ArgumentException` if `counter` is less than 1.
 	**/
 	public function new(counter:Int, ?onCompletion:() -> Void) {
+		if (counter < 1) {
+			throw new ArgumentException("counter", "counter must be >= 1");
+		}
 		this = new CoroLatchImpl(counter, onCompletion ?? noOpCallback);
 	}
 
