@@ -1,10 +1,9 @@
 package hxcoro.thread;
 
-import haxe.atomic.AtomicInt;
 import haxe.coro.dispatchers.IDispatchObject;
 import haxe.ds.Vector;
 import hxcoro.concurrent.AtomicState;
-import sys.thread.Mutex;
+import hxcoro.concurrent.BackOff;
 import sys.thread.Semaphore;
 import sys.thread.Thread;
 import sys.thread.Tls;
@@ -18,10 +17,19 @@ import sys.thread.Tls;
 **/
 typedef DispatchQueue = WorkStealingQueue<IDispatchObject>;
 
-private enum abstract ShutdownState(Int) to Int {
+private enum abstract PoolState(Int) to Int {
+	/**
+		The pool accepts work from all threads.
+	**/
 	final Active;
-	final ShuttingDown;
-	final ShutDown;
+	/**
+		A thread outside the pool is adding work, or `shutDown` is starting the shutdown.
+	**/
+	final Locked;
+	/**
+		The pool only accepts work from its own threads, and the workers exit once the queues are empty.
+	**/
+	final Draining;
 }
 
 /**
@@ -39,20 +47,16 @@ class FixedThreadPool implements IThreadPool {
 		@see `IThreadPool.isShutDown`
 	**/
 	public var isShutDown(get,never):Bool;
-	function get_isShutDown():Bool return shutdownState.load() != Active;
+	function get_isShutDown():Bool return state.load() == Draining;
 
-	final shutdownState:AtomicState<ShutdownState>;
+	// Doubles as the lock of the threads outside the pool: they add work only while holding it
+	// in `Active`, so once a worker sees `Draining`, all their work is in the queues.
+	final state:AtomicState<PoolState>;
 	final semaphore:Semaphore;
 	final pool:Array<Worker>;
 	final queueTls:Tls<DispatchQueue>;
-	final sharedQueueMutex:Mutex;
 	final sharedQueue:DispatchQueue;
 	final ownerQueue:DispatchQueue;
-	// The number of `run` calls from threads outside the pool that are between their state check
-	// and adding their object. A worker doesn't exit while there are any, see `Worker.loop`.
-	final pendingRuns:AtomicInt;
-	// The workers whose thread hasn't exited for good. The state is `ShutDown` once this is 0.
-	final liveWorkers:AtomicInt;
 
 	/**
 		Create a new thread pool with `threadsCount` threads.
@@ -61,18 +65,15 @@ class FixedThreadPool implements IThreadPool {
 		if(threadsCount < 1)
 			throw new ThreadPoolException('FixedThreadPool needs threadsCount to be at least 1.');
 		this.threadsCount = threadsCount;
-		shutdownState = new AtomicState(Active);
+		state = new AtomicState(Active);
 		semaphore = new Semaphore(0);
-		pendingRuns = new AtomicInt(0);
-		liveWorkers = new AtomicInt(threadsCount);
 		queueTls = new Tls();
 		final queues = Vector.fromArrayCopy([for (_ in 0...threadsCount + 2) new WorkStealingQueue()]);
 		// The constructing thread, which usually runs the scheduler loop, gets a queue of its
-		// own so that it can add without locking. All other non-pool threads share a queue,
-		// which supports only one producer, so they add to it under the mutex.
+		// own. All other non-pool threads share a queue, which supports only one producer,
+		// so that one is safe because they add only while holding the state lock.
 		ownerQueue = queues[0];
 		queueTls.value = ownerQueue;
-		sharedQueueMutex = new Mutex();
 		sharedQueue = queues[1];
 		// Assigned before the workers are created, so that all fields are set when they get `this`.
 		pool = [];
@@ -93,43 +94,48 @@ class FixedThreadPool implements IThreadPool {
 		}
 		final queue = queueTls.value;
 		if (queue != null && queue != ownerQueue) {
-			// A pool thread only gets here from a dispatch, so its worker is still running and sees
-			// the object in its own queue, also while the pool is shutting down.
-			if (shutdownState.load() == ShutDown) {
-				throw new ThreadPoolException('Task is rejected. Thread pool is shut down.');
-			}
+			// A pool thread has its queue only while its worker loop runs, so the worker still
+			// sees the object, also while the pool is draining.
 			queue.add(obj);
 		} else {
-			// Counted before the state check, so that no worker exits between the check and the add.
-			pendingRuns.add(1);
-			if (shutdownState.load() != Active) {
-				pendingRuns.add(-1);
+			if (!lock()) {
 				throw new ThreadPoolException('Task is rejected. Thread pool is shut down.');
 			}
-			if (queue != null) {
-				queue.add(obj);
-			} else {
-				sharedQueueMutex.acquire();
-				sharedQueue.add(obj);
-				sharedQueueMutex.release();
-			}
-			pendingRuns.add(-1);
+			(queue ?? sharedQueue).add(obj);
+			state.store(Active);
 		}
 		semaphore.release();
+	}
+
+	// Spins until the state goes from `Active` to `Locked`, or returns false once the pool is draining.
+	function lock() {
+		while (true) {
+			switch (state.compareExchange(Active, Locked)) {
+				case Active:
+					return true;
+				case Locked:
+					BackOff.backOff();
+				case Draining:
+					return false;
+			}
+		}
 	}
 
 	/**
 		@see `IThreadPool.shutdown`
 	**/
 	public function shutDown(block:Bool = false):Void {
-		if (shutdownState.compareExchange(Active, ShuttingDown) != Active) {
+		if (!lock()) {
 			return;
 		}
 
 		final shutdownSemaphore = new Semaphore(0);
-
+		// The workers get the semaphore before they can see `Draining`, which makes them exit.
 		for (worker in pool) {
 			worker.shutDown(shutdownSemaphore);
+		}
+		state.store(Draining);
+		for (_ in pool) {
 			semaphore.release();
 		}
 		if (block) {
@@ -141,13 +147,6 @@ class FixedThreadPool implements IThreadPool {
 					shutdownSemaphore.acquire();
 				}
 			}
-		}
-	}
-
-	// Called by each worker once its thread has exited for good. The last one completes the shutdown.
-	function workerExited() {
-		if (liveWorkers.add(-1) == 1) {
-			shutdownState.store(ShutDown);
 		}
 	}
 
@@ -290,27 +289,21 @@ private class Worker {
 	}
 
 	function loop() {
-		var inShutdown = false;
 		state = CheckingQueues;
 		while(true) {
 			++numLooped;
 
-			// Read before checking the queues: in shutdown, if no `run` from outside the pool is pending
-			// now, the ones that were accepted have added their objects already, and later ones are
-			// rejected.
-			final noPendingRuns = !inShutdown || @:privateAccess pool.pendingRuns.load() == 0;
-			if (checkQueues()) {
-				inShutdown = false;
-			}
-
-			if (shutdownSemaphore != null) {
-				if (inShutdown && noPendingRuns) {
-					semaphore.release();
-					break;
-				} else {
-					inShutdown = true;
+			// Read before checking the queues: once the pool is draining, the threads outside the
+			// pool have added all their work, so a pass that finds nothing means that this worker is
+			// done. The other workers run what their own dispatches add.
+			final draining = @:privateAccess pool.state.load() == Draining;
+			final didSomething = checkQueues();
+			if (draining) {
+				if (didSomething) {
 					continue;
 				}
+				semaphore.release();
+				break;
 			}
 			state = Waiting;
 			semaphore.acquire();
@@ -321,13 +314,15 @@ private class Worker {
 	function threadEntry() {
 		queueTls.value = queue;
 		loop();
+		// No worker sees work added from here on, such as from the exit callbacks of this thread,
+		// so `run` treats the thread as outside the pool and rejects it.
+		queueTls.value = null;
 		state = Terminated;
 	}
 
 	function onThreadExit(completed:Bool) {
 		queueTls.value = null;
 		if (completed) {
-			@:privateAccess pool.workerExited();
 			shutdownSemaphore?.release();
 		} else {
 			// An uncaught exception aborted the thread, and the thread's abort handler has
