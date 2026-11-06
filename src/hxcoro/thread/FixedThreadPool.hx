@@ -36,6 +36,7 @@ private enum abstract PoolState(Int) to Int {
 	Thread pool with a constant amount of threads.
 	Threads in the pool will exist until the pool is explicitly shut down.
 **/
+@:allow(hxcoro.thread.Worker)
 class FixedThreadPool implements IThreadPool {
 	/**
 		@see `IThreadPool.threadsCount`
@@ -54,9 +55,13 @@ class FixedThreadPool implements IThreadPool {
 	final state:AtomicState<PoolState>;
 	final semaphore:Semaphore;
 	final pool:Array<Worker>;
+	// The queue of each worker, followed by the one of the threads outside the pool.
+	final queues:Vector<DispatchQueue>;
+	// The worker's queue on a pool thread while its worker loop runs, null everywhere else.
 	final queueTls:Tls<DispatchQueue>;
+	// Supports only one producer, which is safe because threads outside the pool add only
+	// while holding the state lock.
 	final sharedQueue:DispatchQueue;
-	final ownerQueue:DispatchQueue;
 
 	/**
 		Create a new thread pool with `threadsCount` threads.
@@ -68,17 +73,12 @@ class FixedThreadPool implements IThreadPool {
 		state = new AtomicState(Active);
 		semaphore = new Semaphore(0);
 		queueTls = new Tls();
-		final queues = Vector.fromArrayCopy([for (_ in 0...threadsCount + 2) new WorkStealingQueue()]);
-		// The constructing thread, which usually runs the scheduler loop, gets a queue of its
-		// own. All other non-pool threads share a queue, which supports only one producer,
-		// so that one is safe because they add only while holding the state lock.
-		ownerQueue = queues[0];
-		queueTls.value = ownerQueue;
-		sharedQueue = queues[1];
+		queues = Vector.fromArrayCopy([for (_ in 0...threadsCount + 1) new WorkStealingQueue()]);
+		sharedQueue = queues[threadsCount];
 		// Assigned before the workers are created, so that all fields are set when they get `this`.
 		pool = [];
 		for (i in 0...threadsCount) {
-			pool.push(new Worker(this, queues, i + 2));
+			pool.push(new Worker(this, i));
 		}
 		for (worker in pool) {
 			worker.start();
@@ -93,15 +93,15 @@ class FixedThreadPool implements IThreadPool {
 			throw new ThreadPoolException('Task to run must not be null.');
 		}
 		final queue = queueTls.value;
-		if (queue != null && queue != ownerQueue) {
-			// A pool thread has its queue only while its worker loop runs, so the worker still
-			// sees the object, also while the pool is draining.
+		if (queue != null) {
+			// We're on a pool thread whose worker loop is running, so the worker will see the
+			// object, also while the pool is draining.
 			queue.add(obj);
 		} else {
 			if (!lock()) {
 				throw new ThreadPoolException('Task is rejected. Thread pool is shut down.');
 			}
-			(queue ?? sharedQueue).add(obj);
+			sharedQueue.add(obj);
 			state.store(Active);
 		}
 		semaphore.release();
@@ -164,14 +164,12 @@ class FixedThreadPool implements IThreadPool {
 		}
 		Sys.println('\ttotal worker loops: $totalLoops');
 		Sys.println('\ttotal worker dispatches: $totalDispatches');
-		Sys.print('\towner queue: ');
-		ownerQueue.dump();
 		Sys.print('\tshared queue: ');
 		sharedQueue.dump();
 		for (worker in pool) {
 			final loopShare = worker.numLooped * 100 / totalLoops;
 			final dispatchShare = worker.numDispatched * 100 / totalDispatches;
-			Sys.print('\tworker ${@:privateAccess worker.ownQueueIndex}(${worker.state.toString()}), dispatch/loop: $dispatchShare%/$loopShare%, queue: ');
+			Sys.print('\tworker ${worker.ownQueueIndex}(${worker.state.toString()}), dispatch/loop: $dispatchShare%/$loopShare%, queue: ');
 			worker.queue.dump();
 		}
 	}
@@ -223,24 +221,18 @@ private class Worker {
 
 	var shutdownSemaphore:Null<Semaphore>;
 	final pool:FixedThreadPool;
-	final semaphore:Semaphore;
-	final queues:Vector<DispatchQueue>;
-	final ownQueueIndex:Int;
-	final queueTls:Tls<DispatchQueue>;
+	public final ownQueueIndex:Int;
 
-	public function new(pool:FixedThreadPool, queues:Vector<DispatchQueue>, ownQueueIndex:Int) {
+	public function new(pool:FixedThreadPool, ownQueueIndex:Int) {
 		this.pool = pool;
-		this.semaphore = @:privateAccess pool.semaphore;
-		this.queues = queues;
 		this.ownQueueIndex = ownQueueIndex;
-		this.queueTls = @:privateAccess pool.queueTls;
 		numDispatched = 0;
 		numLooped = 0;
 		state = Created;
 	}
 
 	function get_queue() {
-		return queues[ownQueueIndex];
+		return pool.queues[ownQueueIndex];
 	}
 
 	public function start() {
@@ -265,7 +257,7 @@ private class Worker {
 		var index = ownQueueIndex;
 		var didSomething = false;
 		while (true) {
-			final queue = queues[index];
+			final queue = pool.queues[index];
 			final obj = queue.steal();
 			if (obj != null) {
 				state = Working;
@@ -277,13 +269,9 @@ private class Worker {
 				// the current queue.
 				continue;
 			}
-			if (index == queues.length - 1) {
-				index = 0;
-			} else {
-				++index;
-				if (index == ownQueueIndex) {
-					return didSomething;
-				}
+			index = (index + 1) % pool.queues.length;
+			if (index == ownQueueIndex) {
+				return didSomething;
 			}
 		}
 	}
@@ -296,32 +284,32 @@ private class Worker {
 			// Read before checking the queues: once the pool is draining, the threads outside the
 			// pool have added all their work, so a pass that finds nothing means that this worker is
 			// done. The other workers run what their own dispatches add.
-			final draining = @:privateAccess pool.state.load() == Draining;
+			final draining = pool.state.load() == Draining;
 			final didSomething = checkQueues();
 			if (draining) {
 				if (didSomething) {
 					continue;
 				}
-				semaphore.release();
+				pool.semaphore.release();
 				break;
 			}
 			state = Waiting;
-			semaphore.acquire();
+			pool.semaphore.acquire();
 			state = CheckingQueues;
 		}
 	}
 
 	function threadEntry() {
-		queueTls.value = queue;
+		pool.queueTls.value = queue;
 		loop();
 		// No worker sees work added from here on, such as from the exit callbacks of this thread,
 		// so `run` treats the thread as outside the pool and rejects it.
-		queueTls.value = null;
+		pool.queueTls.value = null;
 		state = Terminated;
 	}
 
 	function onThreadExit(completed:Bool) {
-		queueTls.value = null;
+		pool.queueTls.value = null;
 		if (completed) {
 			shutdownSemaphore?.release();
 		} else {
