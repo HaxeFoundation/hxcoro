@@ -1,7 +1,7 @@
 package hxcoro.run;
 
 import haxe.coro.context.Context;
-import haxe.coro.context.ExceptionHandler;
+import haxe.coro.context.CallStackHandler;
 import haxe.coro.dispatchers.Dispatcher;
 import hxcoro.schedulers.ILoop;
 import hxcoro.task.CoroTask;
@@ -18,9 +18,9 @@ class ContextRun {
 	#if coro.stack_traces
 
 	static function createEntryTask<T>(context:Context, lambda:NodeLambda<T>, start:Bool, ?callPos:haxe.PosInfos) {
-		final exceptionHandler = context.get(ExceptionHandler);
-		final task = if (exceptionHandler != null) {
-			@:nullSafety(Off) final run = exceptionHandler.startSynchronousRun(context, callPos);
+		final callStackHandler = context.get(CallStackHandler);
+		final task = if (callStackHandler != null) {
+			@:nullSafety(Off) final run = callStackHandler.startSynchronousRun(context, callPos);
 			final task = new CoroTaskWithLambda(run.context, lambda, Sequential, callPos);
 			task.onCompletion((_, _) -> run.complete());
 			task;
