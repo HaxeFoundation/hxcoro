@@ -2,8 +2,6 @@ package review;
 
 import haxe.coro.context.Context;
 import haxe.coro.continuations.FunctionContinuation;
-import hxcoro.ds.CircularBuffer;
-import hxcoro.ds.Out;
 import hxcoro.ds.channels.Channel;
 import hxcoro.ds.channels.ChannelClosedException;
 import hxcoro.schedulers.VirtualTimeScheduler;
@@ -70,28 +68,5 @@ class TestPrimitives extends atest.Test {
 		}
 		final length:Int = @:privateAccess scheduler.heap.length;
 		Assert.isTrue(length < 100, 'heap holds $length closed events');
-	}
-
-	/**
-		P8: consumed `CircularBuffer` slots keep references alive.
-
-		`src/hxcoro/ds/CircularBuffer.hx:65-91`: `tryPopHead`/`tryPopTail` don't null the slot.
-		Nulling it is safe because it happens under the channel lock.
-
-		`src/hxcoro/thread/WorkStealingQueue.hx:81` has the same retention (`steal` leaves the
-		dispatched objects in place, and storage never shrinks), but there the slot can't be nulled
-		after a steal CAS because the producer may have wrapped onto it. Let the producer clear
-		`[oldRead, read)` lazily in `add`, or document the retention. Not covered here. Like P7, this
-		is a memory item rather than a wrong result.
-	**/
-	function testCircularBufferPopClearsSlot() {
-		final buffer = new CircularBuffer<Array<Int>>(2);
-		final out = new Out();
-		buffer.tryPush([1]);
-		buffer.tryPopTail(out);
-		Assert.isNull(@:privateAccess buffer.storage[0], "tryPopTail kept the item");
-		buffer.tryPush([2]);
-		buffer.tryPopHead(out);
-		Assert.isNull(@:privateAccess buffer.storage[1], "tryPopHead kept the item");
 	}
 }

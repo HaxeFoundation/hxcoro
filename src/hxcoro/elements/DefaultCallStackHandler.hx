@@ -7,7 +7,7 @@ import haxe.coro.CoroStackItem;
 import haxe.coro.IStackFrame;
 import sys.thread.Tls;
 import haxe.coro.context.Context;
-import haxe.coro.context.ExceptionHandler;
+import haxe.coro.context.CallStackHandler;
 import haxe.coro.context.IElement;
 import haxe.coro.context.Key;
 
@@ -204,11 +204,11 @@ private class SynchronousRun implements IElement<SynchronousRun> implements ISyn
 }
 
 /**
-	The default `ExceptionHandler` implementation, which reconstructs the coroutine call stack
+	The default `CallStackHandler` implementation, which reconstructs the coroutine call stack
 	from the continuation chain and inserts it into the exception's stack trace.
 **/
 
-class DefaultExceptionHandler extends ExceptionHandler {
+class DefaultCallStackHandler extends CallStackHandler {
 	public function new() {
 
 	}
