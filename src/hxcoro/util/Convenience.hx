@@ -7,7 +7,7 @@ import haxe.coro.IStackFrame;
 import haxe.coro.cancellation.CancellationToken;
 import haxe.coro.cancellation.ICancellationToken;
 import haxe.coro.context.Context;
-import haxe.coro.context.ExceptionHandler;
+import haxe.coro.context.CallStackHandler;
 import haxe.coro.continuations.FunctionContinuation;
 import haxe.coro.dispatchers.Dispatcher;
 import haxe.coro.dispatchers.IDispatchObject;
@@ -219,11 +219,11 @@ class ContextConvenience {
 	}
 
 	/**
-		Uses the context's `ExceptionHandler`, if any, to build the coroutine call stack of
+		Uses the context's `CallStackHandler`, if any, to build the coroutine call stack of
 		`exc`, starting at `frame`.
 	**/
 	static public function setExceptionStack(context:Context, frame:IStackFrame, exc:Exception) {
-		final handler = context.get(ExceptionHandler);
+		final handler = context.get(CallStackHandler);
 		if (handler != null) {
 			handler.startException(context, frame, exc);
 			handler.buildCallStack(context, frame);
