@@ -2,9 +2,9 @@ package hxcoro.schedulers;
 
 #if target.threaded
 import haxe.Int64;
+import haxe.Timer;
 import hxcoro.concurrent.AtomicState;
-import hxcoro.concurrent.BackOff;
-import sys.thread.Semaphore;
+import sys.thread.Condition;
 
 private enum abstract WakeUpState(Int) to Int {
 	final Unset;
@@ -17,20 +17,17 @@ private enum abstract WakeUpState(Int) to Int {
 /**
 	A flag that tells a loop thread that it has something to do. Any thread can set it, and
 	only the loop thread clears it and waits for it.
-
-	Whenever the state isn't `Unset`, exactly one semaphore permit exists or is about to be
-	released by the thread that set it. The semaphore is only there to block and to support
-	timeouts.
 **/
 class WakeUpFlag {
 	final state:AtomicState<WakeUpState>;
-	// A `Condition` would be the natural thing to wait on, but it has no timed wait, which
-	// the loops need for events that aren't due yet. If it gets one, this could use it instead.
-	final semaphore:Semaphore;
+	// Only blocks the loop thread. The state is changed without holding the mutex, but a thread
+	// that moves it away from `Unset` signals while holding the mutex, and the loop thread checks
+	// the state while holding it, so a waiting loop thread cannot miss the change.
+	final condition:Condition;
 
 	public function new() {
 		state = new AtomicState(Unset);
-		semaphore = new Semaphore(0);
+		condition = new Condition();
 	}
 
 	/**
@@ -38,7 +35,7 @@ class WakeUpFlag {
 	**/
 	public function set() {
 		if (state.compareExchange(Unset, Changed) == Unset) {
-			semaphore.release();
+			signal();
 		}
 	}
 
@@ -46,23 +43,15 @@ class WakeUpFlag {
 		Sets the flag and records that the loop has to return. This may be called from any thread.
 	**/
 	public function requestWakeUp() {
-		while (true) {
-			switch (state.load()) {
-				case Unset:
-					if (state.compareExchange(Unset, WakeUpRequested) == Unset) {
-						semaphore.release();
-						return;
-					}
-				case Changed:
-					// The permit of `Changed` stays the only one.
-					if (state.compareExchange(Changed, WakeUpRequested) == Changed) {
-						return;
-					}
-				case WakeUpRequested:
-					return;
-			}
-			BackOff.backOff();
+		if (state.exchange(WakeUpRequested) == Unset) {
+			signal();
 		}
+	}
+
+	function signal() {
+		condition.acquire();
+		condition.signal();
+		condition.release();
 	}
 
 	/**
@@ -70,21 +59,19 @@ class WakeUpFlag {
 		happens after this call makes the next wait return.
 	**/
 	public function clear() {
-		final old = state.exchange(Unset);
-		if (old != Unset) {
-			// Take the permit that belongs to the state we just undid. It has been released,
-			// or is about to be.
-			semaphore.acquire();
-		}
-		return old == WakeUpRequested;
+		return state.exchange(Unset) == WakeUpRequested;
 	}
 
 	/**
 		Waits until the flag is set, then clears it and returns whether a wake-up was requested.
 	**/
 	public function waitAndClear() {
-		semaphore.acquire();
-		return state.exchange(Unset) == WakeUpRequested;
+		condition.acquire();
+		while (state.load() == Unset) {
+			condition.wait();
+		}
+		condition.release();
+		return clear();
 	}
 
 	/**
@@ -92,10 +79,19 @@ class WakeUpFlag {
 		returns `false`.
 	**/
 	public function tryWaitAndClear(timeout:Float) {
-		if (semaphore.tryAcquire(timeout)) {
-			return state.exchange(Unset) == WakeUpRequested;
+		final deadline = Timer.stamp() + timeout;
+		var remaining = timeout;
+		condition.acquire();
+		while (state.load() == Unset) {
+			// `timedWait` can wake up spuriously, so wait again for the time that is left.
+			if (remaining <= 0 || !condition.timedWait(remaining)) {
+				condition.release();
+				return false;
+			}
+			remaining = deadline - Timer.stamp();
 		}
-		return false;
+		condition.release();
+		return clear();
 	}
 
 	/**
