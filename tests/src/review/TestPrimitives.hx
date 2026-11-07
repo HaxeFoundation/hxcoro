@@ -4,8 +4,6 @@ import haxe.coro.context.Context;
 import haxe.coro.continuations.FunctionContinuation;
 import hxcoro.ds.channels.Channel;
 import hxcoro.ds.channels.ChannelClosedException;
-import hxcoro.ds.pipelines.Pipe;
-import hxcoro.ds.pipelines.pipe.PipeWriter;
 import hxcoro.schedulers.VirtualTimeScheduler;
 
 /**
@@ -70,35 +68,5 @@ class TestPrimitives extends atest.Test {
 		}
 		final length:Int = @:privateAccess scheduler.heap.length;
 		Assert.isTrue(length < 100, 'heap holds $length closed events');
-	}
-
-	/**
-		P9: `PipeWriter.flush` is not exception-safe.
-
-		`src/hxcoro/ds/pipelines/pipe/PipeWriter.hx:60-66`: `state.count.add(chunk.byteLength)` runs
-		before each `write`, and `pending` is only cleared at the end. If a `write` throws (closed,
-		cancelled), `count` stays inflated, so the pause thresholds are wrong, and a retried `flush`
-		resends the chunks that were already written. Writing to the closed unbounded channel throws
-		on the first chunk here, so this test covers the `count` part.
-
-		Fix: remove each chunk from `pending` and add to `count` only after its write succeeds, or
-		roll `count` back on exception.
-	**/
-	function testFailedFlushDoesNotCountChunks() {
-		final pipe = Pipe.create();
-		final writer:PipeWriter = cast pipe.writer;
-		var threw = false;
-		run(_ -> {
-			writer.getBuffer(4);
-			writer.advance(4);
-			writer.close();
-			try {
-				writer.flush();
-			} catch (_:ChannelClosedException) {
-				threw = true;
-			}
-		});
-		Assert.isTrue(threw);
-		Assert.equals(0, @:privateAccess writer.state.count.load());
 	}
 }

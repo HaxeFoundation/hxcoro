@@ -58,9 +58,20 @@ class PipeWriter implements IPipeWriter {
 	}
 
 	@:coroutine public function flush():Void {
-		for (chunk in pending) {
-			state.count.add(chunk.byteLength);
-			state.channel.writer.write(chunk);
+		// A chunk is counted before it is written, because the reader may consume it right away. If a
+		// write fails, its chunk is uncounted again, and it and the chunks after it stay pending.
+		var written = 0;
+		try {
+			while (written < pending.length) {
+				final chunk = pending[written];
+				state.count.add(chunk.byteLength);
+				state.channel.writer.write(chunk);
+				written++;
+			}
+		} catch (e:Exception) {
+			state.count.add(-pending[written].byteLength);
+			pending.splice(0, written);
+			throw e;
 		}
 
 		pending.resize(0);

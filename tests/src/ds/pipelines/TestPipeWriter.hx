@@ -182,7 +182,8 @@ class TestPipeWriter extends Test {
 	}
 
 	function test_flushing_after_closing() {
-		final writer = new PipeWriter(new State(1024, 512));
+		final state  = new State(1024, 512);
+		final writer = new PipeWriter(state);
 		final buffer = writer.getBuffer();
 
 		writer.advance(buffer.byteLength);
@@ -199,5 +200,28 @@ class TestPipeWriter extends Test {
 
 		Assert.isFalse(task.isActive());
 		Assert.isOfType(task.getError(), Exception);
+		Assert.equals(0, state.count.load(), "the chunk that wasn't written is still counted");
+	}
+
+	function test_failed_flush_keeps_chunks() {
+		final writer = new PipeWriter(new State(1024, 512));
+
+		writer.getBuffer(4);
+		writer.advance(4);
+		writer.getBuffer(4);
+		writer.advance(4);
+		writer.close();
+
+		final scheduler  = new VirtualTimeScheduler();
+		final dispatcher = new TrampolineDispatcher(scheduler);
+		final task       = CoroRun.with(dispatcher).createTask(_ -> {
+			writer.flush();
+		});
+
+		task.start();
+		scheduler.advanceBy(1);
+
+		Assert.isOfType(task.getError(), Exception);
+		Assert.equals(2, @:privateAccess writer.pending.length);
 	}
 }
