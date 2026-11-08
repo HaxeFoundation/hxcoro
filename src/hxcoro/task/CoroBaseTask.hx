@@ -158,7 +158,7 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 	/**
 		Starts `child`, a lazy child that was just created, if this task has already finished its own work.
 	**/
-	@:allow(hxcoro.util)
+	@:allow(hxcoro.run)
 	function startLateLazyChild(child:AbstractTask) {
 		// startChildren and cancelChildren have run by then and no longer will. If this task is
 		// cancelling, activate cancels the child. The child is already registered here, so if this
@@ -183,14 +183,16 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 	}
 
 	/**
-		Returns a copy of this task's `Context` with `elements` added, which can be used to start child tasks.
+		Returns a copy of this task's `Context` with `elements` added. With `using hxcoro.run.ContextRun`,
+		child tasks can be created from it.
 	**/
 	public function with(...elements:IElement<Any>) {
 		return context.with(...elements);
 	}
 
 	/**
-		Returns a copy of this task's `Context` where all `keys` are unset, which can be used to start child tasks.
+		Returns a copy of this task's `Context` where all `keys` are unset. With `using hxcoro.run.ContextRun`,
+		child tasks can be created from it.
 	**/
 	public function without(...keys:Key<Any>) {
 		return context.without(...keys);

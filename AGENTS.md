@@ -92,7 +92,7 @@ src/
     ├── debug/             # Task lifecycle tracing, only with -D hxcoro.trace_tasks
     ├── thread/            # Thread pool and work-stealing queue
     ├── exceptions/        # TimeoutException, etc.
-    └── util/
+    └── util/              # Static extensions (ContextTools, ContinuationTools, DispatcherTools); `using hxcoro.util.Convenience` enables all of them and ContextRun
 tests/                     # Main test suite (atest)
 ├── build-base.hxml        # Shared config; every build-<target>.hxml includes it
 └── src/                   # Main.hx registers cases; one subdirectory per area

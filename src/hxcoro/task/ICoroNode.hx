@@ -31,12 +31,14 @@ interface ICoroNodeWith {
 	function lazy<T>(lambda:NodeLambda<T>#if coro.stack_traces, ?callPos:haxe.PosInfos#end):IStartableCoroTask<T>;
 
 	/**
-		Returns a copy of the node's `Context` with `elements` added.
+		Returns a copy of the node's `Context` with `elements` added. With `using hxcoro.run.ContextRun`,
+		child tasks can be created from it.
 	**/
 	function with(...elements:IElement<Any>):Context;
 
 	/**
-		Returns a copy of the node's `Context` with all `keys` removed.
+		Returns a copy of the node's `Context` with all `keys` removed. With `using hxcoro.run.ContextRun`,
+		child tasks can be created from it.
 	**/
 	function without(...keys:Key<Any>):Context;
 }
