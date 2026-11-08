@@ -82,7 +82,7 @@ src/
     ├── Coro.hx            # Core suspend functions: suspend, suspendCancellable, delay, yield, scope, supervisor, timeout
     ├── CoroRun.hx         # Entry points for running coroutines (run, with, JS promise integration)
     ├── run/               # Run/setup helpers (Setup, ContextRun, LoopRun)
-    ├── task/              # Task tree: CoroTask, AbstractTask, cancellation, TaskKind
+    ├── task/              # Task tree: CoroTask, AbstractTask, cancellation, TaskKind; ContextTasks creates children from a Context
     ├── dispatchers/       # TrampolineDispatcher, ThreadPoolDispatcher, LuvDispatcher (.cpp.hx / .eval.hx)
     ├── schedulers/        # Real-time, virtual-time, thread-aware, Haxe timer and libuv schedulers
     ├── continuations/     # Cancelling, racing, timeout, stack-frame continuations
@@ -92,7 +92,7 @@ src/
     ├── debug/             # Task lifecycle tracing, only with -D hxcoro.trace_tasks
     ├── thread/            # Thread pool and work-stealing queue
     ├── exceptions/        # TimeoutException, etc.
-    └── util/
+    └── util/              # Static extensions (ContextTools, ContinuationTools, DispatcherTools); `using hxcoro.util.Convenience` enables all of them and ContextTasks
 tests/                     # Main test suite (atest)
 ├── build-base.hxml        # Shared config; every build-<target>.hxml includes it
 └── src/                   # Main.hx registers cases; one subdirectory per area

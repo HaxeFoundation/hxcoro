@@ -62,7 +62,7 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 	/**
 		This task's immutable `Context`.
 	**/
-	public var context(get, null):Context;
+	public var context(get, null):NodeContext;
 
 	#if coro.stack_traces
 	// Set once a start has been requested, after which `start` no longer changes the call frame.
@@ -158,7 +158,7 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 	/**
 		Starts `child`, a lazy child that was just created, if this task has already finished its own work.
 	**/
-	@:allow(hxcoro.util)
+	@:allow(hxcoro.task.ContextTasks)
 	function startLateLazyChild(child:AbstractTask) {
 		// startChildren and cancelChildren have run by then and no longer will. If this task is
 		// cancelling, activate cancels the child. The child is already registered here, so if this
@@ -183,16 +183,16 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 	}
 
 	/**
-		Returns a copy of this task's `Context` with `elements` added, which can be used to start child tasks.
+		Returns a copy of this task's `Context` with `elements` added, which can be used to create child tasks.
 	**/
-	public function with(...elements:IElement<Any>) {
+	public function with(...elements:IElement<Any>):NodeContext {
 		return context.with(...elements);
 	}
 
 	/**
-		Returns a copy of this task's `Context` where all `keys` are unset, which can be used to start child tasks.
+		Returns a copy of this task's `Context` where all `keys` are unset, which can be used to create child tasks.
 	**/
-	public function without(...keys:Key<Any>) {
+	public function without(...keys:Key<Any>):NodeContext {
 		return context.without(...keys);
 	}
 

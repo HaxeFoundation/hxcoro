@@ -1,6 +1,5 @@
 package hxcoro.task;
 
-import haxe.coro.context.Context;
 import haxe.coro.context.IElement;
 import haxe.coro.context.Key;
 import haxe.exceptions.CancellationException;
@@ -13,7 +12,7 @@ interface ICoroNodeWith {
 	/**
 		The node's `Context`, which includes the node itself.
 	**/
-	var context(get, null):Context;
+	var context(get, null):NodeContext;
 
 	/**
 		Creates a child task to execute `lambda` and starts it immediately.
@@ -31,14 +30,14 @@ interface ICoroNodeWith {
 	function lazy<T>(lambda:NodeLambda<T>#if coro.stack_traces, ?callPos:haxe.PosInfos#end):IStartableCoroTask<T>;
 
 	/**
-		Returns a copy of the node's `Context` with `elements` added.
+		Returns a copy of the node's `Context` with `elements` added, which can be used to create child tasks.
 	**/
-	function with(...elements:IElement<Any>):Context;
+	function with(...elements:IElement<Any>):NodeContext;
 
 	/**
-		Returns a copy of the node's `Context` with all `keys` removed.
+		Returns a copy of the node's `Context` with all `keys` removed, which can be used to create child tasks.
 	**/
-	function without(...keys:Key<Any>):Context;
+	function without(...keys:Key<Any>):NodeContext;
 }
 
 /**
