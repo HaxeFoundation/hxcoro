@@ -13,7 +13,7 @@ class RealTimeScheduler extends HeapScheduler implements ILoop {
 	final wakeUpFlag:WakeUpFlag;
 	#end
 	// The due time of the earliest event that `loopOnce` left in the heap. Only used by the loop
-	// thread. An event that is scheduled later sets the wake-up flag, so this may be outdated.
+	// thread. An event that is scheduled later changes the wake-up flag, so this may be outdated.
 	var nextDueTime:Null<Int64>;
 
 	public function new() {
@@ -27,7 +27,7 @@ class RealTimeScheduler extends HeapScheduler implements ILoop {
 	function eventScheduled(event:ScheduledEvent) {
 		#if target.threaded
 		// The event may be due before the one the loop is waiting for.
-		wakeUpFlag.set();
+		wakeUpFlag.markChanged();
 		#end
 	}
 
@@ -64,20 +64,20 @@ class RealTimeScheduler extends HeapScheduler implements ILoop {
 			case NoWait:
 				loopOnce();
 			case Once:
-				#if target.threaded
-				var wokenUp = false;
-				#end
 				while (true) {
 					#if target.threaded
-					// Clear the flag before looking at the heap. An event scheduled or a wake-up
-					// requested from now on sets it again, so the wait below can't miss it.
-					if (wakeUpFlag.clear()) {
-						wokenUp = true;
-					}
+					// Reset the flag before looking at the heap. An event scheduled or a wake-up
+					// requested from now on changes it again, so the wait below can't miss it.
+					final wokenUp = wakeUpFlag.takeWakeUpRequest();
 					if (loopOnce() || wokenUp) {
 						return;
 					}
-					wokenUp = wakeUpFlag.waitUntil(nextDueTime, now());
+					final dueTime = nextDueTime;
+					if (dueTime == null) {
+						wakeUpFlag.waitForChange();
+					} else {
+						wakeUpFlag.timedWaitForChange(HeapScheduler.secondsUntil(dueTime, now()));
+					}
 					#else
 					if (loopOnce()) {
 						return;

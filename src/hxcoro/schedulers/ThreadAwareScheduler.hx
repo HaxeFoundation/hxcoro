@@ -84,7 +84,7 @@ class ThreadAwareScheduler implements IScheduler implements ILoop {
 
 		final event = new ScheduledEvent(cont, now() + ms);
 		getTlsQueue().add(event);
-		wakeUpFlag.set();
+		wakeUpFlag.markChanged();
 		return event;
     }
 
@@ -174,23 +174,25 @@ class ThreadAwareScheduler implements IScheduler implements ILoop {
 	**/
 	public function loop(runMode:RunMode) {
 		if (runMode == NoWait) {
-			// The flag stays as it is, so that a requested wake-up is left for the next `loop(Once)`.
+			// The flag isn't reset, so that a requested wake-up is left for the next `loop(Once)`.
 			loopNoWait();
 			return;
 		}
-		var wokenUp = false;
 		while (true) {
-			// Clear the flag before collecting the threads' queues. The events that set it so
-			// far are collected below, and any event scheduled from now on sets it again, so
-			// the wait below can't miss it.
-			if (wakeUpFlag.clear()) {
-				wokenUp = true;
-			}
+			// Reset the flag before collecting the threads' queues. The events that changed it
+			// so far are collected below, and any event scheduled from now on changes it again,
+			// so the wait below can't miss it.
+			final wokenUp = wakeUpFlag.takeWakeUpRequest();
 			if (loopNoWait() || wokenUp) {
 				return;
 			}
 			// Wait until the earliest event is due, or until something happens if there is none.
-			wokenUp = wakeUpFlag.waitUntil(heap.minimum()?.runTime, now());
+			final minimum = heap.minimum();
+			if (minimum == null) {
+				wakeUpFlag.waitForChange();
+			} else {
+				wakeUpFlag.timedWaitForChange(HeapScheduler.secondsUntil(minimum.runTime, now()));
+			}
 		}
 	}
 
