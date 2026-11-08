@@ -63,25 +63,35 @@ class WakeUpFlag {
 	}
 
 	/**
-		Blocks until a change is recorded or `timeout` seconds have passed. Without a `timeout`,
-		blocks until a change is recorded. Returns immediately if a change was recorded since the
+		Blocks until a change is recorded. Returns immediately if a change was recorded since the
 		last reset. Doesn't reset the flag.
 
 		This may return earlier, so the caller has to check what it waits for and wait again.
 	**/
-	public function waitForChange(timeout:Null<Float>) {
-		if (timeout != null && timeout <= 0) {
+	public function waitForChange() {
+		condition.acquire();
+		if (state.load() == Unset) {
+			// A spurious wake-up just makes the caller look again, like any other early return.
+			condition.wait();
+		}
+		condition.release();
+	}
+
+	/**
+		Blocks until a change is recorded or `timeout` seconds have passed. Returns immediately if
+		a change was recorded since the last reset. Doesn't reset the flag.
+
+		This may return earlier, so the caller has to check what it waits for and wait again.
+	**/
+	public function timedWaitForChange(timeout:Float) {
+		if (timeout <= 0) {
 			return;
 		}
 		condition.acquire();
 		if (state.load() == Unset) {
 			// Spurious wake-ups and timeouts cut short by the target just make the caller look
 			// again, like any other early return.
-			if (timeout == null) {
-				condition.wait();
-			} else {
-				condition.timedWait(timeout);
-			}
+			condition.timedWait(timeout);
 		}
 		condition.release();
 	}

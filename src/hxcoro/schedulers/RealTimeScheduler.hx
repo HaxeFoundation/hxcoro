@@ -73,7 +73,11 @@ class RealTimeScheduler extends HeapScheduler implements ILoop {
 						return;
 					}
 					final dueTime = nextDueTime;
-					wakeUpFlag.waitForChange(dueTime == null ? null : HeapScheduler.secondsUntil(dueTime, now()));
+					if (dueTime == null) {
+						wakeUpFlag.waitForChange();
+					} else {
+						wakeUpFlag.timedWaitForChange(HeapScheduler.secondsUntil(dueTime, now()));
+					}
 					#else
 					if (loopOnce()) {
 						return;

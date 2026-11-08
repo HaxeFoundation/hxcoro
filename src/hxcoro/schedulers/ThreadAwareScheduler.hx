@@ -188,7 +188,11 @@ class ThreadAwareScheduler implements IScheduler implements ILoop {
 			}
 			// Wait until the earliest event is due, or until something happens if there is none.
 			final minimum = heap.minimum();
-			wakeUpFlag.waitForChange(minimum == null ? null : HeapScheduler.secondsUntil(minimum.runTime, now()));
+			if (minimum == null) {
+				wakeUpFlag.waitForChange();
+			} else {
+				wakeUpFlag.timedWaitForChange(HeapScheduler.secondsUntil(minimum.runTime, now()));
+			}
 		}
 	}
 
