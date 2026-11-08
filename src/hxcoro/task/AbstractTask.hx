@@ -6,6 +6,7 @@ import haxe.coro.cancellation.ICancellationHandle;
 import haxe.coro.cancellation.ICancellationToken;
 import haxe.exceptions.CancellationException;
 import haxe.atomic.AtomicInt;
+import haxe.ds.Vector;
 import hxcoro.concurrent.AtomicRef;
 import hxcoro.concurrent.AtomicState;
 import hxcoro.concurrent.BackOff;
@@ -495,13 +496,19 @@ abstract class AbstractTask implements ICancellationToken {
 		switch (numActiveChildren.lock()) {
 			case 0:
 				numActiveChildren.unlock(0);
+			case 1:
+				final child = firstChild;
+				numActiveChildren.unlock(1);
+				if (child != null) {
+					child.cancel(cause ?? new CancellationException());
+				}
 			case activeChildren:
+				final children = snapshotChildren(activeChildren);
 				cause ??= new CancellationException();
-				// Collect children, then unlock and cancel them
-				final children = getCurrentChildren();
-				numActiveChildren.unlock(activeChildren);
 				for (child in children) {
-					child.cancel(cause);
+					if (child != null) {
+						child.cancel(cause);
+					}
 				}
 		}
 		traceTask("cancelChildren", null, null, false);
@@ -512,25 +519,50 @@ abstract class AbstractTask implements ICancellationToken {
 		switch (numActiveChildren.lock()) {
 			case 0:
 				numActiveChildren.unlock(0);
-			case activeChildren:
-				// Collect children, then unlock and start them
-				final children = getCurrentChildren();
-				numActiveChildren.unlock(activeChildren);
-				for (child in children) {
+			case 1:
+				final child = firstChild;
+				numActiveChildren.unlock(1);
+				if (child != null) {
 					child.requestActivation();
+				}
+			case activeChildren:
+				final children = snapshotChildren(activeChildren);
+				for (child in children) {
+					if (child != null) {
+						child.requestActivation();
+					}
 				}
 		}
 		traceTask("startChildren", null, null, false);
 	}
 
-	function getCurrentChildren() {
-		// Only safe to call while `numActiveChildren` is locked.
-		final children:Array<AbstractTask> = [];
+	/**
+		Copies the current children into a new vector and returns it. Must be called with the children
+		lock held and `activeChildren` set to the count it returned; the lock is released on return.
+	**/
+	function snapshotChildren(activeChildren:Int):Vector<Null<AbstractTask>> {
+		// The children have to be copied, because cancelling or starting a child can run it to
+		// completion inline, and its completion takes this lock. Allocating while other threads spin
+		// on the lock is avoided by releasing it around the allocation and locking again to copy. If
+		// children were added in between, the vector is too small and a bigger one is allocated. If
+		// children completed, the slots at the end stay `null`.
+		numActiveChildren.unlock(activeChildren);
+		var children = new Vector<Null<AbstractTask>>(activeChildren);
+		while (true) {
+			activeChildren = numActiveChildren.lock();
+			if (activeChildren <= children.length) {
+				break;
+			}
+			numActiveChildren.unlock(activeChildren);
+			children = new Vector(activeChildren);
+		}
+		var index = 0;
 		var child = firstChild;
 		while (child != null) {
-			children.push(child);
+			children[index++] = child;
 			child = child.nextSibling;
 		}
+		numActiveChildren.unlock(activeChildren);
 		return children;
 	}
 
