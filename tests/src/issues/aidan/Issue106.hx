@@ -29,13 +29,11 @@ class Issue106 extends atest.Test {
 
 		scheduler.advanceTo(5);
 
-		final children = @:privateAccess atask.getCurrentChildren();
-		Assert.equals(numChildrenHalved, children.length);
+		Assert.equals(numChildrenHalved, @:privateAccess atask.numActiveChildren.load());
 
 		scheduler.advanceTo(10);
 
-		final children = @:privateAccess atask.getCurrentChildren();
-		Assert.equals(0, children.length);
+		Assert.equals(0, @:privateAccess atask.numActiveChildren.load());
 
 		scheduler.advanceTo(11);
 		Assert.equals(numChildren, task.get());
