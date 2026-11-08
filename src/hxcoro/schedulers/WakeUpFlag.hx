@@ -69,7 +69,7 @@ class WakeUpFlag {
 
 		This may return earlier, so the caller has to check what it waits for and wait again.
 	**/
-	public function wait(timeout:Null<Float>) {
+	public function waitForChange(timeout:Null<Float>) {
 		if (timeout != null && timeout <= 0) {
 			return;
 		}
