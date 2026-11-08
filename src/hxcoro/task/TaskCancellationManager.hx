@@ -1,6 +1,7 @@
 package hxcoro.task;
 
 import haxe.coro.cancellation.ICancellationCallback;
+import haxe.exceptions.CancellationException;
 import haxe.coro.cancellation.ICancellationHandle;
 import hxcoro.concurrent.AtomicState;
 import hxcoro.concurrent.ThreadSafeCallbacks;
@@ -32,7 +33,7 @@ class CancellationHandle implements ICancellationHandle {
 			return;
 		}
 
-		callback.onCancellation(task.cancellationException.orCancellationException());
+		callback.onCancellation(task.cancellationException ?? new CancellationException());
 	}
 
 	public function close() {

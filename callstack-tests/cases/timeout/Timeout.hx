@@ -1,6 +1,6 @@
 package timeout;
 
-import hxcoro.exceptions.TimeoutException;
+import hxcoro.TimeoutException;
 import hxcoro.run.Setup;
 using hxcoro.run.ContextRun;
 

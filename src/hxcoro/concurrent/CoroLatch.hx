@@ -6,8 +6,6 @@ import haxe.exceptions.ArgumentException;
 import haxe.exceptions.CancellationException;
 import haxe.exceptions.CoroutineException;
 import hxcoro.Coro.*;
-import haxe.atomic.AtomicInt;
-import hxcoro.concurrent.BackOff;
 import hxcoro.ds.PagedDeque;
 
 using hxcoro.util.Convenience;
@@ -16,7 +14,7 @@ using hxcoro.util.Convenience;
 	The shared implementation of `CoroLatch` and `CoroBarrier`.
 **/
 class CoroLatchImpl {
-	final counter:AtomicInt;
+	final counter:LockableAtomic<Int>;
 	final barrierCallback:Null<() -> Void>;
 	var maxCounter:Int;
 	var deque:Null<PagedDeque<IContinuation<Any>>>;
@@ -30,7 +28,7 @@ class CoroLatchImpl {
 		}
 		this.barrierCallback = barrierCallback;
 		this.maxCounter = counter;
-		this.counter = new AtomicInt(counter);
+		this.counter = new LockableAtomic(counter);
 	}
 
 	/**
@@ -50,7 +48,7 @@ class CoroLatchImpl {
 		switch (decreaseCounter(n)) {
 			case 0:
 			case target:
-				counter.store(target);
+				counter.unlock(target);
 		}
 	}
 
@@ -93,8 +91,8 @@ class CoroLatchImpl {
 	}
 
 	/**
-		Must be called with counter == -1. Adds `cont` to the waiters, unlocks the counter by
-		setting it to `target` and returns the cancellation callback that removes `cont` again.
+		Must be called with the counter locked. Adds `cont` to the waiters, unlocks the counter with
+		`target` and returns the cancellation callback that removes `cont` again.
 	**/
 	function addWaiter(cont:IContinuation<Any>, target:Int) {
 		var deque = this.deque;
@@ -103,7 +101,7 @@ class CoroLatchImpl {
 			this.deque = deque;
 		}
 		final page = deque.push(cont);
-		counter.store(target);
+		counter.unlock(target);
 		return (_:CancellationException) -> removeWaiter(deque, page, cont);
 	}
 
@@ -111,25 +109,16 @@ class CoroLatchImpl {
 		Removes a cancelled waiter, so that it isn't kept alive until the counter reaches 0.
 	**/
 	function removeWaiter(deque:PagedDeque<IContinuation<Any>>, page, cont:IContinuation<Any>) {
-		while (true) {
-			switch (counter.load()) {
-				case -1:
-					// Locked, let's wait.
-				case 0:
-					// The latch is open, so its waiters are being resumed already.
-					return;
-				case old:
-					if (counter.compareExchange(old, -1) == old) {
-						// If the deque was replaced, the phase completed and `complete` is resuming
-						// the waiters of the old deque, which we must not modify.
-						if (this.deque == deque) {
-							deque.remove(page, cont);
-						}
-						counter.store(old);
-						return;
-					}
-			}
-			BackOff.backOff();
+		switch (counter.lockUnless(0)) {
+			case 0:
+				// The latch is open, so its waiters are being resumed already.
+			case old:
+				// If the deque was replaced, the phase completed and `complete` is resuming
+				// the waiters of the old deque, which we must not modify.
+				if (this.deque == deque) {
+					deque.remove(page, cont);
+				}
+				counter.unlock(old);
 		}
 	}
 
@@ -137,69 +126,51 @@ class CoroLatchImpl {
 		Decreases the counter for the next phase, then acts as `arrive(1)` for the current one.
 	**/
 	public function arriveAndDrop() {
-		while (true) {
-			switch (counter.load()) {
-				case -1:
-					// Locked, let's wait.
-				case 0:
-					throw new CoroutineException("Invalid call to arriveAndDrop when counter is at 0");
-				case old:
-					if (counter.compareExchange(old, -1) == old) {
-						--maxCounter;
-						if (old == 1) {
-							complete();
-						} else {
-							counter.store(old - 1);
-						}
-						return;
-					}
-			}
-			BackOff.backOff();
+		switch (counter.lockUnless(0)) {
+			case 0:
+				throw new CoroutineException("Invalid call to arriveAndDrop when counter is at 0");
+			case old:
+				--maxCounter;
+				if (old == 1) {
+					complete();
+				} else {
+					counter.unlock(old - 1);
+				}
 		}
 	}
 
-	// return > 0 means counter == -1, so caller has to set counter to return value.
-
+	// A result > 0 means that the counter is locked, and the caller has to unlock it with that value.
 	function decreaseCounter(n:Int) {
-		while (true) {
-			switch (counter.load()) {
-				case -1:
-					// Locked, let's wait.
-				case 0:
-					// This should only happen in latch mode and means we're already open.
+		switch (counter.lockUnless(0)) {
+			case 0:
+				// This should only happen in latch mode and means we're already open.
+				return 0;
+			case old:
+				final target = old - n;
+				if (target <= 0) {
+					complete();
 					return 0;
-				case old:
-					final target = old - n;
-					if (target <= 0) {
-						if (counter.compareExchange(old, -1) == old) {
-							complete();
-							return 0;
-						}
-					} else if (counter.compareExchange(old, -1) == old) {
-						return target;
-					}
-			}
-			BackOff.backOff();
+				}
+				return target;
 		}
 	}
 
 	function complete() {
 		final deque = deque;
 		this.deque = null;
+		// Unlock before running the callback, so that it may use the barrier for the next phase and
+		// other threads don't spin while it runs. The waiters of this phase were taken out above, so
+		// they are still resumed after the callback. A latch stays open at 0.
+		final barrierCallback = barrierCallback;
+		counter.unlock(barrierCallback != null ? maxCounter : 0);
 		var callbackError:Null<haxe.Exception> = null;
 		if (barrierCallback != null) {
-			// In barrier mode we execute the callback and then set the counter back to maxCounter.
-			// If the callback throws, the phase still completes and the exception is rethrown
-			// afterwards, otherwise the counter would stay locked.
+			// If the callback throws, the waiters are still resumed and the exception is rethrown afterwards.
 			try {
 				barrierCallback();
 			} catch (e:haxe.Exception) {
 				callbackError = e;
 			}
-			counter.store(maxCounter);
-		} else {
-			// In latch mode we just store 0.
-			counter.store(0);
 		}
 
 		if (deque != null) {

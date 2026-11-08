@@ -7,6 +7,8 @@ concurrency:
 
 jobs:
   test:
+    # Same-repository PRs are covered by the push run; only fork PRs need the pull_request run.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
     strategy:
       fail-fast: false
       matrix:
@@ -60,6 +62,28 @@ jobs:
           haxelib list
           haxe -version
           neko -version
+
+      # hxcpp's compile cache stores object files by a hash of the source, its headers, the
+      # flags and the compiler version, so objects that match are reused, from earlier runs as
+      # well as between the suites of this job. Most generated files don't change between
+      # commits. Objects depend on the hxcpp headers, so a new hxcpp revision starts a new cache.
+      - name: Configure hxcpp compile cache
+        if: matrix.target == 'cpp'
+        id: hxcpp-cache
+        shell: bash
+        run: |
+          echo "HXCPP_COMPILE_CACHE=$RUNNER_TEMP/hxcpp-cache" >> "$GITHUB_ENV"
+          # hxcpp evicts the least recently used objects above this size (default 1000).
+          echo "HXCPP_CACHE_MB=2500" >> "$GITHUB_ENV"
+          echo "key=hxcpp-${{ runner.os }}-${{ runner.arch }}-$(git -C .haxelib/hxcpp/git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Restore hxcpp compile cache
+        if: matrix.target == 'cpp'
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ runner.temp }}/hxcpp-cache
+          key: ${{ steps.hxcpp-cache.outputs.key }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: ${{ steps.hxcpp-cache.outputs.key }}-
 
       - name: Run tests
         shell: bash
@@ -144,10 +168,20 @@ jobs:
           done
           exit $failed
 
+      - name: Save hxcpp compile cache
+        # Objects compiled before a test failure are as valid as any other.
+        if: (success() || failure()) && matrix.target == 'cpp'
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ runner.temp }}/hxcpp-cache
+          key: ${{ steps.hxcpp-cache.outputs.key }}-${{ github.run_id }}-${{ github.run_attempt }}
+
   known-failures:
-    # Runs the tests in tests/src/review, which demonstrate known bugs and are expected to
-    # fail. The step is allowed to fail, so this job never fails the workflow. The list of
-    # failing tests is shown in the job summary.
+    # Runs the tests in tests/src/review and thread-tests/src/review, which demonstrate known
+    # bugs and are expected to fail. The steps are allowed to fail, so this job never fails the
+    # workflow. The list of failing tests is shown in the job summary.
+    # Same-repository PRs are covered by the push run; only fork PRs need the pull_request run.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -168,20 +202,35 @@ jobs:
           set -o pipefail
           haxe --cwd tests build-eval.hxml -D hxcoro-known-failures 2>&1 | tee known-failures.log
 
+      - name: Run known thread failures
+        if: always()
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -o pipefail
+          haxe --cwd thread-tests build-eval.hxml -D hxcoro-known-failures 2>&1 | tee known-thread-failures.log
+
       - name: Summarize known failures
         if: always()
         shell: bash
         run: |
+          summarize() {
+            echo "### $1"
+            echo
+            echo '```'
+            if grep -q '^Failures:' "$2"; then
+              sed -n '/^Failures:/,$p' "$2"
+            else
+              tail -n 20 "$2"
+            fi
+            echo '```'
+            echo
+          }
           {
             echo "## Known failures"
             echo
-            echo "These tests in \`tests/src/review\` demonstrate known bugs. Failures here don't fail the workflow."
+            echo "These tests in \`tests/src/review\` and \`thread-tests/src/review\` demonstrate known bugs. Failures here don't fail the workflow."
             echo
-            echo '```'
-            if grep -q '^Failures:' known-failures.log; then
-              sed -n '/^Failures:/,$p' known-failures.log
-            else
-              tail -n 20 known-failures.log
-            fi
-            echo '```'
+            summarize "tests" known-failures.log
+            summarize "thread-tests" known-thread-failures.log
           } >> "$GITHUB_STEP_SUMMARY"

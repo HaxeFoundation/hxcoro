@@ -24,7 +24,7 @@ interface IChannelReader<T> {
 
 	/**
 		Removes and returns the next item, suspending until one is available. Throws
-		`hxcoro.ds.channels.exceptions.ChannelClosedException` if the channel is closed and empty.
+		`hxcoro.ds.channels.ChannelClosedException` if the channel is closed and empty.
 	**/
 	@:coroutine function read():T;
 

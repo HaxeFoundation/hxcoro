@@ -80,7 +80,7 @@ private class LuvTimerEvent implements ISchedulerHandle implements IDispatchObje
 			// Probably already cancelled
 			return;
 		}
-		timer = Timer.repeat(loop, Int64.toInt(delayMs), run);
+		timer = Timer.repeat(loop, TimerDelay.clamp(delayMs), run);
 	}
 
 	@:nullSafety(Off)

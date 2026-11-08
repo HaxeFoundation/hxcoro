@@ -3,7 +3,6 @@ package hxcoro.schedulers;
 import sys.thread.ThreadCallback;
 import haxe.Int64;
 import haxe.Timer;
-import haxe.atomic.AtomicInt;
 import haxe.coro.IContinuation;
 import haxe.coro.schedulers.IScheduler;
 import haxe.coro.schedulers.ISchedulerHandle;
@@ -11,7 +10,6 @@ import haxe.exceptions.ArgumentException;
 import hxcoro.schedulers.ILoop;
 import hxcoro.thread.WorkStealingQueue;
 import sys.thread.Deque;
-import sys.thread.Semaphore;
 import sys.thread.Thread;
 import sys.thread.Tls;
 
@@ -38,64 +36,6 @@ private class ThreadQueue {
 private enum ThreadQueueEvent {
 	Add(queue:ThreadQueue);
 	Remove(queue:ThreadQueue);
-	WakeUp;
-}
-
-/**
-	A flag that tells the loop thread that a new event was scheduled. Any thread can set it,
-	and only the loop thread clears it and waits for it.
-
-	Whenever `isSet` is 1, exactly one semaphore permit exists or is about to be released by
-	the thread that set it. The semaphore is only there to block and to support timeouts.
-**/
-private class WakeUpFlag {
-	final isSet:AtomicInt;
-	// A `Condition` would be the natural thing to wait on, but it has no timed wait, which
-	// `loop` needs for events that aren't due yet. If it gets one, this could use it instead.
-	final semaphore:Semaphore;
-
-	public function new() {
-		isSet = new AtomicInt(0);
-		semaphore = new Semaphore(0);
-	}
-
-	/**
-		Sets the flag. This may be called from any thread.
-	**/
-	public function set() {
-		if (isSet.compareExchange(0, 1) == 0) {
-			semaphore.release();
-		}
-	}
-
-	/**
-		Clears the flag without waiting. A `set` that happens after this call makes the next
-		`waitAndClear` return.
-	**/
-	public function clear() {
-		if (isSet.exchange(0) == 1) {
-			// Take the permit that belongs to the `set` we just undid. It has been released,
-			// or is about to be.
-			semaphore.acquire();
-		}
-	}
-
-	/**
-		Waits until the flag is set, then clears it.
-	**/
-	public function waitAndClear() {
-		semaphore.acquire();
-		isSet.store(0);
-	}
-
-	/**
-		Like `waitAndClear`, but gives up after `timeout` seconds and leaves the flag as it is.
-	**/
-	public function tryWaitAndClear(timeout:Float) {
-		if (semaphore.tryAcquire(timeout)) {
-			isSet.store(0);
-		}
-	}
 }
 
 /**
@@ -144,7 +84,7 @@ class ThreadAwareScheduler implements IScheduler implements ILoop {
 
 		final event = new ScheduledEvent(cont, now() + ms);
 		getTlsQueue().add(event);
-		wakeUpFlag.set();
+		wakeUpFlag.markChanged();
 		return event;
     }
 
@@ -153,16 +93,13 @@ class ThreadAwareScheduler implements IScheduler implements ILoop {
 	}
 
 	/**
-		Processes the coordination deque and returns whether it contained a `WakeUp`.
+		Processes the coordination deque.
 	**/
 	function consumeQueueDeque() {
-		var wokenUp = false;
 		while (true) {
 			switch (queueDeque.pop(false)) {
 				case null:
-					return wokenUp;
-				case WakeUp:
-					wokenUp = true;
+					return;
 				case Add(queue):
 					// We don't care about the order, so treat it as a stack
 					final first = firstQueue;
@@ -203,7 +140,7 @@ class ThreadAwareScheduler implements IScheduler implements ILoop {
 		final currentTime = now();
 
 		// First we consume the coordination deque so we know all queues.
-		final wokenUp = consumeQueueDeque();
+		consumeQueueDeque();
 
 		// Move the events from the threads' queues into the heap, so that all events are
 		// dispatched from one place, in order of due time.
@@ -216,7 +153,7 @@ class ThreadAwareScheduler implements IScheduler implements ILoop {
 		// Dispatch the due events one at a time, so that the ones after an event whose dispatch
 		// throws stay in the heap. Only this thread touches the heap, and events scheduled while
 		// dispatching go to a thread queue, so this loop ends.
-		var didSomething = wokenUp;
+		var didSomething = false;
 		while (true) {
 			final minimum = heap.minimum();
 			if (minimum == null || minimum.runTime > currentTime) {
@@ -236,24 +173,25 @@ class ThreadAwareScheduler implements IScheduler implements ILoop {
 		This must not be called from multiple threads at the same time.
 	**/
 	public function loop(runMode:RunMode) {
+		if (runMode == NoWait) {
+			// The flag isn't reset, so that a requested wake-up is left for the next `loop(Once)`.
+			loopNoWait();
+			return;
+		}
 		while (true) {
-			// Clear the flag before collecting the threads' queues. The events that set it so
-			// far are collected below, and any event scheduled from now on sets it again, so
-			// the wait below can't miss it.
-			wakeUpFlag.clear();
-			if (loopNoWait() || runMode == NoWait) {
+			// Reset the flag before collecting the threads' queues. The events that changed it
+			// so far are collected below, and any event scheduled from now on changes it again,
+			// so the wait below can't miss it.
+			final wokenUp = wakeUpFlag.takeWakeUpRequest();
+			if (loopNoWait() || wokenUp) {
 				return;
 			}
+			// Wait until the earliest event is due, or until something happens if there is none.
 			final minimum = heap.minimum();
-			if (minimum != null) {
-				// If there's a scheduled event, its due time is our max timeout time.
-				final timeout:Float = (Int64.toInt(minimum.runTime - now())) / 1000;
-				if (timeout > 0) {
-					wakeUpFlag.tryWaitAndClear(timeout);
-				}
+			if (minimum == null) {
+				wakeUpFlag.waitForChange();
 			} else {
-				// Otherwise we wait until something happens.
-				wakeUpFlag.waitAndClear();
+				wakeUpFlag.timedWaitForChange(HeapScheduler.secondsUntil(minimum.runTime, now()));
 			}
 		}
 	}
@@ -262,10 +200,7 @@ class ThreadAwareScheduler implements IScheduler implements ILoop {
 		Makes the current or next `loop(Once)` call return. This may be called from any thread.
 	**/
 	public function wakeUp() {
-		// This goes through the coordination deque instead of `schedule`, so that it doesn't give
-		// the calling thread an event queue of its own.
-		queueDeque.add(WakeUp);
-		wakeUpFlag.set();
+		wakeUpFlag.requestWakeUp();
 	}
 
 	/**

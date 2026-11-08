@@ -101,7 +101,7 @@ class Runner {
 								if (testCtx != null) {
 									for (e in testCtx) ctx = ctx.with(e);
 								}
-								hxcoro.util.Convenience.ContextConvenience.async(ctx, function(innerNode) {
+								hxcoro.task.ContextTasks.async(ctx, function(innerNode) {
 									hxcoro.Coro.timeout(t.timeout, function(timeoutNode) {
 										c.instance.setup();
 										exec(timeoutNode);
@@ -123,7 +123,7 @@ class Runner {
 						}
 						totalPassed.add(1);
 						printTestEnd(true, null);
-					} catch (e:hxcoro.exceptions.TimeoutException) {
+					} catch (e:hxcoro.TimeoutException) {
 						totalFailed.add(1);
 						final detail = 'timeout after ${t.timeout}ms';
 						printTestEnd(false, detail);

@@ -10,6 +10,7 @@ The [wiki](https://github.com/HaxeFoundation/hxcoro/wiki) explains the API with 
 | [http-server](http-server/) | An HTTP server with a task per connection, request timeouts, graceful shutdown and request-scoped context |
 | [json-parser](json-parser/) | A streaming JSON parser built from a `Pipe` of bytes and a `Channel` of tokens |
 | [sdl3-cpp](sdl3-cpp/) | Coroutines on SDL3's main thread, with background work on a thread pool (C++ only) |
+| [task-trace](task-trace/) | Sequence diagrams of task lifecycles, recorded with `hxcoro.debug.TaskTrace` under `-D hxcoro.trace_tasks` |
 
 ## Layout
 

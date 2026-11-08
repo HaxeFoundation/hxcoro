@@ -9,8 +9,8 @@ import hxcoro.ds.PagedDeque;
 import hxcoro.ds.CircularBuffer;
 import hxcoro.ds.channels.bounded.BoundedReader;
 import hxcoro.ds.channels.bounded.AtomicChannelState;
-import hxcoro.ds.channels.exceptions.ChannelClosedException;
-import hxcoro.ds.channels.exceptions.InvalidChannelStateException;
+import hxcoro.ds.channels.ChannelClosedException;
+import hxcoro.ds.channels.InvalidChannelStateException;
 import hxcoro.schedulers.VirtualTimeScheduler;
 import hxcoro.dispatchers.TrampolineDispatcher;
 
@@ -41,10 +41,8 @@ class TestBoundedReader extends atest.Test {
 		switch state.lock() {
 			case Closed:
 				return;
-			case Locked:
-				throw new InvalidChannelStateException();
 			case _:
-				state.store(next);
+				state.unlock(next);
 		}
 	}
 

@@ -1,4 +1,4 @@
-package hxcoro.exceptions;
+package hxcoro;
 
 import haxe.exceptions.CancellationException;
 

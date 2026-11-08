@@ -7,7 +7,7 @@ import hxcoro.ds.channels.Channel;
 import hxcoro.concurrent.CoroLatch;
 import hxcoro.concurrent.CoroMutex;
 import hxcoro.concurrent.CoroSemaphore;
-import hxcoro.concurrent.exceptions.SemaphoreFullException;
+import hxcoro.concurrent.SemaphoreFullException;
 import hxcoro.schedulers.VirtualTimeScheduler;
 import hxcoro.dispatchers.TrampolineDispatcher;
 

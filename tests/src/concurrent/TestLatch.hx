@@ -75,7 +75,7 @@ class TestLatch extends atest.Test {
 			for (_ in 0...100) {
 				try {
 					timeout(1, _ -> latch.wait());
-				} catch (e:hxcoro.exceptions.TimeoutException) {
+				} catch (e:hxcoro.TimeoutException) {
 					numTimeouts++;
 				}
 			}

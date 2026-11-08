@@ -124,6 +124,12 @@ class CancellingContinuation<T> extends StackFrameContinuation<T> implements ICa
 	}
 
 	public function onDispatch() {
+		#if hxcoro.trace_tasks
+		traceRun(true);
+		#end
 		cont.resume(result, error);
+		#if hxcoro.trace_tasks
+		traceRun(false);
+		#end
 	}
 }

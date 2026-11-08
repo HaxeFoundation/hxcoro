@@ -12,7 +12,7 @@ interface IChannelWriter<T> {
 
 	/**
 		Writes `v`. If the channel is full, behaves according to the channel's `FullBehaviour`.
-		Throws `hxcoro.ds.channels.exceptions.ChannelClosedException` if the channel is closed,
+		Throws `hxcoro.ds.channels.ChannelClosedException` if the channel is closed,
 		except with `DropWrite`, which passes `v` to its callback instead.
 	**/
 	@:coroutine function write(v:T):Void;

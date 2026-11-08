@@ -7,7 +7,7 @@ import hxcoro.schedulers.VirtualTimeScheduler;
 import haxe.exceptions.ArgumentException;
 import hxcoro.ds.Out;
 import hxcoro.ds.channels.Channel;
-import hxcoro.exceptions.TimeoutException;
+import hxcoro.TimeoutException;
 
 class TestBoundedChannel extends atest.Test {
 	public function test_creating() {

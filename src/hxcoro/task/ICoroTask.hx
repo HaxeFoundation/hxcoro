@@ -26,6 +26,10 @@ interface ICoroTask<T> {
 	/**
 		Suspends until the task completes, then returns its result or throws its error. Starts the task if
 		it has not been started yet.
+
+		Throws a `CancellationException` instead if the awaiting task is cancelled. This includes a parent
+		awaiting a child that fails, because the failure cancels the parent first, with a
+		`FailureCancellationException` that carries the error.
 	**/
 	@:coroutine function await(#if coro.stack_traces ?startPos:haxe.PosInfos #end):T;
 
@@ -37,7 +41,19 @@ interface ICoroTask<T> {
 	/**
 		Returns the task's error, or `null` if there is none. A cancelled task reports its cancellation cause here.
 	**/
-	function getError():Exception;
+	function getError():Null<Exception>;
+
+	/**
+		Returns `true` if the task has completed because it was cancelled.
+	**/
+	function isCancelled():Bool;
+
+	/**
+		Returns `true` if the task has completed because its own work or one of its children failed.
+		A `haxe.exceptions.CancellationException` that nobody requested counts as a failure, for example
+		an escaped timeout.
+	**/
+	function isFailed():Bool;
 
 	/**
 		Returns `true` if the task has not yet completed or been cancelled. A task that was created but not
@@ -52,8 +68,10 @@ interface ICoroTask<T> {
 		If `callback` throws, the exception does not affect the task or its other callbacks. It is
 		rethrown from a separately scheduled event, so it surfaces like an uncaught exception on the
 		task's dispatcher.
+
+		Returns a handle to unregister `callback`, or `null` if the task had already completed.
 	**/
-	function onCompletion(callback:(result:T, error:Exception)->Void):Void;
+	function onCompletion(callback:(result:T, error:Exception)->Void):Null<ICompletionHandle>;
 }
 
 /**

@@ -1,6 +1,7 @@
 package hxcoro.task;
 
 import haxe.Exception;
+import haxe.atomic.AtomicObject;
 import haxe.coro.IContinuation;
 import haxe.coro.IStackFrame;
 import haxe.coro.cancellation.CancellationToken;
@@ -10,12 +11,14 @@ import haxe.coro.context.Key;
 import haxe.coro.continuations.FunctionContinuation;
 import haxe.exceptions.CancellationException;
 import hxcoro.concurrent.ThreadSafeCallbacks;
+#if hxcoro.trace_tasks
+import hxcoro.debug.TaskTrace;
+#end
 import hxcoro.elements.NonCancellable;
 import hxcoro.task.AbstractTask;
 import hxcoro.task.CoroTask;
 import hxcoro.task.ICoroNode;
 import hxcoro.task.ICoroTask;
-import hxcoro.task.node.INodeStrategy;
 
 /**
 	Holds the continuations waiting for a task and resumes them with the task's outcome once it completes.
@@ -31,6 +34,23 @@ class TaskContinuationManager extends ThreadSafeCallbacks<IContinuation<Any>, IC
 }
 
 /**
+	A callback registered with `CoroBaseTask.onCompletion`, which is unregistered by closing the handle.
+**/
+private class CompletionHandle implements ICompletionHandle {
+	final manager:TaskContinuationManager;
+	final cont:IContinuation<Any>;
+
+	public function new(manager:TaskContinuationManager, cont:IContinuation<Any>) {
+		this.manager = manager;
+		this.cont = cont;
+	}
+
+	public function close() {
+		manager.remove(cont);
+	}
+}
+
+/**
 	CoroBaseTask provides the basic functionality for coroutine tasks.
 **/
 abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode implements ICoroTask<T> implements IElement<CoroBaseTask<Any>> implements IStackFrame {
@@ -42,7 +62,7 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 	/**
 		This task's immutable `Context`.
 	**/
-	public var context(get, null):Context;
+	public var context(get, null):NodeContext;
 
 	#if coro.stack_traces
 	// Set once a start has been requested, after which `start` no longer changes the call frame.
@@ -52,25 +72,30 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 	var callerTask:Null<IStackFrame>;
 	#end
 
-	final nodeStrategy:INodeStrategy;
 	final awaitingContinuations:TaskContinuationManager;
-	var awaitingChildContinuation:Null<IContinuation<Any>>;
+	final awaitingChildContinuation:AtomicObject<Null<IContinuation<Any>>>;
+	final nonCancellable:Bool;
 	var result:Null<T>;
 
 	/**
 		Creates a new task using the provided `context`. The task doesn't run until it is started.
+
+		Throws `InvalidTaskStateException` if the task in `context`, the parent, has already completed.
 	**/
 	@:nullSafety(Off)
-	public function new(context:Context, nodeStrategy:INodeStrategy#if coro.stack_traces, ?startPos:haxe.PosInfos#end) {
+	public function new(context:Context, kind:TaskKind#if coro.stack_traces, ?startPos:haxe.PosInfos#end) {
 		final parent = context.get(CoroBaseTask);
-		this.nodeStrategy = nodeStrategy;
 		awaitingContinuations = new TaskContinuationManager(this);
+		awaitingChildContinuation = new AtomicObject(null);
 		#if coro.stack_traces
 		this.startPos = startPos;
 		callFrameLocked = false;
 		#end
-		this.context = context.clone().with(this).set(CancellationToken, this);
-		super(parent);
+		// A NonCancellable element marks the task it creates and goes no further: like the task itself,
+		// which replaces the one of its parent in the context, it is consumed here rather than inherited.
+		nonCancellable = context.get(NonCancellable) != null;
+		this.context = context.clone().without(NonCancellable.key).with(this).set(CancellationToken, this);
+		super(parent, kind#if hxcoro.trace_tasks, context.get(TaskTrace)#end);
 	}
 
 	inline function get_context() {
@@ -118,44 +143,56 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 	}
 
 	/**
-		Creates a lazy child task to execute `lambda`. The child task does not execute until its `start`
+		Creates a lazy `Concurrent` child task to execute `lambda`. The child task does not execute until its `start`
 		method is called. This occurs automatically once this task has finished execution, or right away if
 		it already has.
+
+		Throws `InvalidTaskStateException` if this task has already completed.
 	**/
 	public function lazy<T>(lambda:NodeLambda<T>#if coro.stack_traces, ?startPos:haxe.PosInfos#end):IStartableCoroTask<T> {
-		final task = new CoroTaskWithLambda(context, lambda, CoroTask.CoroChildStrategy#if coro.stack_traces, startPos#end);
-		// The task is already registered as a child here, so if this task's own work finishes after this
-		// check, startChildren or cancelChildren still sees it.
-		switch (state.load()) {
-			case Completing | Cancelling:
-				// This task has already started or cancelled its children, so start the child like `async`
-				// does. If this task is cancelling, activate cancels it.
-				task.requestActivation();
-			case Created | Running | CancellationRequested | Completed | Cancelled:
-		}
+		final task = new CoroTaskWithLambda(context, lambda, Concurrent#if coro.stack_traces, startPos#end);
+		startLateLazyChild(task);
 		return task;
 	}
 
 	/**
-		Creates a child task to execute `lambda` and starts it automatically.
+		Starts `child`, a lazy child that was just created, if this task has already finished its own work.
+	**/
+	@:allow(hxcoro.task.ContextTasks)
+	function startLateLazyChild(child:AbstractTask) {
+		// startChildren and cancelChildren have run by then and no longer will. If this task is
+		// cancelling, activate cancels the child. The child is already registered here, so if this
+		// task's own work finishes after the check, startChildren or cancelChildren still sees it.
+		switch (state.load()) {
+			case Completing | Cancelling:
+				child.requestActivation();
+			case Created | Running | CancellationRequested | Completed | Cancelled:
+		}
+	}
+
+	/**
+		Creates a `Concurrent` child task to execute `lambda` and starts it automatically. It runs beside
+		this task, and its outcome is reported to this task.
+
+		Throws `InvalidTaskStateException` if this task has already completed.
 	**/
 	public function async<T>(lambda:NodeLambda<T>#if coro.stack_traces, ?startPos:haxe.PosInfos#end):ICoroTask<T> {
-		final task = new CoroTaskWithLambda<T>(context, lambda, CoroTask.CoroChildStrategy#if coro.stack_traces, startPos#end);
+		final task = new CoroTaskWithLambda<T>(context, lambda, Concurrent#if coro.stack_traces, startPos#end);
 		task.requestActivation();
 		return task;
 	}
 
 	/**
-		Returns a copy of this task's `Context` with `elements` added, which can be used to start child tasks.
+		Returns a copy of this task's `Context` with `elements` added, which can be used to create child tasks.
 	**/
-	public function with(...elements:IElement<Any>) {
+	public function with(...elements:IElement<Any>):NodeContext {
 		return context.with(...elements);
 	}
 
 	/**
-		Returns a copy of this task's `Context` where all `keys` are unset, which can be used to start child tasks.
+		Returns a copy of this task's `Context` where all `keys` are unset, which can be used to create child tasks.
 	**/
-	public function without(...keys:Key<Any>) {
+	public function without(...keys:Key<Any>):NodeContext {
 		return context.without(...keys);
 	}
 
@@ -168,8 +205,10 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 		This function also starts this task if it has not been started yet.
 	**/
 	public function awaitContinuation(cont:IContinuation<T>#if coro.stack_traces, ?startPos:haxe.PosInfos #end) {
+		final caller = cont.context.get(CoroBaseTask);
+		traceTask("await", caller);
 		awaitingContinuations.add(cont);
-		start(cont.context.get(CoroBaseTask)#if coro.stack_traces, startPos#end);
+		start(caller#if coro.stack_traces, startPos#end);
 	}
 
 	/**
@@ -190,56 +229,65 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 			this.startPos = startPos;
 		}
 		#end
-		// A task that is no longer `Created` has started already. A task whose start was dispatched
-		// but hasn't run yet is still `Created` and gets dispatched again, but `activate` only starts
-		// it once.
+		// A task that is no longer `Created` has started already. One that is still `Created` may have
+		// been dispatched already too, which `requestActivation` takes care of.
 		if (state.load() == Created) {
 			requestActivation();
 		}
 	}
 
-	override function doCancel(error:Exception) {
-		if (context.get(NonCancellable) != null) {
-			return;
-		}
-		super.doCancel(error);
+	override function ignoresCancellation() {
+		return nonCancellable;
 	}
 
-	public function onCompletion(callback:(result:T, error:Exception)->Void) {
-		awaitingContinuations.add(new FunctionContinuation(context.clone(), callback));
+	public function onCompletion(callback:(result:T, error:Exception)->Void):Null<ICompletionHandle> {
+		final cont = new FunctionContinuation(context.clone(), callback);
+		return awaitingContinuations.add(cont) == null ? null : new CompletionHandle(awaitingContinuations, cont);
 	}
 
 	/**
-		Suspends this task until all its current children complete.
+		Starts any lazy children and suspends this task until all its current children complete.
+		Children can still be created after this function resumes and are not affected by this call.
 
-		Children can still be created after this function resumes and are not
-		affected by this call.
+		This is meant to be called by the node's own coroutine. Only one call can be in progress at a
+		time: a second concurrent call, which is only possible through a node that was passed to
+		another task, throws `InvalidTaskStateException`.
 	**/
 	@:coroutine public function awaitChildren() {
+		traceTask("awaitChildren");
 		startChildren();
 		Coro.suspend(cont -> {
-			switch (lockChildren()) {
+			switch (numActiveChildren.lock()) {
 				case 0:
+					numActiveChildren.unlock(0);
 					cont.callAsync();
-					numActiveChildren.store(0);
 				case activeChildren:
-					awaitingChildContinuation = cont;
-					numActiveChildren.store(activeChildren);
+					// Register under the lock, so that the last child to complete sees the waiter.
+					final registered = awaitingChildContinuation.compareExchange(null, cont) == null;
+					numActiveChildren.unlock(activeChildren);
+					if (!registered) {
+						throw new InvalidTaskStateException("awaitChildren is already in progress on this task");
+					}
 			}
 		});
 	}
 
 	/**
-		Suspends this task until it completes.
+		Suspends the calling task until this task completes, starting this task if necessary. A
+		cancelled caller stops waiting and resumes with its `CancellationException`.
 	**/
 	@:coroutine public function await(#if coro.stack_traces ?startPos:haxe.PosInfos #end):T {
-		return Coro.suspend(cont -> {
+		return Coro.suspendCancellable(cont -> {
 			awaitContinuation(cont#if coro.stack_traces, startPos#end);
+			// A cancelled awaiter leaves the awaiters, so that a long-lived task does not accumulate them.
+			return _ -> awaitingContinuations.remove(cont);
 		});
 	}
 
 	function handleAwaitingContinuations() {
+		traceTask("handleAwaitingContinuations", null, null, true);
 		awaitingContinuations.run();
+		traceTask("handleAwaitingContinuations", null, null, false);
 	}
 
 	/**
@@ -255,29 +303,18 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 	}
 
 	function childrenCompleted() {
-		// The numActiveChildren lock is active while we're here, so this modification is safe
-		final cont = awaitingChildContinuation;
+		// Called after the children lock was released, so the waiter may take the lock again right away.
+		final cont = awaitingChildContinuation.exchange(null);
 		if (cont != null) {
-			awaitingChildContinuation = null;
+			traceTask("childrenCompleted");
 			cont.callAsync();
 		}
 	}
 
-	// strategy dispatcher
-
 	function complete() {
-		nodeStrategy.complete(this);
-	}
-
-	function childSucceeds(child:AbstractTask) {
-		nodeStrategy.childSucceeds(this, child);
-	}
-
-	function childErrors(child:AbstractTask, cause:Exception) {
-		nodeStrategy.childErrors(this, child, cause);
-	}
-
-	function childCancels(child:AbstractTask, cause:CancellationException) {
-		nodeStrategy.childCancels(this, child, cause);
+		traceTask("complete", null, null, true);
+		parent?.childCompletes(this);
+		handleAwaitingContinuations();
+		traceTask("complete", null, null, false);
 	}
 }

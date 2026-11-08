@@ -3,7 +3,7 @@ package hxcoro.run;
 import haxe.coro.context.Context;
 import haxe.coro.dispatchers.Dispatcher;
 import haxe.coro.schedulers.IScheduler;
-import hxcoro.elements.DefaultExceptionHandler;
+import hxcoro.elements.DefaultCallStackHandler;
 import hxcoro.schedulers.ILoop;
 
 /**
@@ -12,9 +12,9 @@ import hxcoro.schedulers.ILoop;
 **/
 class Setup {
 	/**
-		The base context used by `CoroRun`, which contains a `DefaultExceptionHandler`.
+		The base context used by `CoroRun`, which contains a `DefaultCallStackHandler`.
 	**/
-	static public final defaultContext = Context.empty.with(new DefaultExceptionHandler());
+	static public final defaultContext = Context.empty.with(new DefaultCallStackHandler());
 
 	/**
 		The `Dispatcher` that this setup installs into contexts.
@@ -29,7 +29,7 @@ class Setup {
 
 	/**
 		Returns a new context containing this setup's `Dispatcher` instance as an
-		element, and the default context's `ExceptionHandler` if no such element
+		element, and the default context's `CallStackHandler` if no such element
 		exists in `context`.
 	**/
 	public function adaptContext(context:Context) {
@@ -38,7 +38,7 @@ class Setup {
 
 	/**
 		Returns a new context containing this setup's `Dispatcher` instance as an
-		element, and the default context's `ExceptionHandler`.
+		element, and the default context's `CallStackHandler`.
 	**/
 	public function createContext() {
 		return defaultContext.with(dispatcher);

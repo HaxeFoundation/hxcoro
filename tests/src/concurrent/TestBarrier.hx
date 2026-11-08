@@ -58,11 +58,59 @@ class TestBarrier extends atest.Test {
 			}
 		});
 		Assert.raises(() -> barrier.arrive(1), haxe.Exception);
-		// Check the counter directly because calling `arrive` on a locked barrier spins forever.
-		final impl:hxcoro.concurrent.CoroLatch.CoroLatchImpl = cast barrier;
-		Assert.equals(1, @:privateAccess impl.counter.load());
 		barrier.arrive(1);
 		Assert.pass();
+	}
+
+	function testCallbackCanArrive() {
+		var barrier:Null<CoroBarrier> = null;
+		var phases = 0;
+		barrier = new CoroBarrier(2, () -> {
+			if (++phases == 1) {
+				barrier.arrive(1);
+			}
+		});
+		barrier.arrive(1);
+		barrier.arrive(1);
+		Assert.equals(1, phases);
+		// The callback's arrival counts towards the second phase.
+		barrier.arrive(1);
+		Assert.equals(2, phases);
+	}
+
+	function testCallbackCanArriveAndDrop() {
+		var barrier:Null<CoroBarrier> = null;
+		var phases = 0;
+		barrier = new CoroBarrier(2, () -> {
+			if (++phases == 1) {
+				barrier.arriveAndDrop();
+			}
+		});
+		barrier.arrive(2);
+		Assert.equals(1, phases);
+		// The second phase lost one arrival to the callback and needs only one more.
+		barrier.arrive(1);
+		Assert.equals(2, phases);
+	}
+
+	function testWaitersResumedAfterCallback() {
+		final events = [];
+		VirtualRun.run(node -> {
+			final barrier = new CoroBarrier(2, () -> events.push("callback"));
+			node.async(_ -> {
+				barrier.arriveAndWait();
+				events.push("resumed");
+			});
+			yield();
+			barrier.arrive(1);
+			events.push("arrived");
+		});
+		Assert.same(["callback", "arrived", "resumed"], events);
+	}
+
+	function testRejectsCounterBelowOne() {
+		Assert.raises(() -> new CoroBarrier(0), haxe.exceptions.ArgumentException);
+		Assert.raises(() -> new CoroBarrier(-1), haxe.exceptions.ArgumentException);
 	}
 
 	function testWaitersResumedWhenCallbackThrows() {

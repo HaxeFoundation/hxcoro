@@ -11,7 +11,7 @@ import haxe.coro.schedulers.ISchedulerHandle;
 /**
 	Base class for schedulers that keep scheduled events in a `MinimumHeap` ordered by due time.
 **/
-class HeapScheduler implements IScheduler {
+abstract class HeapScheduler implements IScheduler {
 	final futureMutex : Mutex;
 	final heap : MinimumHeap;
 
@@ -33,8 +33,25 @@ class HeapScheduler implements IScheduler {
 
 		futureMutex.release();
 
+		eventScheduled(event);
+
 		return event;
     }
+
+	/**
+		Returns the time from `now` until `dueTime` in seconds, or 0 if `dueTime` has passed. Times
+		that don't fit in an `Int` of milliseconds, about 24.8 days, are capped; waking up early only
+		makes the caller wait again.
+	**/
+	@:allow(hxcoro.schedulers)
+	static function secondsUntil(dueTime:Int64, now:Int64):Float {
+		return TimerDelay.clamp(dueTime - now) / 1000;
+	}
+
+	/**
+		Called on the scheduling thread after `schedule` has added `event`.
+	**/
+	abstract function eventScheduled(event:ScheduledEvent):Void;
 
 	public function now():Int64 {
 		#if lua_vanilla

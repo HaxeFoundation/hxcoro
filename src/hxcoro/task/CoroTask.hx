@@ -7,10 +7,6 @@ import haxe.coro.dispatchers.Dispatcher;
 import haxe.coro.dispatchers.IDispatchObject;
 import hxcoro.task.AbstractTask;
 import hxcoro.task.ICoroTask;
-import hxcoro.task.node.CoroChildStrategy;
-import hxcoro.task.node.CoroScopeStrategy;
-import hxcoro.task.node.CoroSupervisorStrategy;
-import hxcoro.task.node.INodeStrategy;
 
 @:using(CoroTask.ResumeStatusTools)
 private enum abstract ResumeStatus(Int) to Int {
@@ -33,23 +29,21 @@ private class ResumeStatusTools {
 	A task that is completed by resuming it as an `IContinuation` with its result or error.
 **/
 class CoroTask<T> extends CoroBaseTask<T> implements IContinuation<T> {
-	static public final CoroChildStrategy = new CoroChildStrategy();
-	static public final CoroScopeStrategy = new CoroScopeStrategy();
-	static public final CoroSupervisorStrategy = new CoroSupervisorStrategy();
-
 	/**
 		Creates a new task using the provided `context`. The creator of the task does its work and
 		completes it by calling `resume`, after starting it with `start`.
+
+		Throws `InvalidTaskStateException` if the task in `context`, the parent, has already completed.
 	**/
-	public function new(context:Context, nodeStrategy:INodeStrategy#if coro.stack_traces, ?startPos:haxe.PosInfos#end) {
-		super(context, nodeStrategy#if coro.stack_traces, startPos#end);
+	public function new(context:Context, kind:TaskKind#if coro.stack_traces, ?startPos:haxe.PosInfos#end) {
+		super(context, kind#if coro.stack_traces, startPos#end);
 	}
 
 	/**
 		The creator of this task does its work, so there is nothing to dispatch and the task is
 		activated right away.
 	**/
-	function requestActivation() {
+	function dispatchActivation() {
 		#if coro.stack_traces
 		callFrameLocked = true;
 		#end
@@ -65,6 +59,7 @@ class CoroTask<T> extends CoroBaseTask<T> implements IContinuation<T> {
 		Resumes the task with the provided `result` and `error`.
 	**/
 	public function resume(result:T, error:Exception) {
+		traceTask("resume", null, null, true);
 		if (error == null) {
 			if (ownWorkSucceeds()) {
 				this.result = result;
@@ -74,6 +69,7 @@ class CoroTask<T> extends CoroBaseTask<T> implements IContinuation<T> {
 			ownWorkFails(error);
 		}
 		checkCompletion();
+		traceTask("resume", null, null, false);
 	}
 
 	#if sys
@@ -86,7 +82,7 @@ class CoroTask<T> extends CoroBaseTask<T> implements IContinuation<T> {
 		Sys.println('\tfirstChild: ${firstChild}');
 		Sys.println('\tnumActiveChildren: ${numActiveChildren.load()}');
 		Sys.println('\tresult: $result');
-		Sys.println('\terror: ${error.load()}');
+		Sys.println('\tstopCause: ${stopCause.load()}');
 	}
 	#end
 }
@@ -100,21 +96,23 @@ class CoroTaskWithLambda<T> extends CoroTask<T> implements IDispatchObject imple
 	/**
 		Creates a new task using the provided `context` in order to execute `lambda`. The task doesn't
 		run until it is started.
+
+		Throws `InvalidTaskStateException` if the task in `context`, the parent, has already completed.
 	**/
-	public function new(context:Context, lambda:NodeLambda<T>, nodeStrategy:INodeStrategy#if coro.stack_traces, ?startPos:haxe.PosInfos#end) {
+	public function new(context:Context, lambda:NodeLambda<T>, kind:TaskKind#if coro.stack_traces, ?startPos:haxe.PosInfos#end) {
 		this.lambda = lambda;
-		super(context, nodeStrategy#if coro.stack_traces,startPos#end);
+		super(context, kind#if coro.stack_traces, startPos#end);
 	}
 
 	/**
 		Dispatches this task on its context's dispatcher, which then calls `onDispatch`. Unless `start`
 		set a caller before, this keeps the creation site as the task's call frame.
 	**/
-	@:allow(hxcoro)
-	override function requestActivation() {
+	override function dispatchActivation() {
 		#if coro.stack_traces
 		callFrameLocked = true;
 		#end
+		traceTask("dispatch");
 		context.dispatchOrCall(this);
 	}
 
@@ -131,6 +129,8 @@ class CoroTaskWithLambda<T> extends CoroTask<T> implements IDispatchObject imple
 		Runs this task's `lambda`.
 	**/
 	override function runOwnWork() {
+		traceTask("runOwnWork", null, null, true);
 		lambda(this, this);
+		traceTask("runOwnWork", null, null, false);
 	}
 }

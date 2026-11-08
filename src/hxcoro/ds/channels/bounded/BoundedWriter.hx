@@ -6,8 +6,8 @@ import hxcoro.ds.Out;
 import hxcoro.ds.CircularBuffer;
 import hxcoro.ds.channels.Channel;
 import hxcoro.ds.channels.bounded.AtomicChannelState;
-import hxcoro.ds.channels.exceptions.ChannelClosedException;
-import hxcoro.ds.channels.exceptions.InvalidChannelStateException;
+import hxcoro.ds.channels.ChannelClosedException;
+import hxcoro.ds.channels.InvalidChannelStateException;
 
 using hxcoro.util.Convenience;
 using hxcoro.util.MutexExtensions;
@@ -35,7 +35,7 @@ final class BoundedWriter<T> implements IChannelWriter<T> {
 	}
 
 	public function tryWrite(v:T):Bool {
-		if (state.compareExchange(Open, Locked) != Open) {
+		if (state.tryLock(Open) != Open) {
 			return false;
 		}
 
@@ -43,7 +43,7 @@ final class BoundedWriter<T> implements IChannelWriter<T> {
 			final out       = new Out();
 			final hasWaiter = readWaiters.tryPop(out);
 
-			state.store(Open);
+			state.unlock(Open);
 
 			if (hasWaiter) {
 				out.get().succeedAsync(true);
@@ -51,7 +51,7 @@ final class BoundedWriter<T> implements IChannelWriter<T> {
 
 			true;
 		} else {
-			state.store(Open);
+			state.unlock(Open);
 
 			false;
 		}
@@ -76,18 +76,16 @@ final class BoundedWriter<T> implements IChannelWriter<T> {
 					switch state.lock() {
 						case Open:
 							if (buffer.tryPopHead(out)) {
-								state.store(Open);
+								state.unlock(Open);
 
 								f(out.get());
 							} else {
-								state.store(Open);
+								state.unlock(Open);
 
 								throw new Exception('Failed to drop newest item');
 							}
-						case Locked:
-							throw new InvalidChannelStateException();
 						case rejected:
-							state.store(rejected);
+							state.unlock(rejected);
 
 							throw new ChannelClosedException();
 					}
@@ -101,18 +99,16 @@ final class BoundedWriter<T> implements IChannelWriter<T> {
 					switch state.lock() {
 						case Open:
 							if (buffer.tryPopTail(out)) {
-								state.store(Open);
+								state.unlock(Open);
 
 								f(out.get());
 							} else {
-								state.store(Open);
+								state.unlock(Open);
 
 								throw new Exception('Failed to drop oldest item');
 							}
-						case Locked:
-							throw new InvalidChannelStateException();
 						case rejected:
-							state.store(rejected);
+							state.unlock(rejected);
 
 							throw new ChannelClosedException();
 					}
@@ -133,30 +129,28 @@ final class BoundedWriter<T> implements IChannelWriter<T> {
 			case Closed:
 				return false;
 			case Draining:
-				state.store(Draining);
+				state.unlock(Draining);
 
 				return false;
-			case Locked:
-				throw new InvalidChannelStateException();
 			case Open:
 				return if (buffer.wasFull()) {
 					return suspendCancellable(cont -> {
 						final hostPage = writeWaiters.push(cont);
 
-						state.store(Open);
+						state.unlock(Open);
 
 						_ -> {
 							switch state.lock() {
-								case Closed, Locked:
+								case Closed:
 									throw new InvalidChannelStateException();
 								case previous:
 									writeWaiters.remove(hostPage, cont);
-									state.store(previous);
+									state.unlock(previous);
 							}
 						}
 					});
 				} else {
-					state.store(Open);
+					state.unlock(Open);
 
 					true;
 				}
@@ -168,11 +162,9 @@ final class BoundedWriter<T> implements IChannelWriter<T> {
 			case Closed:
 				return;
 			case Draining:
-				state.store(Draining);
+				state.unlock(Draining);
 
 				return;
-			case Locked:
-				throw new InvalidChannelStateException();
 			case Open:
 				while (writeWaiters.isEmpty() == false) {
 					switch writeWaiters.pop() {
@@ -192,7 +184,7 @@ final class BoundedWriter<T> implements IChannelWriter<T> {
 					}
 				};
 
-				state.store(if (buffer.wasEmpty()) Closed else Draining);
+				state.unlock(if (buffer.wasEmpty()) Closed else Draining);
 		}
 	}
 }

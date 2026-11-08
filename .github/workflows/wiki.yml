@@ -12,6 +12,8 @@ concurrency:
 
 jobs:
   wiki:
+    # Same-repository PRs are covered by the push run; only fork PRs need the pull_request run.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
