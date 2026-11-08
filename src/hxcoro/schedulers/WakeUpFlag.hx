@@ -1,7 +1,6 @@
 package hxcoro.schedulers;
 
 #if target.threaded
-import haxe.Int64;
 import hxcoro.concurrent.AtomicState;
 import sys.thread.Condition;
 
@@ -14,8 +13,8 @@ private enum abstract WakeUpState(Int) to Int {
 }
 
 /**
-	A flag that tells a loop thread that it has something to do. Any thread can set it, and
-	only the loop thread clears it and waits for it.
+	A flag that tells a loop thread that it has something to do. Any thread can change it, and
+	only the loop thread resets it and waits for it.
 **/
 class WakeUpFlag {
 	final state:AtomicState<WakeUpState>;
@@ -30,16 +29,18 @@ class WakeUpFlag {
 	}
 
 	/**
-		Sets the flag. This may be called from any thread.
+		Records that something changed that the loop thread has to look at. This may be called
+		from any thread.
 	**/
-	public function set() {
+	public function markChanged() {
 		if (state.compareExchange(Unset, Changed) == Unset) {
 			signal();
 		}
 	}
 
 	/**
-		Sets the flag and records that the loop has to return. This may be called from any thread.
+		Records that something changed and that the loop has to return. This may be called from
+		any thread.
 	**/
 	public function requestWakeUp() {
 		if (state.exchange(WakeUpRequested) == Unset) {
@@ -54,35 +55,35 @@ class WakeUpFlag {
 	}
 
 	/**
-		Clears the flag without waiting and returns whether a wake-up was requested. A `set` that
-		happens after this call makes the next wait return.
+		Resets the flag and returns whether a wake-up was requested since the last reset.
 	**/
-	public function clear() {
+	public function takeWakeUpRequest() {
+		// A change recorded after this exchange makes the next wait return.
 		return state.exchange(Unset) == WakeUpRequested;
 	}
 
 	/**
-		Waits until the flag is set or the time `now` reaches `dueTime`, then clears the flag and
-		returns whether a wake-up was requested. Without a `dueTime`, waits until the flag is set.
+		Blocks until a change is recorded or `timeout` seconds have passed. Without a `timeout`,
+		blocks until a change is recorded. Returns immediately if a change was recorded since the
+		last reset. Doesn't reset the flag.
 
-		This may return earlier, so the caller has to check what it waits for and call it again.
+		This may return earlier, so the caller has to check what it waits for and wait again.
 	**/
-	public function waitUntil(dueTime:Null<Int64>, now:Int64) {
-		final timeout = dueTime == null ? null : HeapScheduler.secondsUntil(dueTime, now);
-		if (timeout == null || timeout > 0) {
-			condition.acquire();
-			if (state.load() == Unset) {
-				// Spurious wake-ups and timeouts cut short by the target just make the caller
-				// look again, like any other early return.
-				if (timeout == null) {
-					condition.wait();
-				} else {
-					condition.timedWait(timeout);
-				}
-			}
-			condition.release();
+	public function wait(timeout:Null<Float>) {
+		if (timeout != null && timeout <= 0) {
+			return;
 		}
-		return clear();
+		condition.acquire();
+		if (state.load() == Unset) {
+			// Spurious wake-ups and timeouts cut short by the target just make the caller look
+			// again, like any other early return.
+			if (timeout == null) {
+				condition.wait();
+			} else {
+				condition.timedWait(timeout);
+			}
+		}
+		condition.release();
 	}
 }
 #end
