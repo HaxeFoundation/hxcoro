@@ -9,6 +9,7 @@ import haxe.atomic.AtomicInt;
 import hxcoro.concurrent.AtomicRef;
 import hxcoro.concurrent.AtomicState;
 import hxcoro.concurrent.BackOff;
+import hxcoro.concurrent.LockableAtomic;
 import hxcoro.task.StopCause;
 #if hxcoro.trace_tasks
 import hxcoro.debug.TaskTrace;
@@ -103,7 +104,7 @@ abstract class AbstractTask implements ICancellationToken {
 
 	// children
 
-	final numActiveChildren:AtomicInt;
+	final numActiveChildren:LockableAtomic<Int>;
 	var firstChild:Null<AbstractTask>;
 	var nextSibling:Null<AbstractTask>;
 	var previousSibling:Null<AbstractTask>;
@@ -156,7 +157,7 @@ abstract class AbstractTask implements ICancellationToken {
 		activationRequested = new AtomicInt(0);
 		stopCause = new AtomicRef(null);
 		cancellationManager = @:nullSafety(Off) new TaskCancellationManager(this);
-		numActiveChildren = new AtomicInt(0);
+		numActiveChildren = new LockableAtomic(0);
 		if (parent != null) {
 			parent.addChild(this);
 		}
@@ -483,20 +484,6 @@ abstract class AbstractTask implements ICancellationToken {
 	**/
 	abstract function dispatchActivation():Void;
 
-	function lockChildren() {
-		while (true) {
-			switch (numActiveChildren.load()) {
-				case -1:
-					// wait
-				case old:
-					if (numActiveChildren.compareExchange(old, -1) == old) {
-						return old;
-					}
-			}
-			BackOff.backOff();
-		}
-	}
-
 	/**
 		Cancels all current children of this task, using `cause` as the reason.
 
@@ -505,14 +492,14 @@ abstract class AbstractTask implements ICancellationToken {
 	**/
 	public function cancelChildren(?cause:CancellationException) {
 		traceTask("cancelChildren", null, null, true);
-		switch (lockChildren()) {
+		switch (numActiveChildren.lock()) {
 			case 0:
-				numActiveChildren.store(0);
+				numActiveChildren.unlock(0);
 			case activeChildren:
 				cause ??= new CancellationException();
 				// Collect children, then unlock and cancel them
 				final children = getCurrentChildren();
-				numActiveChildren.store(activeChildren);
+				numActiveChildren.unlock(activeChildren);
 				for (child in children) {
 					child.cancel(cause);
 				}
@@ -522,13 +509,13 @@ abstract class AbstractTask implements ICancellationToken {
 
 	function startChildren() {
 		traceTask("startChildren", null, null, true);
-		switch (lockChildren()) {
+		switch (numActiveChildren.lock()) {
 			case 0:
-				numActiveChildren.store(0);
+				numActiveChildren.unlock(0);
 			case activeChildren:
 				// Collect children, then unlock and start them
 				final children = getCurrentChildren();
-				numActiveChildren.store(activeChildren);
+				numActiveChildren.unlock(activeChildren);
 				for (child in children) {
 					child.requestActivation();
 				}
@@ -537,7 +524,7 @@ abstract class AbstractTask implements ICancellationToken {
 	}
 
 	function getCurrentChildren() {
-		// Only safe to call if numActiveChildren is locked
+		// Only safe to call while `numActiveChildren` is locked.
 		final children:Array<AbstractTask> = [];
 		var child = firstChild;
 		while (child != null) {
@@ -552,7 +539,7 @@ abstract class AbstractTask implements ICancellationToken {
 		// The final transition happens while the children lock is held, so that no child can attach
 		// to a task that is about to complete. `complete` runs after the lock is released, because it
 		// resumes other code.
-		final completed = switch (lockChildren()) {
+		final completed = switch (numActiveChildren.lock()) {
 			case 0:
 				switch (state.load()) {
 					case Created | Running | CancellationRequested:
@@ -577,11 +564,11 @@ abstract class AbstractTask implements ICancellationToken {
 						false;
 				}
 			case activeChildren:
-				numActiveChildren.store(activeChildren);
+				numActiveChildren.unlock(activeChildren);
 				traceTask("checkCompletion", null, "children left", false);
 				return;
 		}
-		numActiveChildren.store(0);
+		numActiveChildren.unlock(0);
 		if (completed) {
 			complete();
 			traceTask("checkCompletion", null, "completed", false);
@@ -644,13 +631,13 @@ abstract class AbstractTask implements ICancellationToken {
 	**/
 	function childCompletes(child:AbstractTask) {
 		traceTask("childCompletes", child, null, true);
-		switch (lockChildren()) {
+		switch (numActiveChildren.lock()) {
 			case 0:
-				numActiveChildren.store(0);
+				numActiveChildren.unlock(0);
 				return setInternalException('numActiveChildren is already 0 in childCompletes');
 			case 1:
 				firstChild = null;
-				numActiveChildren.store(0);
+				numActiveChildren.unlock(0);
 				// Resumes the awaitChildren waiter, outside the lock so that it may take it right away.
 				childrenCompleted();
 				checkCompletion();
@@ -668,7 +655,7 @@ abstract class AbstractTask implements ICancellationToken {
 				}
 				child.nextSibling = null;
 				child.previousSibling = null;
-				numActiveChildren.store(activeChildren - 1);
+				numActiveChildren.unlock(activeChildren - 1);
 		}
 		traceTask("childCompletes", child, null, false);
 	}
@@ -677,12 +664,12 @@ abstract class AbstractTask implements ICancellationToken {
 		Links `child` into this task's children, unless this task has completed.
 	**/
 	function addChild(child:AbstractTask) {
-		final activeChildren = lockChildren();
+		final activeChildren = numActiveChildren.lock();
 		// checkCompletion holds the lock for the final transition, so a child either attaches to a
 		// task that still waits for its children or is refused.
 		switch (state.load()) {
 			case Completed | Cancelled:
-				numActiveChildren.store(activeChildren);
+				numActiveChildren.unlock(activeChildren);
 				throw new InvalidTaskStateException("Cannot create a child of a task that has completed");
 			case Created | Running | CancellationRequested | Completing | Cancelling:
 		}
@@ -691,6 +678,6 @@ abstract class AbstractTask implements ICancellationToken {
 			firstChild.previousSibling = child;
 		}
 		firstChild = child;
-		numActiveChildren.store(activeChildren + 1);
+		numActiveChildren.unlock(activeChildren + 1);
 	}
 }

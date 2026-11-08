@@ -125,6 +125,7 @@ Files with a target suffix such as `Foo.cpp.hx` or `Foo.eval.hx` are only used o
 - Stack-trace bookkeeping (`?startPos:haxe.PosInfos` parameters and similar) is gated on `#if coro.stack_traces`, not `#if debug`.
 - Use conditional compilation (`#if target.threaded`, `#if cpp`, `#if lua_vanilla`, ...) or target-suffixed files for target-specific code. `-D lua-vanilla` has no `Sys.sleep` or `Sys.time`.
 - Busy loops such as CAS retry loops should use `hxcoro.concurrent.BackOff`. This avoids GC deadlocks on some targets.
+- A spin lock that is folded into an atomic value, so that the value is unavailable while the lock is held, uses `hxcoro.concurrent.LockableAtomic` rather than a hand-written CAS loop with a sentinel.
 - Doc comments are brief and say what a function does and what it throws. Don't list use cases, and don't refer to other API functions from a doc comment. How something works internally goes into line comments at the code, not into the doc comment.
 
 ### Writing Tests

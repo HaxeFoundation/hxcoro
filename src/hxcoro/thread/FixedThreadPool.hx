@@ -2,8 +2,7 @@ package hxcoro.thread;
 
 import haxe.coro.dispatchers.IDispatchObject;
 import haxe.ds.Vector;
-import hxcoro.concurrent.AtomicState;
-import hxcoro.concurrent.BackOff;
+import hxcoro.concurrent.LockableAtomic;
 import sys.thread.Semaphore;
 import sys.thread.Thread;
 import sys.thread.Tls;
@@ -22,10 +21,6 @@ private enum abstract PoolState(Int) to Int {
 		The pool accepts work from all threads.
 	**/
 	final Active;
-	/**
-		A thread outside the pool is adding work, or `shutDown` is starting the shutdown.
-	**/
-	final Locked;
 	/**
 		The pool only accepts work from its own threads, and the workers exit once the queues are empty.
 	**/
@@ -50,9 +45,9 @@ class FixedThreadPool implements IThreadPool {
 	public var isShutDown(get,never):Bool;
 	function get_isShutDown():Bool return state.load() == Draining;
 
-	// Doubles as the lock of the threads outside the pool: they add work only while holding it
-	// in `Active`, so once a worker sees `Draining`, all their work is in the queues.
-	final state:AtomicState<PoolState>;
+	// Doubles as the lock of the threads outside the pool: they add work only while holding it,
+	// so once a worker sees `Draining`, all their work is in the queues.
+	final state:LockableAtomic<PoolState>;
 	final semaphore:Semaphore;
 	final pool:Array<Worker>;
 	// The queue of each worker, followed by the one of the threads outside the pool.
@@ -70,7 +65,7 @@ class FixedThreadPool implements IThreadPool {
 		if(threadsCount < 1)
 			throw new ThreadPoolException('FixedThreadPool needs threadsCount to be at least 1.');
 		this.threadsCount = threadsCount;
-		state = new AtomicState(Active);
+		state = new LockableAtomic(Active);
 		semaphore = new Semaphore(0);
 		queueTls = new Tls();
 		queues = Vector.fromArrayCopy([for (_ in 0...threadsCount + 1) new WorkStealingQueue()]);
@@ -102,23 +97,14 @@ class FixedThreadPool implements IThreadPool {
 				throw new ThreadPoolException('Task is rejected. Thread pool is shut down.');
 			}
 			sharedQueue.add(obj);
-			state.store(Active);
+			state.unlock(Active);
 		}
 		semaphore.release();
 	}
 
-	// Spins until the state goes from `Active` to `Locked`, or returns false once the pool is draining.
+	// Spins until the state is locked and returns true, or returns false once the pool is draining.
 	function lock() {
-		while (true) {
-			switch (state.compareExchange(Active, Locked)) {
-				case Active:
-					return true;
-				case Locked:
-					BackOff.backOff();
-				case Draining:
-					return false;
-			}
-		}
+		return state.lockUnless(Draining) == Active;
 	}
 
 	/**
@@ -134,7 +120,7 @@ class FixedThreadPool implements IThreadPool {
 		for (worker in pool) {
 			worker.shutDown(shutdownSemaphore);
 		}
-		state.store(Draining);
+		state.unlock(Draining);
 		for (_ in pool) {
 			semaphore.release();
 		}
