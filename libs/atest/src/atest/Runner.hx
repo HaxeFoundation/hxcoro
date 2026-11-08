@@ -101,7 +101,7 @@ class Runner {
 								if (testCtx != null) {
 									for (e in testCtx) ctx = ctx.with(e);
 								}
-								hxcoro.run.ContextRun.async(ctx, function(innerNode) {
+								hxcoro.task.ContextTasks.async(ctx, function(innerNode) {
 									hxcoro.Coro.timeout(t.timeout, function(timeoutNode) {
 										c.instance.setup();
 										exec(timeoutNode);

@@ -7,7 +7,7 @@ package hxcoro.util;
 	- `hxcoro.util.ContinuationTools`
 	- `hxcoro.util.ContextTools`
 	- `hxcoro.util.DispatcherTools`
-	- `hxcoro.run.ContextRun`
+	- `hxcoro.task.ContextTasks`
 
 	@see <https://haxe.org/manual/lf-static-extension.html>
 **/
@@ -21,4 +21,4 @@ typedef TContextTools = ContextTools;
 typedef TDispatcherTools = DispatcherTools;
 
 @:dox(hide)
-typedef TContextRun = hxcoro.run.ContextRun;
+typedef TContextTasks = hxcoro.task.ContextTasks;
