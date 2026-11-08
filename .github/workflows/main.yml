@@ -51,7 +51,10 @@ jobs:
             brew install lua
           fi
 
+      # The test steps below also run when an earlier test step failed, but only once this
+      # last setup step has succeeded: after a setup failure they can only fail as well.
       - name: Setup haxelib
+        id: setup
         run: |
           haxelib newrepo
           ${{ matrix.target != 'jvm' }} || haxelib install hxjava
@@ -147,16 +150,16 @@ jobs:
 
       - name: Run callstack tests
         # Also run when the main tests failed, they are independent.
-        if: success() || failure()
+        if: (success() || failure()) && steps.setup.outcome == 'success'
         run: haxe --cwd callstack-tests build-${{ matrix.target }}.hxml
 
       - name: Run thread tests
         # Only threaded targets have a build file for this suite.
-        if: (success() || failure()) && contains(fromJSON('["eval", "hl", "cpp", "jvm", "python", "neko"]'), matrix.target)
+        if: (success() || failure()) && steps.setup.outcome == 'success' && contains(fromJSON('["eval", "hl", "cpp", "jvm", "python", "neko"]'), matrix.target)
         run: haxe --cwd thread-tests build-${{ matrix.target }}.hxml
 
       - name: Run example tests
-        if: success() || failure()
+        if: (success() || failure()) && steps.setup.outcome == 'success'
         shell: bash
         run: |
           failed=0
@@ -170,7 +173,7 @@ jobs:
 
       - name: Save hxcpp compile cache
         # Objects compiled before a test failure are as valid as any other.
-        if: (success() || failure()) && matrix.target == 'cpp'
+        if: (success() || failure()) && matrix.target == 'cpp' && steps.hxcpp-cache.outcome == 'success'
         uses: actions/cache/save@v4
         with:
           path: ${{ runner.temp }}/hxcpp-cache
