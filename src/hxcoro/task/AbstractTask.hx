@@ -543,7 +543,8 @@ abstract class AbstractTask implements ICancellationToken {
 	function snapshotChildren(activeChildren:Int):Vector<Null<AbstractTask>> {
 		// The children have to be copied, because cancelling or starting a child can run it to
 		// completion inline, and its completion takes this lock. Allocating while other threads spin
-		// on the lock is avoided by releasing it around the allocation and locking again to copy. If
+		// on the lock is avoided by releasing it around the allocation and locking again to copy. The
+		// list is copied entirely under the second lock, so the first count only sizes the vector. If
 		// children were added in between, the vector is too small and a bigger one is allocated. If
 		// children completed, the slots at the end stay `null`.
 		numActiveChildren.unlock(activeChildren);
