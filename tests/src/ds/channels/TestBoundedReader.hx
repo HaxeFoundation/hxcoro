@@ -41,10 +41,8 @@ class TestBoundedReader extends atest.Test {
 		switch state.lock() {
 			case Closed:
 				return;
-			case Locked:
-				throw new InvalidChannelStateException();
 			case _:
-				state.store(next);
+				state.unlock(next);
 		}
 	}
 

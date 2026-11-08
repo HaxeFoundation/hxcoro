@@ -37,10 +37,10 @@ private final class WaitContinuation implements IContinuation<Bool> {
 				case Closed:
 					false;
 				case Draining:
-					state.store(Draining);
+					state.unlock(Draining);
 
 					true;
-				case Open, Locked:
+				case Open:
 					throw new InvalidChannelStateException();
 			}
 		} else {
@@ -74,8 +74,6 @@ final class BoundedReader<T> implements IChannelReader<T> {
 		switch state.lock() {
 			case Closed:
 				return false;
-			case Locked:
-				throw new InvalidChannelStateException();
 			case previous:
 				final result = buffer.tryPopTail(out);
 
@@ -83,7 +81,7 @@ final class BoundedReader<T> implements IChannelReader<T> {
 					// In draining mode the channel does not accept any more data,
 					// so if we just read the last remaining data we want to transition
 					// to closed instead of draining.
-					state.store(if (buffer.wasEmpty()) Closed else Draining);
+					state.unlock(if (buffer.wasEmpty()) Closed else Draining);
 
 					result;
 				} else if (result) {
@@ -92,7 +90,7 @@ final class BoundedReader<T> implements IChannelReader<T> {
 					final out       = new Out();
 					final hasWaiter = writeWaiters.tryPop(out);
 
-					state.store(Open);
+					state.unlock(Open);
 
 					if (hasWaiter) {
 						out.get().succeedAsync(true);
@@ -100,7 +98,7 @@ final class BoundedReader<T> implements IChannelReader<T> {
 
 					result;
 				} else {
-					state.store(Open);
+					state.unlock(Open);
 
 					result;
 				}
@@ -111,12 +109,10 @@ final class BoundedReader<T> implements IChannelReader<T> {
 		return switch state.lock() {
 			case Closed:
 				false;
-			case Locked:
-				throw new InvalidChannelStateException();
 			case previous:
 				final result = buffer.tryPeekHead(out);
 
-				state.store(previous);
+				state.unlock(previous);
 
 				result;
 		}
@@ -141,17 +137,15 @@ final class BoundedReader<T> implements IChannelReader<T> {
 		switch state.lock() {
 			case Closed:
 				return false;
-			case Locked:
-				throw new InvalidChannelStateException();
 			case Draining:
 				// In draining mode there is always data in the buffer,
 				// which is why it's safe to blindly return true.
-				state.store(Draining);
+				state.unlock(Draining);
 
 				return true;
 			case Open:
 				if (buffer.wasEmpty() == false) {
-					state.store(Open);
+					state.unlock(Open);
 
 					return true;
 				}
@@ -160,15 +154,15 @@ final class BoundedReader<T> implements IChannelReader<T> {
 					final obj       = new WaitContinuation(cont, state);
 					final hostPage  = readWaiters.push(obj);
 
-					state.store(Open);
+					state.unlock(Open);
 
 					_ -> {
 						switch state.lock() {
-							case Closed, Locked:
+							case Closed:
 								throw new InvalidChannelStateException();
 							case previous:
 								readWaiters.remove(hostPage, obj);
-								state.store(previous);
+								state.unlock(previous);
 						}
 					}
 				});

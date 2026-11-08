@@ -1,6 +1,7 @@
 package structured;
 
 import hxcoro.concurrent.CoroLatch;
+import hxcoro.concurrent.LockableAtomic;
 import hxcoro.dispatchers.TrampolineDispatcher;
 import hxcoro.task.InvalidTaskStateException;
 import hxcoro.schedulers.VirtualTimeScheduler;
@@ -43,7 +44,7 @@ class TestAwaitChildren extends atest.Test {
 		var lockedDispatches = 0;
 		final task = run(env.dispatcher, env.scheduler, node -> {
 			final self:AbstractTask = cast node;
-			env.dispatcher.probe = () -> if (@:privateAccess self.numActiveChildren.load() == -1) lockedDispatches++;
+			env.dispatcher.probe = () -> if (LockableAtomic.isLocked(@:privateAccess self.numActiveChildren.load())) lockedDispatches++;
 			node.async(_ -> yield());
 			node.awaitChildren();
 			env.dispatcher.probe = null;
@@ -57,7 +58,7 @@ class TestAwaitChildren extends atest.Test {
 		var lockedDispatches = 0;
 		final task = run(env.dispatcher, env.scheduler, node -> {
 			final self:AbstractTask = cast node;
-			env.dispatcher.probe = () -> if (@:privateAccess self.numActiveChildren.load() == -1) lockedDispatches++;
+			env.dispatcher.probe = () -> if (LockableAtomic.isLocked(@:privateAccess self.numActiveChildren.load())) lockedDispatches++;
 			node.awaitChildren();
 			env.dispatcher.probe = null;
 		});

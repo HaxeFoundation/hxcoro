@@ -12,8 +12,8 @@ import hxcoro.schedulers.VirtualTimeScheduler;
 	P4, P6) are not covered here; they belong in `thread-tests/src/cases/`.
 
 	Background: bounded channels use a small atomic state (`ds/channels/bounded/AtomicChannelState.hx`):
-	`Open`, `Locked`, `Draining`, `Closed`. `state.lock()` spins until it gets the lock and returns
-	the previous state, and `compareExchange(Open, Locked)` is a try-lock. Unbounded channels use a
+	`Open`, `Draining`, `Closed` in a `LockableAtomic`. `state.lock()` spins until it gets the lock and
+	returns the previous state, and `tryLock(Open)` is a try-lock. Unbounded channels use a
 	mutex plus `closed` flags. Waiters are stored in a `PagedDeque`, which is not thread-safe.
 **/
 class TestPrimitives extends atest.Test {
@@ -21,11 +21,11 @@ class TestPrimitives extends atest.Test {
 		P1: `DropWrite` on a closed bounded channel silently drops the item instead of throwing.
 
 		`src/hxcoro/ds/channels/bounded/BoundedWriter.hx:37-40`: `tryWrite` returns `false` if
-		`state.compareExchange(Open, Locked) != Open`, which includes a closed channel, and the
+		`state.tryLock(Open) != Open`, which includes a closed channel, and the
 		`DropWrite` branch of `write` (`:122`) then passes the item to the callback and returns. The
 		other modes throw `ChannelClosedException` on a closed channel.
 
-		The main part of P1 needs threads: a concurrent reader or writer holding `Locked` for a
+		The main part of P1 needs threads: a concurrent reader or writer holding the lock for a
 		moment makes `tryWrite` fail although the channel is open and has space. `DropWrite` then
 		drops the item, and `DropNewest`/`DropOldest` pop from a buffer that may not be full; with size
 		1 they can throw `Exception('Failed to drop newest item')`. Fix: `tryWrite` uses `state.lock()`

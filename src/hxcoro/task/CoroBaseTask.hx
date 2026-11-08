@@ -257,14 +257,14 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 		traceTask("awaitChildren");
 		startChildren();
 		Coro.suspend(cont -> {
-			switch (lockChildren()) {
+			switch (numActiveChildren.lock()) {
 				case 0:
-					numActiveChildren.store(0);
+					numActiveChildren.unlock(0);
 					cont.callAsync();
 				case activeChildren:
 					// Register under the lock, so that the last child to complete sees the waiter.
 					final registered = awaitingChildContinuation.compareExchange(null, cont) == null;
-					numActiveChildren.store(activeChildren);
+					numActiveChildren.unlock(activeChildren);
 					if (!registered) {
 						throw new InvalidTaskStateException("awaitChildren is already in progress on this task");
 					}

@@ -4,7 +4,6 @@ import haxe.coro.IContinuation;
 import haxe.exceptions.ArgumentException;
 import hxcoro.concurrent.SemaphoreFullException;
 import hxcoro.ds.PagedDeque;
-import haxe.atomic.AtomicInt;
 
 /**
 	A counting semaphore for coroutines that limits concurrent access to a resource
@@ -14,7 +13,7 @@ import haxe.atomic.AtomicInt;
 class CoroSemaphore {
 	@:nullSafety(Off) final maxFree:Int;
 	var deque:PagedDeque<IContinuation<Any>>;
-	var free:AtomicInt;
+	var free:LockableAtomic<Int>;
 
 	/**
 		Creates a new `CoroSemaphore` instance with `free` initially available permits.
@@ -42,7 +41,7 @@ class CoroSemaphore {
 			this.maxFree = maxFree;
 		}
 
-		this.free = new AtomicInt(free);
+		this.free = new LockableAtomic(free);
 		deque = new PagedDeque();
 	}
 
@@ -50,29 +49,27 @@ class CoroSemaphore {
 		Acquires a permit, suspending until one becomes available if necessary.
 	**/
 	@:coroutine public function acquire() {
-		// CAS loop until we update the free atomic or it reports full.
+		// CAS loop until we take a permit, or take the lock because there is none.
 		while (true) {
 			final old = free.load();
-			if (old < 0) {
-				// Someone has the "mutex", let's wait
+			if (LockableAtomic.isLocked(old)) {
 				BackOff.backOff();
 				continue;
 			}
-			if (free.compareExchange(old, old - 1) == old) {
-				if (old == 0) {
-					// The value is -1 now, so we have the mutex and can suspend.
+			if (old == 0) {
+				if (free.tryLock(0) == 0) {
+					// No permit is free, so we hold the lock and can suspend.
 					break;
-				} else {
-					// Normal acquire
-					return;
 				}
+			} else if (free.compareExchange(old, old - 1) == old) {
+				// Normal acquire
+				return;
 			}
 		}
-		// If we get here, free is == -1
+		// If we get here, we hold the lock.
 		suspendCancellable(cont -> {
 			final page = deque.push(cont);
-			// Unlock
-			free.store(0);
+			free.unlock(0);
 			_ -> onWaiterCancelled(page, cont);
 		});
 	}
@@ -85,8 +82,7 @@ class CoroSemaphore {
 	function onWaiterCancelled(page, cont:IContinuation<Any>) {
 		while (true) {
 			final old = free.load();
-			if (old < 0) {
-				// Someone has the "mutex", let's wait
+			if (LockableAtomic.isLocked(old)) {
 				BackOff.backOff();
 				continue;
 			}
@@ -96,32 +92,32 @@ class CoroSemaphore {
 				release();
 				return;
 			}
-			if (free.compareExchange(0, -1) == 0) {
+			if (free.tryLock(0) == 0) {
 				break;
 			}
 			BackOff.backOff();
 		}
-		// If we get here, free == -1.
+		// If we get here, we hold the lock.
 		if (deque.remove(page, cont)) {
-			free.store(0);
+			free.unlock(0);
 		} else {
 			handOff();
 		}
 	}
 
 	/**
-		Must be called with free == -1. Hands a permit to the first waiter, or makes it
+		Must be called with the lock held. Hands a permit to the first waiter, or makes it
 		available if there are none.
 	**/
 	function handOff() {
 		if (deque.isEmpty()) {
 			// Empty deque also means there's room for 1.
-			free.store(1);
+			free.unlock(1);
 			return;
 		}
 		@:nullSafety(Off) final cont:IContinuation<Any> = deque.pop();
 		// There's a continuation to execute, so free is 0 again.
-		free.store(0);
+		free.unlock(0);
 		// Resume directly instead of dispatching, so that the hand-off is decided right away. If
 		// cancellation wins over it, the waiter never receives the permit set aside for it, and
 		// its cancellation callback passes the permit on.
@@ -158,17 +154,16 @@ class CoroSemaphore {
 			if (maxFree == old) {
 				throw new SemaphoreFullException();
 			}
-			if (old < 0) {
-				// Someone has the "mutex", let's wait
+			if (LockableAtomic.isLocked(old)) {
 				BackOff.backOff();
 				old = free.load();
 				continue;
 			}
 			if (old == 0) {
-				// This is the case where we might have to inspect the deque, so we go to -1.
-				final next = free.compareExchange(old, -1);
+				// This is the case where we might have to inspect the deque, so we take the lock.
+				final next = free.tryLock(0);
 				if (next == old) {
-					// We successfully locked the mutex, leave this loop.
+					// We hold the lock, leave this loop.
 					break;
 				} else {
 					old = next;
@@ -186,7 +181,7 @@ class CoroSemaphore {
 				BackOff.backOff();
 			}
 		}
-		// If we get here, free == -1.
+		// If we get here, we hold the lock.
 		handOff();
 	}
 }

@@ -2,7 +2,7 @@ package review;
 
 import hxcoro.dispatchers.TrampolineDispatcher;
 import hxcoro.ds.channels.Channel;
-import hxcoro.ds.channels.bounded.AtomicChannelState.ChannelState;
+import hxcoro.concurrent.LockableAtomic;
 import hxcoro.ds.channels.bounded.BoundedWriter;
 import hxcoro.schedulers.VirtualTimeScheduler;
 import hxcoro.task.ICoroTask;
@@ -47,7 +47,7 @@ class TestLockedDispatch extends atest.Test {
 	/**
 		P2: bounded `close()` resumes waiters while the channel is locked.
 
-		`src/hxcoro/ds/channels/bounded/BoundedWriter.hx:166-196`: under `Locked`, the `Open` case
+		`src/hxcoro/ds/channels/bounded/BoundedWriter.hx:166-196`: while the lock is held, the `Open` case
 		pops the waiters and calls `cont.succeedAsync(false)`, and only then stores `Closed`/`Draining`.
 		The reader's `WaitContinuation.resume` (`BoundedReader.hx:15-36`) calls `state.lock()`, so with
 		inline dispatch it spins on the lock that `close()` holds on the same thread. Real repro: a
@@ -66,7 +66,7 @@ class TestLockedDispatch extends atest.Test {
 			final writer:BoundedWriter<Int> = cast ch.writer;
 			final reader = node.async(_ -> ch.waitForRead());
 			yield(); // the reader suspends on the empty channel
-			env.dispatcher.probe = () -> if (@:privateAccess writer.state.load() == Locked) lockedDispatches++;
+			env.dispatcher.probe = () -> if (LockableAtomic.isLocked(@:privateAccess writer.state.load())) lockedDispatches++;
 			ch.close();
 			env.dispatcher.probe = null;
 			reader.await();
@@ -87,7 +87,7 @@ class TestLockedDispatch extends atest.Test {
 			ch.write(0);
 			final waiter = node.async(_ -> ch.waitForWrite());
 			yield(); // the writer suspends on the full channel
-			env.dispatcher.probe = () -> if (@:privateAccess writer.state.load() == Locked) lockedDispatches++;
+			env.dispatcher.probe = () -> if (LockableAtomic.isLocked(@:privateAccess writer.state.load())) lockedDispatches++;
 			ch.close();
 			env.dispatcher.probe = null;
 			waiter.await();
