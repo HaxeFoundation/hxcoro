@@ -77,7 +77,7 @@ jobs:
         run: |
           echo "HXCPP_COMPILE_CACHE=$RUNNER_TEMP/hxcpp-cache" >> "$GITHUB_ENV"
           # hxcpp evicts the least recently used objects above this size (default 1000). The
-          # Windows job alone uses about 2500.
+          # Windows job's cache takes about 2500.
           echo "HXCPP_CACHE_MB=4000" >> "$GITHUB_ENV"
           echo "key=hxcpp-${{ runner.os }}-${{ runner.arch }}" >> "$GITHUB_OUTPUT"
 
