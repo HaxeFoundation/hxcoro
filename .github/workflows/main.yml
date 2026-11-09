@@ -66,10 +66,10 @@ jobs:
           haxe -version
           neko -version
 
-      # hxcpp's compile cache stores object files by a hash of the source, its headers, the
-      # flags and the compiler version, so objects that match are reused, from earlier runs as
-      # well as between the suites of this job. Most generated files don't change between
-      # commits. Objects depend on the hxcpp headers, so a new hxcpp revision starts a new cache.
+      # hxcpp's compile cache stores object files by a hash of the source, its headers (including
+      # the hxcpp ones), the flags and the compiler version, so objects that match are reused, from
+      # earlier runs as well as between the suites of this job. Most generated files don't change
+      # between commits, and a new hxcpp revision only invalidates the objects it affects.
       - name: Configure hxcpp compile cache
         if: matrix.target == 'cpp'
         id: hxcpp-cache
@@ -78,7 +78,7 @@ jobs:
           echo "HXCPP_COMPILE_CACHE=$RUNNER_TEMP/hxcpp-cache" >> "$GITHUB_ENV"
           # hxcpp evicts the least recently used objects above this size (default 1000).
           echo "HXCPP_CACHE_MB=2500" >> "$GITHUB_ENV"
-          echo "key=hxcpp-${{ runner.os }}-${{ runner.arch }}-$(git -C .haxelib/hxcpp/git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          echo "key=hxcpp-${{ runner.os }}-${{ runner.arch }}" >> "$GITHUB_OUTPUT"
 
       - name: Restore hxcpp compile cache
         if: matrix.target == 'cpp'
