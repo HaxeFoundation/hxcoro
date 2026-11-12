@@ -37,7 +37,7 @@ interface ICoroTask<T> {
 		Suspends until the task completes, without returning its result or throwing its error. Starts
 		the task if it has not been started yet.
 
-		Throws a `CancellationException` if the awaiting task is cancelled. This includes a parent
+		Throws a `CancellationException` if the joining task is cancelled. This includes a parent
 		joining a child that fails, because the failure cancels the parent first, with a
 		`FailureCancellationException` that carries the error.
 	**/
