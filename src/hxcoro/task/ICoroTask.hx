@@ -37,9 +37,8 @@ interface ICoroTask<T> {
 		Suspends until the task completes, without returning its result or throwing its error. Starts
 		the task if it has not been started yet.
 
-		Throws a `CancellationException` if the joining task is cancelled. This includes a parent
-		joining a child that fails, because the failure cancels the parent first, with a
-		`FailureCancellationException` that carries the error.
+		Throws a `CancellationException` if the caller is cancelled while waiting. A child that fails
+		cancels its parent, so a parent joining its own failing child throws too.
 	**/
 	@:coroutine function join(#if coro.stack_traces ?startPos:haxe.PosInfos #end):Void;
 

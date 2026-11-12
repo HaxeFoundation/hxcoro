@@ -5,8 +5,7 @@ import haxe.coro.IContinuation;
 import haxe.coro.context.Context;
 
 /**
-	Continuation wrapper that resumes the wrapped continuation without a result or an error,
-	whatever it is resumed with.
+	Continuation wrapper that resumes the wrapped continuation without a result or an error.
 **/
 class DiscardingContinuation<T> implements IContinuation<T> {
 	final cont:IContinuation<Any>;
