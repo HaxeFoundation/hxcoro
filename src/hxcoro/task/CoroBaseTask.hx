@@ -11,6 +11,7 @@ import haxe.coro.context.Key;
 import haxe.coro.continuations.FunctionContinuation;
 import haxe.exceptions.CancellationException;
 import hxcoro.concurrent.ThreadSafeCallbacks;
+import hxcoro.continuations.JoinContinuation;
 #if hxcoro.trace_tasks
 import hxcoro.debug.TaskTrace;
 #end
@@ -47,28 +48,6 @@ private class CompletionHandle implements ICompletionHandle {
 
 	public function close() {
 		manager.remove(cont);
-	}
-}
-
-/**
-	A continuation registered by `CoroBaseTask.join`, which resumes the joining coroutine without the
-	task's result or error.
-**/
-private class JoinContinuation implements IContinuation<Any> {
-	final cont:IContinuation<Any>;
-
-	public var context(get, never):Context;
-
-	public function new(cont:IContinuation<Any>) {
-		this.cont = cont;
-	}
-
-	function get_context() {
-		return cont.context;
-	}
-
-	public function resume(_:Null<Any>, _:Null<Exception>) {
-		cont.resume(null, null);
 	}
 }
 
@@ -313,8 +292,8 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 	**/
 	@:coroutine public function join(#if coro.stack_traces ?startPos:haxe.PosInfos #end):Void {
 		Coro.suspendCancellable(cont -> {
-			final joinCont = new JoinContinuation(cont);
-			awaitContinuation(cast joinCont#if coro.stack_traces, startPos#end);
+			final joinCont = new JoinContinuation<T>(cont);
+			awaitContinuation(joinCont#if coro.stack_traces, startPos#end);
 			return _ -> awaitingContinuations.remove(joinCont);
 		});
 	}
