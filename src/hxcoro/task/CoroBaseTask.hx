@@ -51,6 +51,28 @@ private class CompletionHandle implements ICompletionHandle {
 }
 
 /**
+	A continuation registered by `CoroBaseTask.join`, which resumes the joining coroutine without the
+	task's result or error.
+**/
+private class JoinContinuation implements IContinuation<Any> {
+	final cont:IContinuation<Any>;
+
+	public var context(get, never):Context;
+
+	public function new(cont:IContinuation<Any>) {
+		this.cont = cont;
+	}
+
+	function get_context() {
+		return cont.context;
+	}
+
+	public function resume(_:Null<Any>, _:Null<Exception>) {
+		cont.resume(null, null);
+	}
+}
+
+/**
 	CoroBaseTask provides the basic functionality for coroutine tasks.
 **/
 abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode implements ICoroTask<T> implements IElement<CoroBaseTask<Any>> implements IStackFrame {
@@ -281,6 +303,19 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 			awaitContinuation(cont#if coro.stack_traces, startPos#end);
 			// A cancelled awaiter leaves the awaiters, so that a long-lived task does not accumulate them.
 			return _ -> awaitingContinuations.remove(cont);
+		});
+	}
+
+	/**
+		Suspends the calling task until this task completes, starting this task if necessary, without
+		returning its result or throwing its error. A cancelled caller stops waiting and resumes with
+		its `CancellationException`.
+	**/
+	@:coroutine public function join(#if coro.stack_traces ?startPos:haxe.PosInfos #end):Void {
+		Coro.suspendCancellable(cont -> {
+			final joinCont = new JoinContinuation(cont);
+			awaitContinuation(cast joinCont#if coro.stack_traces, startPos#end);
+			return _ -> awaitingContinuations.remove(joinCont);
 		});
 	}
 
