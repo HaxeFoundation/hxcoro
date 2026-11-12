@@ -5,10 +5,10 @@ import haxe.coro.IContinuation;
 import haxe.coro.context.Context;
 
 /**
-	Continuation wrapper used by `ICoroTask.join` that resumes the wrapped continuation
-	without a result or an error, whatever it is resumed with.
+	Continuation wrapper that resumes the wrapped continuation without a result or an error,
+	whatever it is resumed with.
 **/
-class JoinContinuation<T> implements IContinuation<T> {
+class DiscardingContinuation<T> implements IContinuation<T> {
 	final cont:IContinuation<Any>;
 
 	public var context(get, never):Context;

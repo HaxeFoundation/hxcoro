@@ -11,7 +11,7 @@ import haxe.coro.context.Key;
 import haxe.coro.continuations.FunctionContinuation;
 import haxe.exceptions.CancellationException;
 import hxcoro.concurrent.ThreadSafeCallbacks;
-import hxcoro.continuations.JoinContinuation;
+import hxcoro.continuations.DiscardingContinuation;
 #if hxcoro.trace_tasks
 import hxcoro.debug.TaskTrace;
 #end
@@ -292,7 +292,7 @@ abstract class CoroBaseTask<T> extends AbstractTask implements ICoroNode impleme
 	**/
 	@:coroutine public function join(#if coro.stack_traces ?startPos:haxe.PosInfos #end):Void {
 		Coro.suspendCancellable(cont -> {
-			final joinCont = new JoinContinuation<T>(cont);
+			final joinCont = new DiscardingContinuation<T>(cont);
 			awaitContinuation(joinCont#if coro.stack_traces, startPos#end);
 			return _ -> awaitingContinuations.remove(joinCont);
 		});
