@@ -34,6 +34,15 @@ interface ICoroTask<T> {
 	@:coroutine function await(#if coro.stack_traces ?startPos:haxe.PosInfos #end):T;
 
 	/**
+		Suspends until the task completes, without returning its result or throwing its error. Starts
+		the task if it has not been started yet.
+
+		Throws a `CancellationException` if the caller is cancelled while waiting. A child that fails
+		cancels its parent, so a parent joining its own failing child throws too.
+	**/
+	@:coroutine function join(#if coro.stack_traces ?startPos:haxe.PosInfos #end):Void;
+
+	/**
 		Returns the task's result. This does not wait for the task, and returns `null` if no result is available.
 	**/
 	function get():T;

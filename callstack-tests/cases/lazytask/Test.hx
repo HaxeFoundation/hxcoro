@@ -6,6 +6,8 @@ class Test {
 		testAwait();
 		testTransitiveAwait();
 		testTransitiveStart();
+		testJoin();
+		testTransitiveJoin();
 	}
 
 	static function testStart() {
@@ -41,6 +43,24 @@ class Test {
 			throw new haxe.Exception("Expected an exception from LazyTask.entryTransitiveStart");
 		} catch (e:haxe.Exception) {
 			checkTransitiveStartStack(e);
+		}
+	}
+
+	static function testJoin() {
+		try {
+			LazyTask.entryJoin();
+			throw new haxe.Exception("Expected an exception from LazyTask.entryJoin");
+		} catch (e:haxe.Exception) {
+			checkJoinStack(e);
+		}
+	}
+
+	static function testTransitiveJoin() {
+		try {
+			LazyTask.entryTransitiveJoin();
+			throw new haxe.Exception("Expected an exception from LazyTask.entryTransitiveJoin");
+		} catch (e:haxe.Exception) {
+			checkTransitiveJoinStack(e);
 		}
 	}
 
@@ -99,6 +119,34 @@ class Test {
 			Line(40), // coro frame for task1.start(node) call site inside task2's lambda (task1.startPos)
 			Line(43), // coro frame for task2.start() call site (task2.startPos, via callerTask chain)
 			Line(37), // coro frame for the outer CoroRun.run() entry lambda
+		]);
+		if (r != null)
+			throw r;
+	}
+
+	static function checkJoinStack(e:haxe.Exception) {
+		final stack = e.stack.asArray();
+		final r = new Inspector(stack).inspect([
+			File('lazytask/LazyTask.hx'),
+			Line(7),  // throw inside thrower()
+			Line(50), // _ -> thrower() child-task entry lambda (at node.lazy() call)
+			Line(51), // coro frame for task.join() call site (startPos set at join, like at await)
+			Line(49), // coro frame for the outer CoroRun.run() entry lambda
+		]);
+		if (r != null)
+			throw r;
+	}
+
+	static function checkTransitiveJoinStack(e:haxe.Exception) {
+		final stack = e.stack.asArray();
+		// Like checkTransitiveAwaitStack: join() records the position and the caller task in the same way.
+		final r = new Inspector(stack).inspect([
+			File('lazytask/LazyTask.hx'),
+			Line(7),  // throw inside thrower()
+			Line(57), // _ -> thrower() child-task entry lambda (at task1 node.lazy() call)
+			Line(59), // coro frame for task1.join() call site inside task2's lambda (task1.startPos)
+			Line(61), // coro frame for task2.start() call site (task2.startPos, via callerTask chain)
+			Line(56), // coro frame for the outer CoroRun.run() entry lambda
 		]);
 		if (r != null)
 			throw r;

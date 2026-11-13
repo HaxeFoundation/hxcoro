@@ -67,7 +67,7 @@ implementation.
   (`node.async()`), not to where the parent is **waiting**. The
   `task.await()` call site doesn't appear (`awaittask`, `cancellation`).
 - **Lazy tasks** record their position at the first explicit `start()`,
-  `await()` or `awaitContinuation()` call, not at `node.lazy()`
+  `await()`, `join()` or `awaitContinuation()` call, not at `node.lazy()`
   (`lazytask`, `awaitcontinuation`). This is transitive: if lazy `task2`
   awaits lazy `task1`, both the `task1.await()` site inside `task2` and the
   `task2.start()` site appear. Because `start()` isn't a coroutine, it takes
@@ -144,7 +144,7 @@ The cases with target-specific expectations (`nestedplainthrow`,
 | `catchrethrow`        | Catching an exception in a coroutine and rethrowing it                        |
 | `asyncscope`          | Exception thrown from a `scope.async()` child coroutine                       |
 | `nestedplainthrow`    | Plain function called from deeply nested `node.async()` lambdas               |
-| `lazytask`            | Lazy task with `start()`, `await()`, and transitive await and start chains    |
+| `lazytask`            | Lazy task with `start()`, `await()`, `join()`, and transitive chains          |
 | `implicitlazy`        | Lazy task started implicitly by its parent, with and without a sibling awaiting it |
 | `awaitcontinuation`   | Calling `awaitContinuation()` directly records the lazy task's position       |
 | `supervisortask`      | Child throws inside a `supervisor()` scope; parent awaits the child           |

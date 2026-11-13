@@ -44,3 +44,21 @@ function entryTransitiveStart() {
 		task2.await();
 	});
 }
+
+function entryJoin() {
+	CoroRun.run(node -> {
+		final task = node.lazy(_ -> thrower());
+		task.join();
+	});
+}
+
+function entryTransitiveJoin() {
+	CoroRun.run(node -> {
+		final task1 = node.lazy(_ -> thrower());
+		final task2 = node.lazy(node -> {
+			task1.join();
+		});
+		task2.start();
+		task2.join();
+	});
+}
