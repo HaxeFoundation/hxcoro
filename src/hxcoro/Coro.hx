@@ -112,6 +112,9 @@ class Coro {
 
 		A timeout of 0 throws the `TimeoutException` immediately without running `lambda`,
 		and a negative timeout throws a `haxe.exceptions.ArgumentException`.
+
+		If the caller is cancelled by an enclosing time limit, this call throws the
+		`TimeoutException` of that limit.
 	**/
 	@:coroutine public static function timeout<T>(ms:Int, lambda:NodeLambda<T>#if coro.stack_traces, ?startPos:haxe.PosInfos#end):T {
 		if (ms < 0) {
@@ -121,18 +124,51 @@ class Coro {
 		if (ms == 0) {
 			throw exception;
 		}
-		return suspend(cont -> {
-			final context = cont.context;
-			final scope = new CoroTaskWithLambda(context, lambda, Sequential#if coro.stack_traces, startPos#end);
-			scope.onDispatch();
-			final handle = context.scheduleFunction(ms, () -> {
-				#if coro.stack_traces
-				context.setExceptionStack(cast cont, exception);
-				#end
-				scope.cancel(exception);
-			});
+		return suspend(cont -> timeoutImpl(cont, ms, exception, lambda#if coro.stack_traces, startPos#end));
+	}
 
-			scope.awaitContinuation(new TimeoutContinuation(cont, handle));
+	/**
+		Like `scope`, executes `lambda` in a new task and returns its result once the task and
+		all its children have completed. If this takes longer than `ms` milliseconds, the task
+		is cancelled and the result of `fallback` is returned instead.
+
+		A timeout of 0 returns the result of `fallback` immediately without running `lambda`,
+		and a negative timeout throws a `haxe.exceptions.ArgumentException`.
+
+		If the caller is cancelled by an enclosing time limit, `fallback` is not called and
+		this call throws the `hxcoro.TimeoutException` of that limit.
+	**/
+	@:coroutine public static function timeoutOr<T>(ms:Int, fallback:() -> T, lambda:NodeLambda<T>#if coro.stack_traces, ?startPos:haxe.PosInfos#end):T {
+		if (ms < 0) {
+			throw new ArgumentException('timeout must be positive');
+		}
+		if (ms == 0) {
+			return fallback();
+		}
+		final exception = new TimeoutException();
+		try {
+			return suspend(cont -> timeoutImpl(cont, ms, exception, lambda#if coro.stack_traces, startPos#end));
+		} catch (e:TimeoutException) {
+			// The scope is cancelled with the cause of whoever cancelled it first, so any
+			// other instance is the expiry of an enclosing time limit and not ours to handle.
+			if (e != exception) {
+				throw e;
+			}
+		}
+		return fallback();
+	}
+
+	static function timeoutImpl<T>(cont:IContinuation<T>, ms:Int, exception:TimeoutException, lambda:NodeLambda<T>#if coro.stack_traces, ?startPos:haxe.PosInfos#end) {
+		final context = cont.context;
+		final scope = new CoroTaskWithLambda(context, lambda, Sequential#if coro.stack_traces, startPos#end);
+		scope.onDispatch();
+		final handle = context.scheduleFunction(ms, () -> {
+			#if coro.stack_traces
+			context.setExceptionStack(cast cont, exception);
+			#end
+			scope.cancel(exception);
 		});
+
+		scope.awaitContinuation(new TimeoutContinuation(cont, handle));
 	}
 }
