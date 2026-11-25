@@ -47,7 +47,7 @@ class Coro {
 		return safe.resolve(func(safe));
 	}
 
-	static function delayImpl<T>(ms:Int, cont:IContinuation<T>) {
+	static function delayImpl<T>(ms:Int, cont:IContinuation<T>):CancellationException -> Void {
 		final dispatcher = cont.context.getOrRaise(Dispatcher);
 		final handle = dispatcher.scheduler.schedule(ms, cont);
 
