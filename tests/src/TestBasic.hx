@@ -78,7 +78,7 @@ class TestBasic extends atest.Test {
 		return arg;
 	}
 
-	@:coroutine static function error(_) {
+	@:coroutine static function error(_:hxcoro.task.ICoroNode) {
 		throw "nope";
 	}
 }

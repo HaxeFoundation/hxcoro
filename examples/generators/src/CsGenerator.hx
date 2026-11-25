@@ -18,7 +18,7 @@ abstract CsYield<T, R>(Generator<T, R>) to Generator<T, R> from Generator<T, R> 
 		Stops the generator, like C#'s `yield break`. Execution of the generator function
 		does not continue after this call.
 	**/
-	@:coroutine public function yieldBreak() {
+	@:coroutine public function yieldBreak():Void {
 		this.resume(null, null);
 		return suspend(_ -> {});
 	}
