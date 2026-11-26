@@ -22,33 +22,56 @@ class Setup {
 	public final dispatcher:Dispatcher;
 	final finalize:Null<() -> Void>;
 
+	#if target.threaded
+	/**
+		The pool that this setup installs into contexts for `hxcoro.Coro.blocking`. It starts
+		its threads when it is first used.
+	**/
+	public final blockingPool:hxcoro.thread.BlockingPool;
+	#end
+
 	public function new(dispatcher:Dispatcher, ?finalize:() -> Void) {
 		this.dispatcher = dispatcher;
 		this.finalize = finalize;
+		#if target.threaded
+		blockingPool = new hxcoro.thread.BlockingPool();
+		#end
+	}
+
+	function addElements(context:Context) {
+		#if target.threaded
+		return context.with(dispatcher, blockingPool);
+		#else
+		return context.with(dispatcher);
+		#end
 	}
 
 	/**
-		Returns a new context containing this setup's `Dispatcher` instance as an
-		element, and the default context's `CallStackHandler` if no such element
-		exists in `context`.
+		Returns a new context containing this setup's `Dispatcher` instance and, on threaded
+		targets, its `BlockingPool` as elements, and the default context's `CallStackHandler`
+		if no such element exists in `context`.
 	**/
 	public function adaptContext(context:Context) {
-		return (defaultContext + context).with(dispatcher);
+		return addElements(defaultContext + context);
 	}
 
 	/**
-		Returns a new context containing this setup's `Dispatcher` instance as an
-		element, and the default context's `CallStackHandler`.
+		Returns a new context containing this setup's `Dispatcher` instance and, on threaded
+		targets, its `BlockingPool` as elements, and the default context's `CallStackHandler`.
 	**/
 	public function createContext() {
-		return defaultContext.with(dispatcher);
+		return addElements(defaultContext);
 	}
 
 	/**
 		Closes this setup, running the finalization code. Does not affect this setup's
-		`dispatcher` directly.
+		`dispatcher` directly. On threaded targets, this shuts down the `blockingPool` and
+		blocks until its threads have exited.
 	**/
 	public function close() {
+		#if target.threaded
+		blockingPool.shutDown();
+		#end
 		if (finalize != null) {
 			finalize();
 		}

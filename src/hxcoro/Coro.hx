@@ -12,6 +12,10 @@ import hxcoro.TimeoutException;
 import hxcoro.task.CoroTask;
 import hxcoro.task.TaskKind;
 import hxcoro.task.NodeLambda;
+#if target.threaded
+import hxcoro.thread.BlockingCall;
+import hxcoro.thread.BlockingPool;
+#end
 
 private typedef SuspendCancellableFunc<T> = IContinuation<T> -> Null<(CancellationException -> Void)>;
 
@@ -72,6 +76,29 @@ class Coro {
 	@:coroutine(assert = { numStates: 1})
 	public static function yield():Void {
 		suspendCancellable(cont -> delayImpl(0, cont));
+	}
+
+	/**
+		Calls `func` on a thread of the context's `BlockingPool` and returns its result, or throws
+		its exception, once it has returned. The coroutine is suspended in the meantime, so `func`
+		may block without blocking the dispatcher.
+
+		`func` is not interrupted if the coroutine is cancelled. The call still waits for it to
+		return and then throws the `haxe.exceptions.CancellationException`. If the coroutine is
+		cancelled before `func` has started, `func` is not called.
+
+		On targets without threads, `func` is called directly and blocks the dispatcher.
+
+		Throws `CoroutineException` if the context has no `BlockingPool`.
+	**/
+	@:coroutine public static function blocking<T>(func:() -> T):T {
+		#if target.threaded
+		return suspend(cont -> {
+			cont.context.getOrRaise(BlockingPool).run(new BlockingCall(cont, func));
+		});
+		#else
+		return func();
+		#end
 	}
 
 	/**
